@@ -2,6 +2,10 @@
 
 AI Native Travel Product MVP — Sprint 1 / E01 engineering foundation.
 
+中文阅读入口：[工程目录与保留说明](docs/工程目录与保留说明.md)。本机工程已集中存放于 `MVP Engineering/`；运行下面的命令前，请先进入这个工程文件夹。GitHub/云端检出时直接使用仓库根目录，无需另建同名子目录。
+
+最新实际验收：[2026-10-27 E01 验收复核](docs/E01验收复核-2026-10-27.md)。[规格读取基线](docs/specification-baseline.json)记录本地四份资料的版本、摘要、审核状态与路径差异；规格正文尚未随工程入库，云端不可仅凭这个清单开展正式业务实现。
+
 ## Runtime
 
 - Node.js 24.22.1 LTS, npm 11.19.1 (`.nvmrc` / `.node-version`).
