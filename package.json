@@ -1,0 +1,41 @@
+{
+  "name": "antu-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": "24.x", "npm": "11.x" },
+  "packageManager": "npm@11.19.1",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src tests scripts next.config.ts prisma.config.ts vitest.config.ts eslint.config.mjs --max-warnings 0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:validate": "prisma validate",
+    "db:generate": "prisma generate",
+    "db:check": "node --env-file-if-exists=.env scripts/db-check.mjs",
+    "check": "npm run db:validate && npm run db:generate && npm run typecheck && npm run lint && npm test && npm run build"
+  },
+  "dependencies": {
+    "@prisma/client": "7.10.1",
+    "@prisma/adapter-pg": "7.10.1",
+    "dotenv": "^17.2.3",
+    "next": "16.4.3",
+    "pg": "^8.16.3",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.3",
+    "prisma": "7.10.1",
+    "typescript": "5.9.3",
+    "vitest": "5.0.5"
+  }
+}
