@@ -1,6 +1,6 @@
 # ANTU Sprint 1 / E01 engineering report
 
-Date: 2026-10-26 (Asia/Shanghai). Status: engineering verification in progress; technical-lead acceptance pending.
+Date: 2026-10-26 (Asia/Shanghai). Status: local and cloud engineering checks passed; private cloud environment published; technical-lead acceptance pending.
 
 ## GitHub and source control
 
@@ -39,6 +39,7 @@ ESLint 10 was tested but rejected after full dependency-tree inspection showed i
 | Check | Result |
 | --- | --- |
 | npm install / audit | Passed; 0 known vulnerabilities |
+| Locked `npm ci` reinstall | Passed locally from cache and in the cloud |
 | Full `npm ls --all` | Passed with the final ESLint 9 tree |
 | Prisma validate / generate | Passed with zero business models |
 | TypeScript | Passed |
@@ -48,12 +49,24 @@ ESLint 10 was tested but rejected after full dependency-tree inspection showed i
 | Local production HTTP smoke | `/` and `/api/health` both returned 200; home content and health JSON asserted |
 | Cloud PostgreSQL | `SELECT 1 = 1`; restart and repeated startup passed |
 | Cloud runtime install | Repeated installation passed; no root or paid hosted service required |
+| Cloud `npm run check` | Passed: Prisma validate/generate, TypeScript, zero-warning ESLint, 7 Vitest tests (real Prisma DB test included, none skipped), production build |
+| Cloud `npm run db:check` | Passed; `ok: 1` against PostgreSQL 17.11 |
+| Cloud development HTTP smoke | Home and `/api/health` both returned 200 |
+| Cloud production HTTP smoke | Home and `/api/health` both returned 200; response bodies verified |
+| Final cloud install script | Repeated successfully after removing the fixed-commit assertion |
+| Cloud environment publication | Passed; UI explicitly confirmed published, visibility remains Only me |
 
-Cloud application checks, published environment status and the PR will be recorded after the engineering branch is pushed and checked there. The cloud install/start draft currently contains verified runtime preparation under `/workspace/.e01-runtime`; it is not yet published. The local Mac runtime is isolated under ignored `.tools/node/`; no system Node or Docker/PostgreSQL was preinstalled. Local TCP startup needed an execution-sandbox permission grant; no source workaround was introduced.
+Cloud code was tested at `4cb679902903407aaf00c0910b6c719ff1423e05` on `chore/e01-engineering-bootstrap`. [PR #1](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/1) is ready for review and remains unmerged. Later report-only commits do not change the tested application. The cloud environment named `ai-native-travel-mvp` was saved and published successfully; the UI explicitly displayed published. Privacy remains Only me. The published install/start configuration contains runtime preparation under `/workspace/.e01-runtime`, locked app dependency setup, DATABASE_URL and the verified Prisma download allowlist. Fresh-task snapshot restoration was not separately tested; current setup-instance checks and publication were verified.
+
+The first cloud Prisma attempt failed with HTTP 403 at the official `binaries.prisma.sh` checksum URL. Adding the official domain to the restricted allowlist and actually saving the environment draft restored HTTP 200. Checksum/TLS verification was retained. The complete check then passed; the earlier failure is recorded here rather than treated as an application defect. `next dev` automatically appended Next guidance to cloud AGENTS.md; that generated append was reverted to retain the reviewed tracked file.
+
+The local Mac runtime is isolated under ignored `.tools/node/`; no system Node or Docker/PostgreSQL was preinstalled. Local TCP startup needed an execution-sandbox permission grant; no source workaround was introduced.
 
 ## Acceptance boundary
 
 No Trip State, Decision Context or NAP business implementation, schema fields or rules were invented. No migrations, user data, provider keys, hosted paid resources or security-setting changes were introduced. E01 must stop for technical-lead review after infrastructure verification and PR delivery. Passing automated checks is not technical-lead acceptance and not production readiness.
+
+There is no remaining execution blocker for E01. Technical-lead review and merging PR #1 remain human acceptance steps. Main still holds only the initial README until that review/merge; select the engineering branch to inspect the runnable code. The scoped engineering work is now stopped; no Trip State business module was started.
 
 ## Official references
 
