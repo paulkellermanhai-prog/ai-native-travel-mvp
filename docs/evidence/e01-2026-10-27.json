@@ -1,0 +1,76 @@
+{
+  "checked_on": "2026-10-27",
+  "timezone": "Asia/Shanghai",
+  "repository": "paulkellermanhai-prog/ai-native-travel-mvp",
+  "main_sha": "374878e01d16b6270983180f036d96d99a3d95cd",
+  "tested_branch": "chore/e01-engineering-bootstrap",
+  "tested_sha": "d9f7145363fddd50078f125f2f403dc2b076f11d",
+  "pull_request": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/1",
+  "package_lock_sha256": "bc44396fc047275cc45242c849422216e056558311858c25b0c39ca0127ced81",
+  "local": {
+    "node": "24.22.1",
+    "npm": "11.19.1",
+    "git": "2.50.1",
+    "npm_ci": { "exit_code": 0, "mode": "offline cache, existing lockfile" },
+    "npm_ls_all": { "exit_code": 0 },
+    "npm_run_check": {
+      "exit_code": 0,
+      "prisma_validate": "passed",
+      "prisma_generate": "passed",
+      "typecheck": "passed",
+      "lint_max_warnings_0": "passed",
+      "build": "passed",
+      "tests_passed": 6,
+      "tests_skipped": 1,
+      "skip_reason": "DATABASE_URL is unset on the local Mac"
+    },
+    "production_http": [
+      { "path": "/", "status": 200, "body_verified": true },
+      { "path": "/api/health", "status": 200, "body_verified": true }
+    ],
+    "npm_audit": { "exit_code": 0, "online_registry_check": true, "reported_vulnerabilities": 0 },
+    "temporary_application_service_stopped": true
+  },
+  "cloud": {
+    "environment_name": "ai-native-travel-mvp",
+    "published_status_observed": true,
+    "validation_mode": "existing cloud setup workspace",
+    "fresh_task_cold_start_tested": false,
+    "audit_source": "/workspace/.e01-runtime/e01-20261027-audit.json",
+    "audit_reference_thread": "01a178d1-3273-73fe-a8fc-53d6486f20a9",
+    "initial_sha": "4cb679902903407aaf00c0910b6c719ff1423e05",
+    "fast_forward_target_sha": "d9f7145363fddd50078f125f2f403dc2b076f11d",
+    "actual_versions": {
+      "Node.js": "24.22.1",
+      "npm": "11.19.1",
+      "Git": "2.52.0",
+      "TypeScript": "5.9.3",
+      "Next.js": "16.4.3",
+      "Prisma": "7.10.1",
+      "@prisma/client": "7.10.1",
+      "Vitest": "5.0.5",
+      "pg": "8.23.1",
+      "PostgreSQL_server": "17.11",
+      "psql": "17.11"
+    },
+    "command_exit_codes": { "npm_ci": 0, "npm_ls_all": 0, "npm_run_check": 0, "npm_run_db_check": 0, "production_build": 0 },
+    "tests": { "files_passed": 3, "tests_passed": 7, "skipped": 0, "real_prisma_database_test_executed": true },
+    "http": [
+      { "service": "dev", "path": "/", "status": 200, "body_verified": true },
+      { "service": "dev", "path": "/api/health", "status": 200, "body_verified": true },
+      { "service": "production", "path": "/", "status": 200, "body_verified": true },
+      { "service": "production", "path": "/api/health", "status": 200, "body_verified": true }
+    ],
+    "lockfile_unchanged": true,
+    "four_business_specification_bodies_readable": false,
+    "final_tracked_git_status": "clean",
+    "temporary_application_services_stopped": true,
+    "postgresql_retained_running": true,
+    "environment_configuration_changed": false
+  },
+  "limitations": [
+    "本记录汇总实际命令和云端审计返回值，不是完整原始日志副本",
+    "后续提交仅涉及工程导览、规格读取清单和验收文档，应用源码及依赖锁文件不变",
+    "没有执行三大业务模块的实现或验收，也没有替技术负责人签收"
+  ]
+}

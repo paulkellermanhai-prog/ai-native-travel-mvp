@@ -1,0 +1,4300 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trip-state.example/spec/0.1/command.schema.json",
+  "title": "command",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "create"
+        },
+        "object_type": {
+          "const": "TripGoal"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "trip",
+                    "entity",
+                    "skeleton",
+                    "traveler"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "kind",
+                "ids"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "date"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true,
+                  "maxItems": 0
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "required": [
+                "kind",
+                "ids",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "input",
+                  "evidence",
+                  "association"
+                ]
+              }
+            },
+            "required": [
+              "object_id",
+              "version",
+              "paths",
+              "relation"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "destination_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "purpose": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "success_definition": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "traveler_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "current_task": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            }
+          },
+          "required": [
+            "destination_ids",
+            "purpose",
+            "success_definition",
+            "traveler_ids",
+            "current_task"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "scope",
+        "dependencies",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "create"
+        },
+        "object_type": {
+          "const": "Preference"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "trip",
+                    "entity",
+                    "skeleton",
+                    "traveler"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "kind",
+                "ids"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "date"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true,
+                  "maxItems": 0
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "required": [
+                "kind",
+                "ids",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "input",
+                  "evidence",
+                  "association"
+                ]
+              }
+            },
+            "required": [
+              "object_id",
+              "version",
+              "paths",
+              "relation"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "subject_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "aspect": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "polarity": {
+              "type": "string",
+              "enum": [
+                "positive",
+                "negative",
+                "tradeoff"
+              ]
+            },
+            "certainty": {
+              "type": "string",
+              "enum": [
+                "explicit",
+                "inferred",
+                "ambiguous",
+                "unknown"
+              ]
+            },
+            "support": {
+              "type": "string",
+              "enum": [
+                "weak",
+                "supported"
+              ]
+            },
+            "priority": {
+              "type": "string",
+              "enum": [
+                "ordinary",
+                "important",
+                "critical"
+              ]
+            },
+            "expression": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "condition": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "always"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "all",
+                        "any"
+                      ]
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "args"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "not"
+                      ]
+                    },
+                    "arg": {
+                      "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "arg"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "eq",
+                        "ne",
+                        "lt",
+                        "lte",
+                        "gt",
+                        "gte"
+                      ]
+                    },
+                    "object_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                    },
+                    "value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "object_id",
+                    "path",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "evidence_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "非空文本"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "subject_ids",
+            "aspect",
+            "polarity",
+            "certainty",
+            "support",
+            "priority",
+            "expression",
+            "condition",
+            "evidence_refs"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "scope",
+        "dependencies",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "create"
+        },
+        "object_type": {
+          "const": "Constraint"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "trip",
+                    "entity",
+                    "skeleton",
+                    "traveler"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "kind",
+                "ids"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "date"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true,
+                  "maxItems": 0
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "required": [
+                "kind",
+                "ids",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "input",
+                  "evidence",
+                  "association"
+                ]
+              }
+            },
+            "required": [
+              "object_id",
+              "version",
+              "paths",
+              "relation"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "hardness": {
+              "type": "string",
+              "enum": [
+                "soft",
+                "hard"
+              ]
+            },
+            "override_policy": {
+              "type": "string",
+              "enum": [
+                "user",
+                "fixed"
+              ]
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "budget"
+                      ]
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "intent",
+                        "range",
+                        "ceiling"
+                      ]
+                    },
+                    "minimum_minor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "maximum_minor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "currency": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{3}$"
+                    },
+                    "people": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "非空文本"
+                      },
+                      "minItems": 0,
+                      "uniqueItems": true
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "mode",
+                    "minimum_minor",
+                    "maximum_minor",
+                    "currency",
+                    "people",
+                    "categories"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "date_window"
+                      ]
+                    },
+                    "start": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "end": {
+                      "type": "string",
+                      "format": "date"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "start",
+                    "end"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "duration"
+                      ]
+                    },
+                    "maximum_nights": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "maximum_nights"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "travelers"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "entry_exit"
+                      ]
+                    },
+                    "entry_entity_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "exit_entity_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "arrival": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "departure": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "entry_entity_id",
+                    "exit_entity_id",
+                    "arrival",
+                    "departure"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "requirement"
+                      ]
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "非空文本"
+                    },
+                    "condition": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "always"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "op"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "all",
+                                "any"
+                              ]
+                            },
+                            "args": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                              },
+                              "minItems": 1
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "args"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "not"
+                              ]
+                            },
+                            "arg": {
+                              "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "arg"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "eq",
+                                "ne",
+                                "lt",
+                                "lte",
+                                "gt",
+                                "gte"
+                              ]
+                            },
+                            "object_id": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                            },
+                            "path": {
+                              "type": "string",
+                              "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                            },
+                            "value": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "object_id",
+                            "path",
+                            "value"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "description",
+                    "condition"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "hardness",
+            "override_policy",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "scope",
+        "dependencies",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "create"
+        },
+        "object_type": {
+          "const": "DestinationEntity"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "trip",
+                    "entity",
+                    "skeleton",
+                    "traveler"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "kind",
+                "ids"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "date"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true,
+                  "maxItems": 0
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "required": [
+                "kind",
+                "ids",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "input",
+                  "evidence",
+                  "association"
+                ]
+              }
+            },
+            "required": [
+              "object_id",
+              "version",
+              "paths",
+              "relation"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "entity_kind": {
+              "type": "string",
+              "enum": [
+                "country",
+                "city",
+                "region",
+                "experience",
+                "transport_node"
+              ]
+            },
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "geo_identity": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "非空文本"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "knowledge_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "非空文本"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "coverage": {
+              "type": "string",
+              "enum": [
+                "unknown",
+                "partial",
+                "covered"
+              ]
+            }
+          },
+          "required": [
+            "entity_kind",
+            "name",
+            "parent_id",
+            "geo_identity",
+            "knowledge_refs",
+            "coverage"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "scope",
+        "dependencies",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "create"
+        },
+        "object_type": {
+          "const": "Candidate"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "trip",
+                    "entity",
+                    "skeleton",
+                    "traveler"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "kind",
+                "ids"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "date"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true,
+                  "maxItems": 0
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "required": [
+                "kind",
+                "ids",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "input",
+                  "evidence",
+                  "association"
+                ]
+              }
+            },
+            "required": [
+              "object_id",
+              "version",
+              "paths",
+              "relation"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "subject_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "candidate_kind": {
+              "type": "string",
+              "enum": [
+                "city",
+                "experience",
+                "connection",
+                "combination"
+              ]
+            },
+            "inclusion_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "非空文本"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "exclusion_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "非空文本"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reconsider_when": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "always"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "all",
+                        "any"
+                      ]
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "args"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "not"
+                      ]
+                    },
+                    "arg": {
+                      "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "arg"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "eq",
+                        "ne",
+                        "lt",
+                        "lte",
+                        "gt",
+                        "gte"
+                      ]
+                    },
+                    "object_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                    },
+                    "value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "object_id",
+                    "path",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "preference_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "issue_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "subject_ids",
+            "candidate_kind",
+            "inclusion_reason",
+            "exclusion_reason",
+            "reconsider_when",
+            "preference_ids",
+            "issue_ids"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "scope",
+        "dependencies",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "create"
+        },
+        "object_type": {
+          "const": "Skeleton"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "trip",
+                    "entity",
+                    "skeleton",
+                    "traveler"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "kind",
+                "ids"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "date"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true,
+                  "maxItems": 0
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "required": [
+                "kind",
+                "ids",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "input",
+                  "evidence",
+                  "association"
+                ]
+              }
+            },
+            "required": [
+              "object_id",
+              "version",
+              "paths",
+              "relation"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "purpose": {
+              "type": "string",
+              "enum": [
+                "scenario",
+                "plan"
+              ]
+            },
+            "stops": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "entity_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "nights": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "entity_id",
+                  "nights"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "connections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "to_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "fact_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "minItems": 0,
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "from_id",
+                  "to_id",
+                  "fact_ids"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0
+            },
+            "cost_fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "parent_id": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "overrides": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "constraint_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "budget"
+                            ]
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "intent",
+                              "range",
+                              "ceiling"
+                            ]
+                          },
+                          "minimum_minor": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "maximum_minor": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "currency": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{3}$"
+                          },
+                          "people": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "categories": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "非空文本"
+                            },
+                            "minItems": 0,
+                            "uniqueItems": true
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "mode",
+                          "minimum_minor",
+                          "maximum_minor",
+                          "currency",
+                          "people",
+                          "categories"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "date_window"
+                            ]
+                          },
+                          "start": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "end": {
+                            "type": "string",
+                            "format": "date"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "start",
+                          "end"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "duration"
+                            ]
+                          },
+                          "maximum_nights": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "maximum_nights"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "travelers"
+                            ]
+                          },
+                          "count": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "count"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "entry_exit"
+                            ]
+                          },
+                          "entry_entity_id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                          },
+                          "exit_entity_id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                          },
+                          "arrival": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "departure": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "entry_entity_id",
+                          "exit_entity_id",
+                          "arrival",
+                          "departure"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "requirement"
+                            ]
+                          },
+                          "description": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "非空文本"
+                          },
+                          "condition": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "op": {
+                                    "type": "string",
+                                    "enum": [
+                                      "always"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "op"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "op": {
+                                    "type": "string",
+                                    "enum": [
+                                      "all",
+                                      "any"
+                                    ]
+                                  },
+                                  "args": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                                    },
+                                    "minItems": 1
+                                  }
+                                },
+                                "required": [
+                                  "op",
+                                  "args"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "op": {
+                                    "type": "string",
+                                    "enum": [
+                                      "not"
+                                    ]
+                                  },
+                                  "arg": {
+                                    "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                                  }
+                                },
+                                "required": [
+                                  "op",
+                                  "arg"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "op": {
+                                    "type": "string",
+                                    "enum": [
+                                      "eq",
+                                      "ne",
+                                      "lt",
+                                      "lte",
+                                      "gt",
+                                      "gte"
+                                    ]
+                                  },
+                                  "object_id": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                                  },
+                                  "value": {
+                                    "type": [
+                                      "string",
+                                      "number",
+                                      "boolean",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "op",
+                                  "object_id",
+                                  "path",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "description",
+                          "condition"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "constraint_id",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0
+            },
+            "tradeoffs": {
+              "type": "object",
+              "properties": {
+                "gains": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "非空文本"
+                  },
+                  "minItems": 0
+                },
+                "losses": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "非空文本"
+                  },
+                  "minItems": 0
+                }
+              },
+              "required": [
+                "gains",
+                "losses"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "purpose",
+            "stops",
+            "connections",
+            "cost_fact_ids",
+            "parent_id",
+            "overrides",
+            "tradeoffs"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "scope",
+        "dependencies",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "create"
+        },
+        "object_type": {
+          "const": "OpenIssue"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "trip",
+                    "entity",
+                    "skeleton",
+                    "traveler"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "kind",
+                "ids"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "date"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true,
+                  "maxItems": 0
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "required": [
+                "kind",
+                "ids",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "input",
+                  "evidence",
+                  "association"
+                ]
+              }
+            },
+            "required": [
+              "object_id",
+              "version",
+              "paths",
+              "relation"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "issue_kind": {
+              "type": "string",
+              "enum": [
+                "missing",
+                "conflict",
+                "verification",
+                "dependency",
+                "unsupported"
+              ]
+            },
+            "question": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "affected_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "blocking"
+              ]
+            },
+            "required_inputs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "非空文本"
+              },
+              "minItems": 0
+            },
+            "candidate_actions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "clarify",
+                  "verify",
+                  "calculate",
+                  "compare",
+                  "confirm"
+                ]
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "owner": {
+              "type": "string",
+              "enum": [
+                "user",
+                "system",
+                "provider"
+              ]
+            },
+            "resolution": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "非空文本"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "issue_kind",
+            "question",
+            "affected_ids",
+            "severity",
+            "required_inputs",
+            "candidate_actions",
+            "owner",
+            "resolution",
+            "evidence_ids"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "scope",
+        "dependencies",
+        "data"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "revise"
+        },
+        "object_type": {
+          "const": "TripGoal"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "changes": {
+          "type": "object",
+          "properties": {
+            "purpose": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "success_definition": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "destination_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "current_task": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "revise"
+        },
+        "object_type": {
+          "const": "Preference"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "changes": {
+          "type": "object",
+          "properties": {
+            "subject_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "aspect": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "polarity": {
+              "type": "string",
+              "enum": [
+                "positive",
+                "negative",
+                "tradeoff"
+              ]
+            },
+            "certainty": {
+              "type": "string",
+              "enum": [
+                "explicit",
+                "inferred",
+                "ambiguous",
+                "unknown"
+              ]
+            },
+            "support": {
+              "type": "string",
+              "enum": [
+                "weak",
+                "supported"
+              ]
+            },
+            "priority": {
+              "type": "string",
+              "enum": [
+                "ordinary",
+                "important",
+                "critical"
+              ]
+            },
+            "expression": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "condition": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "always"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "all",
+                        "any"
+                      ]
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "args"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "not"
+                      ]
+                    },
+                    "arg": {
+                      "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "arg"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "eq",
+                        "ne",
+                        "lt",
+                        "lte",
+                        "gt",
+                        "gte"
+                      ]
+                    },
+                    "object_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                    },
+                    "value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "object_id",
+                    "path",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "evidence_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "非空文本"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "revise"
+        },
+        "object_type": {
+          "const": "Constraint"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "changes": {
+          "type": "object",
+          "properties": {
+            "value": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "budget"
+                      ]
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": [
+                        "intent",
+                        "range",
+                        "ceiling"
+                      ]
+                    },
+                    "minimum_minor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "maximum_minor": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "currency": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{3}$"
+                    },
+                    "people": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "categories": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "非空文本"
+                      },
+                      "minItems": 0,
+                      "uniqueItems": true
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "mode",
+                    "minimum_minor",
+                    "maximum_minor",
+                    "currency",
+                    "people",
+                    "categories"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "date_window"
+                      ]
+                    },
+                    "start": {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    "end": {
+                      "type": "string",
+                      "format": "date"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "start",
+                    "end"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "duration"
+                      ]
+                    },
+                    "maximum_nights": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "maximum_nights"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "travelers"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "count"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "entry_exit"
+                      ]
+                    },
+                    "entry_entity_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "exit_entity_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "arrival": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "departure": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "entry_entity_id",
+                    "exit_entity_id",
+                    "arrival",
+                    "departure"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "requirement"
+                      ]
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "非空文本"
+                    },
+                    "condition": {
+                      "oneOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "always"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "op"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "all",
+                                "any"
+                              ]
+                            },
+                            "args": {
+                              "type": "array",
+                              "items": {
+                                "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                              },
+                              "minItems": 1
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "args"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "not"
+                              ]
+                            },
+                            "arg": {
+                              "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "arg"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "op": {
+                              "type": "string",
+                              "enum": [
+                                "eq",
+                                "ne",
+                                "lt",
+                                "lte",
+                                "gt",
+                                "gte"
+                              ]
+                            },
+                            "object_id": {
+                              "type": "string",
+                              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                            },
+                            "path": {
+                              "type": "string",
+                              "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                            },
+                            "value": {
+                              "type": [
+                                "string",
+                                "number",
+                                "boolean",
+                                "null"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "op",
+                            "object_id",
+                            "path",
+                            "value"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "description",
+                    "condition"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "hardness": {
+              "type": "string",
+              "enum": [
+                "soft",
+                "hard"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "revise"
+        },
+        "object_type": {
+          "const": "DestinationEntity"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "changes": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "geo_identity": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "非空文本"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "knowledge_refs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "非空文本"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "coverage": {
+              "type": "string",
+              "enum": [
+                "unknown",
+                "partial",
+                "covered"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "revise"
+        },
+        "object_type": {
+          "const": "Candidate"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "changes": {
+          "type": "object",
+          "properties": {
+            "inclusion_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "非空文本"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "exclusion_reason": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "非空文本"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "reconsider_when": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "always"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "all",
+                        "any"
+                      ]
+                    },
+                    "args": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                      },
+                      "minItems": 1
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "args"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "not"
+                      ]
+                    },
+                    "arg": {
+                      "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "arg"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "eq",
+                        "ne",
+                        "lt",
+                        "lte",
+                        "gt",
+                        "gte"
+                      ]
+                    },
+                    "object_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "path": {
+                      "type": "string",
+                      "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                    },
+                    "value": {
+                      "type": [
+                        "string",
+                        "number",
+                        "boolean",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "op",
+                    "object_id",
+                    "path",
+                    "value"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            },
+            "preference_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "issue_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "revise"
+        },
+        "object_type": {
+          "const": "Skeleton"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "changes": {
+          "type": "object",
+          "properties": {
+            "stops": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "entity_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "nights": {
+                    "anyOf": [
+                      {
+                        "type": "integer",
+                        "minimum": 0
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "entity_id",
+                  "nights"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 1
+            },
+            "connections": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "from_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "to_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "fact_ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "minItems": 0,
+                    "uniqueItems": true
+                  }
+                },
+                "required": [
+                  "from_id",
+                  "to_id",
+                  "fact_ids"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0
+            },
+            "cost_fact_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "tradeoffs": {
+              "type": "object",
+              "properties": {
+                "gains": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "非空文本"
+                  },
+                  "minItems": 0
+                },
+                "losses": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1,
+                    "description": "非空文本"
+                  },
+                  "minItems": 0
+                }
+              },
+              "required": [
+                "gains",
+                "losses"
+              ],
+              "additionalProperties": false
+            },
+            "overrides": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "constraint_id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "value": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "budget"
+                            ]
+                          },
+                          "mode": {
+                            "type": "string",
+                            "enum": [
+                              "intent",
+                              "range",
+                              "ceiling"
+                            ]
+                          },
+                          "minimum_minor": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "maximum_minor": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "currency": {
+                            "type": "string",
+                            "pattern": "^[A-Z]{3}$"
+                          },
+                          "people": {
+                            "type": "integer",
+                            "minimum": 1
+                          },
+                          "categories": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "minLength": 1,
+                              "description": "非空文本"
+                            },
+                            "minItems": 0,
+                            "uniqueItems": true
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "mode",
+                          "minimum_minor",
+                          "maximum_minor",
+                          "currency",
+                          "people",
+                          "categories"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "date_window"
+                            ]
+                          },
+                          "start": {
+                            "type": "string",
+                            "format": "date"
+                          },
+                          "end": {
+                            "type": "string",
+                            "format": "date"
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "start",
+                          "end"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "duration"
+                            ]
+                          },
+                          "maximum_nights": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "maximum_nights"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "travelers"
+                            ]
+                          },
+                          "count": {
+                            "type": "integer",
+                            "minimum": 1
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "count"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "entry_exit"
+                            ]
+                          },
+                          "entry_entity_id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                          },
+                          "exit_entity_id": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                          },
+                          "arrival": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "departure": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "date-time"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "entry_entity_id",
+                          "exit_entity_id",
+                          "arrival",
+                          "departure"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "requirement"
+                            ]
+                          },
+                          "description": {
+                            "type": "string",
+                            "minLength": 1,
+                            "description": "非空文本"
+                          },
+                          "condition": {
+                            "oneOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "op": {
+                                    "type": "string",
+                                    "enum": [
+                                      "always"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "op"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "op": {
+                                    "type": "string",
+                                    "enum": [
+                                      "all",
+                                      "any"
+                                    ]
+                                  },
+                                  "args": {
+                                    "type": "array",
+                                    "items": {
+                                      "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                                    },
+                                    "minItems": 1
+                                  }
+                                },
+                                "required": [
+                                  "op",
+                                  "args"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "op": {
+                                    "type": "string",
+                                    "enum": [
+                                      "not"
+                                    ]
+                                  },
+                                  "arg": {
+                                    "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+                                  }
+                                },
+                                "required": [
+                                  "op",
+                                  "arg"
+                                ],
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "op": {
+                                    "type": "string",
+                                    "enum": [
+                                      "eq",
+                                      "ne",
+                                      "lt",
+                                      "lte",
+                                      "gt",
+                                      "gte"
+                                    ]
+                                  },
+                                  "object_id": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                                  },
+                                  "path": {
+                                    "type": "string",
+                                    "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                                  },
+                                  "value": {
+                                    "type": [
+                                      "string",
+                                      "number",
+                                      "boolean",
+                                      "null"
+                                    ]
+                                  }
+                                },
+                                "required": [
+                                  "op",
+                                  "object_id",
+                                  "path",
+                                  "value"
+                                ],
+                                "additionalProperties": false
+                              }
+                            ]
+                          }
+                        },
+                        "required": [
+                          "kind",
+                          "description",
+                          "condition"
+                        ],
+                        "additionalProperties": false
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "constraint_id",
+                  "value"
+                ],
+                "additionalProperties": false
+              },
+              "minItems": 0
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "revise"
+        },
+        "object_type": {
+          "const": "OpenIssue"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "changes": {
+          "type": "object",
+          "properties": {
+            "question": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "required_inputs": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "非空文本"
+              },
+              "minItems": 0
+            },
+            "candidate_actions": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "clarify",
+                  "verify",
+                  "calculate",
+                  "compare",
+                  "confirm"
+                ]
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "owner": {
+              "type": "string",
+              "enum": [
+                "user",
+                "system",
+                "provider"
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": false,
+          "minProperties": 1
+        }
+      },
+      "required": [
+        "op",
+        "object_type",
+        "id",
+        "changes"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "transition"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "event": {
+          "type": "string",
+          "enum": [
+            "activate",
+            "archive",
+            "close",
+            "confirm",
+            "contradict",
+            "dismiss",
+            "exclude",
+            "exclude_conditionally",
+            "invalidate",
+            "make_actionable",
+            "reconsider",
+            "relax",
+            "release",
+            "reopen",
+            "request_confirmation",
+            "resolve",
+            "restore",
+            "retain",
+            "retire",
+            "revise",
+            "revoke",
+            "supersede",
+            "wait",
+            "withdraw"
+          ]
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "adopt_skeleton"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "acknowledge_unknowns": {
+          "type": "boolean"
+        },
+        "confirmation_scope": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "cities",
+              "order",
+              "stays",
+              "connections"
+            ]
+          },
+          "minItems": 4,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "acknowledge_unknowns",
+        "confirmation_scope"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "decide_candidate"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "value": {
+          "type": "string",
+          "enum": [
+            "accept",
+            "reject",
+            "retain"
+          ]
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "value"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "reconsider"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "trigger_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "trigger_id"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "recalculate"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        }
+      },
+      "required": [
+        "op",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "check_freshness"
+        }
+      },
+      "required": [
+        "op"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "resolve_issue"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "非空文本"
+        },
+        "evidence_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "reason",
+        "evidence_ids"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "dismiss_issue"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "description": "非空文本"
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "reason"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "withdraw_decision"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        }
+      },
+      "required": [
+        "op",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "op": {
+          "const": "ingest_fact"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "scope": {
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "trip",
+                    "entity",
+                    "skeleton",
+                    "traveler"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true
+                }
+              },
+              "required": [
+                "kind",
+                "ids"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "date"
+                  ]
+                },
+                "ids": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                  },
+                  "minItems": 0,
+                  "uniqueItems": true,
+                  "maxItems": 0
+                },
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "required": [
+                "kind",
+                "ids",
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "object_id": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "version": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+                },
+                "minItems": 0,
+                "uniqueItems": true
+              },
+              "relation": {
+                "type": "string",
+                "enum": [
+                  "input",
+                  "evidence",
+                  "association"
+                ]
+              }
+            },
+            "required": [
+              "object_id",
+              "version",
+              "paths",
+              "relation"
+            ],
+            "additionalProperties": false
+          },
+          "minItems": 0
+        },
+        "data": {
+          "type": "object",
+          "properties": {
+            "subject_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "query": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "parameters": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "minLength": 1,
+                        "description": "非空文本"
+                      },
+                      "value": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean",
+                          "null"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "name",
+                      "value"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "minItems": 0
+                }
+              },
+              "required": [
+                "date",
+                "parameters"
+              ],
+              "additionalProperties": false
+            },
+            "provider": {
+              "type": "string",
+              "minLength": 1,
+              "description": "非空文本"
+            },
+            "query_status": {
+              "type": "string",
+              "enum": [
+                "result",
+                "partial",
+                "empty",
+                "timeout",
+                "error",
+                "no_service"
+              ]
+            },
+            "observed_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "expires_at": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "valid_for": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "string",
+                  "format": "date"
+                },
+                "end": {
+                  "type": "string",
+                  "format": "date"
+                }
+              },
+              "required": [
+                "start",
+                "end"
+              ],
+              "additionalProperties": false
+            },
+            "missing_fields": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1,
+                "description": "非空文本"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            },
+            "value": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "transport"
+                      ]
+                    },
+                    "from_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "to_id": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+                    },
+                    "departure": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "arrival": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "duration_minutes": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "service_exists": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "from_id",
+                    "to_id",
+                    "departure",
+                    "arrival",
+                    "duration_minutes",
+                    "service_exists"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "cost"
+                      ]
+                    },
+                    "amount_minor": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "currency": {
+                      "type": "string",
+                      "pattern": "^[A-Z]{3}$"
+                    },
+                    "people": {
+                      "type": "integer",
+                      "minimum": 1
+                    },
+                    "category": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "非空文本"
+                    },
+                    "item_key": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "费用项去重键"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "amount_minor",
+                    "currency",
+                    "people",
+                    "category",
+                    "item_key"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "condition"
+                      ]
+                    },
+                    "value": {
+                      "anyOf": [
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "description": {
+                      "type": "string",
+                      "minLength": 1,
+                      "description": "非空文本"
+                    }
+                  },
+                  "required": [
+                    "kind",
+                    "value",
+                    "description"
+                  ],
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "required": [
+            "subject_ids",
+            "query",
+            "provider",
+            "query_status",
+            "observed_at",
+            "expires_at",
+            "valid_for",
+            "missing_fields",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "op",
+        "id",
+        "scope",
+        "dependencies",
+        "data"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "checked_on": "2026-10-27",
+  "timezone": "Asia/Shanghai",
+  "scope": "Readability, declared versions, indexed hashes and review status only; no business implementation or approval",
+  "paths_relative_to": "engineering_repository_root",
+  "source_project_root": "..",
+  "local_entrypoints_readable": 4,
+  "cloud_specification_bodies_available": false,
+  "all_four_owner_approved": false,
+  "specifications": [
+    {
+      "name": "PRD V0.1",
+      "path": "../AI Native旅行产品｜PRD V0.1.md",
+      "version": "V0.1",
+      "declared_status": "产品需求基线；数据覆盖与用户效果待验证",
+      "bytes": 49163,
+      "sha256": "3cb1ed7e3f4522ac4ef0e46960ab801d5a7f5c93e5528c83c2e72933767ed62d",
+      "matches_nap_recorded_source": true
+    },
+    {
+      "name": "Trip State Schema",
+      "entrypoint": "../trip-state-schema-v0.1/00_从这里开始.md",
+      "canonical_specification": "../trip-state-schema-v0.1/90_可运行工程包/SPECIFICATION.md",
+      "canonical_sha256": "9516ecd29b93e56b3aa2458c62a8228da98f7374233c20f4c1a6009abd00f152",
+      "index": "../trip-state-schema-v0.1/package-index.json",
+      "index_sha256": "416ee1a0012861fb1362c69fcae934ceb4f458db721c6e9cd816200390b60868",
+      "version": "0.1.0",
+      "declared_status": "Ready for V1 Review",
+      "indexed_payload_files_checked": 109,
+      "missing_payload_files": 0,
+      "hash_mismatches": 0
+    },
+    {
+      "name": "Decision Context",
+      "entrypoint": "../decision-context-v0.1/00_从这里开始.md",
+      "specification": "../decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "specification_sha256": "06859a521ca2cef323f9fce27aa4c4a9732129b524587a93020b04b907e51259",
+      "index": "../decision-context-v0.1/package-index.json",
+      "index_sha256": "9ad8031b6d8475c58f08c30bb7f3640260b37427022452227cd5f621ff5ddb38",
+      "document_revision": "R4_recovery_engineering",
+      "runtime_contract_version": "0.2.0",
+      "declared_status": "recovery_verified_engineering_candidate_pending_review",
+      "indexed_payload_files_checked": 67,
+      "missing_payload_files": 0,
+      "hash_mismatches": 0,
+      "unresolved_text_inconsistency": "运行契约正文第3节表仍写只接受0.1.0；同文第1节、索引、contracts.py VERSION和open-turn schema均为0.2.0"
+    },
+    {
+      "name": "Next Action Policy",
+      "entrypoint": "../Next-Action-Policy-V0.1/README.md",
+      "entrypoint_sha256": "ffaf46dd42711580aac7d0e8e62b3274a43728ed3ca1ad615bdb311fd388cb36",
+      "index": "../Next-Action-Policy-V0.1/package-index.json",
+      "index_sha256": "289cbc796f28148573cb4cbf72d49450203c648d0c40d42138d26815f02a39a3",
+      "version": "0.1.0",
+      "declared_status": "SPECIFICATION_READY_FOR_REVIEW",
+      "owner_approval": "NOT_RECORDED",
+      "c3_version": "C3-R2",
+      "c3_status": "CONDITIONAL PASS; Owner审核待完成",
+      "indexed_payload_and_source_entries": 80,
+      "direct_path_hashes_checked": 70,
+      "direct_path_unresolved_entries": 10,
+      "alternate_path_hashes_checked": 10,
+      "hash_mismatches": 0,
+      "path_binding": {
+        "declared_prefix": "../nap-c3-validation/",
+        "actual_prefix": "../Next-Action-Policy-V0.1/nap-c3-validation/",
+        "all_ten_indexed_source_hashes_match": true,
+        "original_specifications_modified": false,
+        "strict_original_relative_paths_currently_resolve": false
+      }
+    }
+  ],
+  "e02_readiness": {
+    "engineering_runtime_ready": true,
+    "formal_business_development_ready": false,
+    "requirements": [
+      "技术负责人验收E01并按现有PR流程决定合并",
+      "确认E02的明确任务、接口和验收范围；不得把NAP C3 E02编号当作Sprint工程任务",
+      "确认采用的规格候选及版本冻结记录",
+      "把选定的规格正文和依赖基线提供给云工作区",
+      "登记或修复NAP C3路径绑定，并由规格负责人处理DC版本文字不一致"
+    ]
+  }
+}

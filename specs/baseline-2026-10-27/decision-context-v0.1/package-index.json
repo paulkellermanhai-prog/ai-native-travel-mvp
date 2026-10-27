@@ -1,0 +1,718 @@
+{
+  "package_name": "决策上下文机制设计 V0.1",
+  "index_format_version": "1",
+  "document_revision": "R4_recovery_engineering",
+  "updated_on": "2026-10-24",
+  "status": "recovery_verified_engineering_candidate_pending_review",
+  "entrypoint": "00_从这里开始.md",
+  "main_document_id": "DC-PRODUCT-01",
+  "source_baseline_id": "DC-TRACE-01",
+  "inherited_contract": {
+    "schema_version": "0.1.0",
+    "specification": "../trip-state-schema-v0.1/90_可运行工程包/SPECIFICATION.md",
+    "context_schema": "../trip-state-schema-v0.1/90_可运行工程包/schemas/DecisionContext.schema.json",
+    "authority": "../trip-state-schema-v0.1/90_可运行工程包/AUTHORITY_FINAL.md",
+    "invariants": "../trip-state-schema-v0.1/90_可运行工程包/INVARIANTS_FINAL.md"
+  },
+  "limits": [
+    "继承的Trip State 0.1.0不变；运行合同独立版本化",
+    "本包包含参考运行实现与可执行验收，不是生产HTTP/鉴权/数据库服务",
+    "任务解释采用合成结构化输入，未验证任意自然语言模型正确性",
+    "O1首版P0已实现本地事务检查点/草稿/语义焦点恢复并通过故障验收；不代表真实前端或生产集成已验收",
+    "不包含完整Policy行动排序；本包为待人工最终审核的工程候选，不是生产发布证明"
+  ],
+  "documents": [
+    {
+      "id": "DC-ENTRY-01",
+      "title": "决策上下文 V0.1 从这里开始",
+      "path": "00_从这里开始.md",
+      "sha256": "473c70073d51ded8ec58a34f827719e0d8fa92241352dcae5659791d27e61eab",
+      "role": "entrypoint",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "developer"
+      ],
+      "topics": [
+        "阅读顺序",
+        "目录",
+        "审核项",
+        "完成度"
+      ]
+    },
+    {
+      "id": "DC-PRODUCT-01",
+      "title": "决策上下文机制设计 V0.1",
+      "path": "01_产品机制/01_决策上下文机制设计_V0.1.md",
+      "sha256": "2c5a8258536a5c054874236ffc3f2cce429670ae2bf8d1b40189e4f5d6997709",
+      "role": "primary_design_review",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect"
+      ],
+      "topics": [
+        "产品价值",
+        "职责",
+        "架构比较",
+        "任务定位前置契约",
+        "双通道输入",
+        "四维信息分工",
+        "分层降级",
+        "状态与证据双检查"
+      ],
+      "sections": {
+        "任务定位": "3.2",
+        "保留适用阻塞呈现": "5.1",
+        "待处理输入": "5.2",
+        "分层降级": "5.4",
+        "双维有效性": "5.5"
+      },
+      "conclusion_ids": [
+        "C17",
+        "C18",
+        "C19",
+        "C20",
+        "C21"
+      ]
+    },
+    {
+      "id": "DC-TAXONOMY-01",
+      "title": "旅行决策类型体系 V0.1",
+      "path": "01_产品机制/02_旅行决策类型体系_V0.1.md",
+      "sha256": "3abb7d4387154895f0b40d1ff7b981967101e4726b2b8cebb55d35bbf76d7b25",
+      "role": "business_taxonomy_review",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect"
+      ],
+      "topics": [
+        "探索性决策",
+        "候选取舍",
+        "骨架采用",
+        "条件调整",
+        "重审",
+        "P0与P1"
+      ]
+    },
+    {
+      "id": "DC-UNIT-01",
+      "title": "决策单元与上下文边界 V0.1",
+      "path": "01_产品机制/03_决策单元与上下文边界_V0.1.md",
+      "sha256": "24a6209d57fe31140e1f85a75ba0ab7469a3b277cbe6193c3f1ba2cda706a37a",
+      "role": "identity_boundary_review",
+      "audience": [
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "问题身份",
+        "E/Q/S",
+        "焦点切换",
+        "暂停恢复",
+        "少打扰",
+        "task_id"
+      ],
+      "sections": {
+        "E_Q_S": "2.1",
+        "少打扰": "5.1",
+        "恢复方案": "7"
+      },
+      "conclusion_ids": [
+        "C22",
+        "C23"
+      ]
+    },
+    {
+      "id": "DC-SCENARIOS-01",
+      "title": "旅行决策场景与验证用例 V0.1",
+      "path": "02_场景与验收/04_旅行决策场景与验证用例_V0.1.md",
+      "sha256": "8f67a85474aed35174ab86daac8f49b316c832ecb9369cfbb9af6bd3a1389f23",
+      "role": "business_scenarios_linked_to_runtime_acceptance",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "developer",
+        "evaluator"
+      ],
+      "topics": [
+        "十五场景",
+        "十阶段流程",
+        "正常与反例",
+        "验收断言"
+      ],
+      "sections": {
+        "多轮流程": "5",
+        "分阶段断言": "5.1",
+        "用户五场景": "15"
+      },
+      "scenario_ids": [
+        "V01",
+        "V02",
+        "V03",
+        "V04",
+        "V05",
+        "V06",
+        "V07",
+        "V08",
+        "V09",
+        "V10",
+        "V11",
+        "V12",
+        "V13",
+        "V14",
+        "V15"
+      ],
+      "acceptance_ids": [
+        "DC-A01",
+        "DC-A02",
+        "DC-A03",
+        "DC-A04",
+        "DC-A05",
+        "DC-M03",
+        "DC-M04",
+        "DC-M05",
+        "DC-M06",
+        "DC-M07",
+        "DC-M08",
+        "DC-M09",
+        "DC-M10"
+      ]
+    },
+    {
+      "id": "DC-HANDOFF-01",
+      "title": "设计结论、待确认问题与下一步计划",
+      "path": "03_评审与工程衔接/05_设计结论待确认问题与工程交接.md",
+      "sha256": "58c9f621aa2ca50ef52ec6a7e9505d0c906b39514ba2feda580d2b4c87099d37",
+      "role": "review_and_engineering_handoff",
+      "audience": [
+        "product_owner",
+        "architect",
+        "developer",
+        "evaluator"
+      ],
+      "topics": [
+        "四类结论状态",
+        "O1",
+        "接口责任",
+        "异常",
+        "评测",
+        "自检",
+        "Product/Business Sense"
+      ]
+    },
+    {
+      "id": "DC-TRACE-01",
+      "title": "来源基线与设计追溯矩阵",
+      "path": "03_评审与工程衔接/06_来源基线与设计追溯矩阵.md",
+      "sha256": "a6aaae885632776ef091f0ad599679d58d663149044e304ef272d25ad4b2ffd8",
+      "role": "source_baseline_and_traceability",
+      "audience": [
+        "product_owner",
+        "architect",
+        "developer",
+        "reviewer"
+      ],
+      "topics": [
+        "S01-S15",
+        "U01-U06",
+        "C01-C31",
+        "I01-I22",
+        "来源与执行证据"
+      ]
+    },
+    {
+      "id": "DC-REVIEW-01",
+      "title": "本轮审核落实记录",
+      "path": "03_评审与工程衔接/07_本轮审核落实记录.md",
+      "sha256": "2509d3b2bedde723a6f32791b5c9dca7298df8f0759e035a3c4ac3e3894bad6a",
+      "role": "review_response",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "reviewer"
+      ],
+      "topics": [
+        "U03逐项映射",
+        "五处修订",
+        "意见落实与批准边界"
+      ]
+    },
+    {
+      "id": "DC-PLAN-01",
+      "title": "完整机制设计收敛与交付计划",
+      "path": "03_评审与工程衔接/08_完整机制设计收敛与交付计划.md",
+      "sha256": "32597a42eff59310ece11af11e8e68e47a2e06137e4f968796ba6c0c616a731f",
+      "role": "future_plan_not_completed_specification",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "八模块",
+        "依赖",
+        "工程包结构",
+        "收口门槛",
+        "人工审核"
+      ]
+    },
+    {
+      "id": "DC-RUNTIME-SPEC-01",
+      "title": "运行契约与任务定位",
+      "path": "04_工程规格/01_运行契约与任务定位.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "任务定位",
+        "双通道",
+        "字段归属",
+        "授权",
+        "生命周期"
+      ],
+      "sha256": "06859a521ca2cef323f9fce27aa4c4a9732129b524587a93020b04b907e51259"
+    },
+    {
+      "id": "DC-ASSEMBLY-SPEC-01",
+      "title": "读取组装与有效性规格",
+      "path": "04_工程规格/02_读取组装与有效性规格.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "种子",
+        "快照",
+        "Hydration",
+        "分层",
+        "时效",
+        "重建"
+      ],
+      "sha256": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a"
+    },
+    {
+      "id": "DC-API-SPEC-01",
+      "title": "接口异常权限与兼容",
+      "path": "04_工程规格/03_接口异常权限与兼容.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "接口",
+        "字段拥有权",
+        "错误",
+        "并发",
+        "幂等",
+        "权限",
+        "迁移"
+      ],
+      "sha256": "d9eb74c8b25390db2e9eb9eb3d6aa66b1f1ea8c965e528a9c5528758d3000f37"
+    },
+    {
+      "id": "DC-ACCEPTANCE-01",
+      "title": "可执行验收与交付评审",
+      "path": "04_工程规格/04_可执行验收与交付评审.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "验收映射",
+        "已测",
+        "未测",
+        "开发与发布边界"
+      ],
+      "sha256": "78792ffdc71bf9fc338a625be9a6a59687ed0260d2ca43e35e02ea56c957134a"
+    },
+    {
+      "id": "DC-CLOSURE-01",
+      "title": "工程收口结论与待审核项",
+      "path": "03_评审与工程衔接/09_工程收口结论与待审核项.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "四部分收口",
+        "审核",
+        "推荐与代价",
+        "下一步接入"
+      ],
+      "sha256": "5fc48eecd21bd124741b3395258986da49ee55bddaafe30ce91145b8f3fd8205"
+    },
+    {
+      "id": "DC-RESUME-SCOPE-01",
+      "title": "首版跨会话恢复范围决策",
+      "path": "03_评审与工程衔接/10_首版跨会话恢复范围决策.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "O1已确认",
+        "首版P0",
+        "持久检查点",
+        "草稿与语义焦点",
+        "DC-R01-R07"
+      ],
+      "sha256": "825d03aa51dcea5c88054459182c2bd90e25169f3ef8acd4cb8fedaea2b3dc7e"
+    },
+    {
+      "id": "DC-RECOVERY-SPEC-01",
+      "title": "持久检查点与跨会话恢复规格",
+      "path": "04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "持久化",
+        "保存确认",
+        "CAS",
+        "草稿",
+        "恢复重建",
+        "删除",
+        "版本兼容"
+      ],
+      "sha256": "83b4f9568aa6c2b2ac839740c747077a913f56d0996d2391c98119cd41ecbc87"
+    },
+    {
+      "id": "DC-RECOVERY-CLOSURE-01",
+      "title": "跨会话恢复工程收口报告",
+      "path": "03_评审与工程衔接/11_跨会话恢复工程收口报告.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "U06",
+        "O1已实现",
+        "故障验收",
+        "Owner审核",
+        "生产边界"
+      ],
+      "sha256": "635e29cb24f3b17ec33e1761fcadb0a10279f6e5ff8ef3dbf7a35b141137b1c1"
+    }
+  ],
+  "compatibility_entries": [
+    {
+      "path": "01_决策上下文机制设计_V0.1.md",
+      "canonical_id": "DC-PRODUCT-01"
+    },
+    {
+      "path": "02_旅行决策类型体系_V0.1.md",
+      "canonical_id": "DC-TAXONOMY-01"
+    },
+    {
+      "path": "03_决策单元与上下文边界_V0.1.md",
+      "canonical_id": "DC-UNIT-01"
+    },
+    {
+      "path": "04_旅行决策场景与验证用例_V0.1.md",
+      "canonical_id": "DC-SCENARIOS-01"
+    },
+    {
+      "path": "05_设计结论待确认问题与工程交接.md",
+      "canonical_id": "DC-HANDOFF-01"
+    },
+    {
+      "path": "06_来源基线与设计追溯矩阵.md",
+      "canonical_id": "DC-TRACE-01"
+    }
+  ],
+  "runtime_contract_version": "0.2.0",
+  "validation_report": "90_可运行工程包/VALIDATION_REPORT.md",
+  "engineering_files": [
+    {
+      "path": "90_可运行工程包/FIELD_DICTIONARY.md",
+      "role": "source_or_guide",
+      "sha256": "5e51de6da5ec94a7cb2f2c1337b3b0ae2a365414186715b258e071e7070a4199"
+    },
+    {
+      "path": "90_可运行工程包/README.md",
+      "role": "source_or_guide",
+      "sha256": "44af51c1c52677c9fce6347a9accb8b7148a51bc269b7aa19228b3e97ab37360"
+    },
+    {
+      "path": "90_可运行工程包/VALIDATION_REPORT.md",
+      "role": "execution_evidence",
+      "sha256": "54d6ae4afb4ab355312c0eb18c7af93d7a1bf639bf52416adf94d1c4951b3bc8"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/__init__.py",
+      "role": "source_or_guide",
+      "sha256": "ad829be702f5b30422cf476c0e794c70a9ffe195081ffea639ac0215c6d72d14"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/api.py",
+      "role": "source_or_guide",
+      "sha256": "7a318597eb3499c4512577ed82956b681baac8aa8396a0b1695c06bbcbd2d965"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/checkpoints.py",
+      "role": "source_or_guide",
+      "sha256": "9cbff3b580ea6285e0c35b34d13496adfa7c89ef51499ddf2739f6277c3858fa"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/contracts.py",
+      "role": "source_or_guide",
+      "sha256": "9c878b3660ed6bba49e5472bc67f37949dfa7e7699c3e7bc22c15d36cd2d5669"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/errors.py",
+      "role": "source_or_guide",
+      "sha256": "3c2bee262f497e77622ca9d7ca92cfd0031d4bc0342e126590c744af2197a0c8"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/recovery.py",
+      "role": "source_or_guide",
+      "sha256": "8b454c573849c5776d65e35caf5d813b40d641f1c594ce01693e79fdb76a52b7"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/runtime.py",
+      "role": "source_or_guide",
+      "sha256": "029a0156dbd132d5c42e4912f59ff05390433eccc0b8906b86241df64f2f09b2"
+    },
+    {
+      "path": "90_可运行工程包/dependency.py",
+      "role": "source_or_guide",
+      "sha256": "610bca5e6a7d166b3c0bd41695f98d5d8b5bfb7b7a42760a648302fffdba47ed"
+    },
+    {
+      "path": "90_可运行工程包/examples/exploration.json",
+      "role": "synthetic_example",
+      "sha256": "992f5b93cdd4e3fc97f48fb8a5a3b33aa24a0b3015192326004b09459fd5f1b1"
+    },
+    {
+      "path": "90_可运行工程包/examples/recovery.json",
+      "role": "synthetic_example",
+      "sha256": "1fedad54a7e50bf74d15aaba3f46b5a8bdcdd53c1331ad2aa326c4691eef3b4c"
+    },
+    {
+      "path": "90_可运行工程包/export_contracts.py",
+      "role": "source_or_guide",
+      "sha256": "dd3446efe5e113ce795df8a09181fdf5c6ca112d970ce0d644499a852261827b"
+    },
+    {
+      "path": "90_可运行工程包/requirements.txt",
+      "role": "source_or_guide",
+      "sha256": "d993e8c54f162ebcb016db49b6f667fe2359b350f90b6bb561c22b54c03efabd"
+    },
+    {
+      "path": "90_可运行工程包/run_validation.py",
+      "role": "source_or_guide",
+      "sha256": "a1d478dc8baed3602a58282f4550c63794b29e6b60a1085aad8631ad54f79c17"
+    },
+    {
+      "path": "90_可运行工程包/schemas/assemble.schema.json",
+      "role": "machine_contract",
+      "sha256": "dbe78901fbe4e2283727fbdfde5ff54a2b8d8d01bf4dcd947e5c546288b5b661"
+    },
+    {
+      "path": "90_可运行工程包/schemas/change.schema.json",
+      "role": "machine_contract",
+      "sha256": "0f318890cbda2f7f7b4388a687e67c800080f10b3f1f72e5f6e52de1b2366420"
+    },
+    {
+      "path": "90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "role": "machine_contract",
+      "sha256": "9d4ae5e72f2bb1fc65005e6d00eac109b9e5507510bad50075bd300016321df3"
+    },
+    {
+      "path": "90_可运行工程包/schemas/confirm.schema.json",
+      "role": "machine_contract",
+      "sha256": "82f327c57503d0508b5d78a559c11a99a8ed2dfabf4fd840324197ea1872ce32"
+    },
+    {
+      "path": "90_可运行工程包/schemas/error.schema.json",
+      "role": "machine_contract",
+      "sha256": "6be635c3b0f50301733fde951158ead957f9ad4458792a22f927a172fcceee7b"
+    },
+    {
+      "path": "90_可运行工程包/schemas/legacy-0.1/assemble.schema.json",
+      "role": "legacy_machine_contract",
+      "sha256": "a82f4a7b0524d8955c1e9bf540956854aa031aaece90f5d6461da101722cb1a4"
+    },
+    {
+      "path": "90_可运行工程包/schemas/legacy-0.1/change.schema.json",
+      "role": "legacy_machine_contract",
+      "sha256": "ca5b25abcd65c18151d9bab02e3015a08fdb4ef4b3308e806207bb34bd090cd8"
+    },
+    {
+      "path": "90_可运行工程包/schemas/legacy-0.1/confirm.schema.json",
+      "role": "legacy_machine_contract",
+      "sha256": "2b64b1a0787388bf7f66f9f9c4cc488ea45d14f73822371742d3d901ec97fb8d"
+    },
+    {
+      "path": "90_可运行工程包/schemas/legacy-0.1/error.schema.json",
+      "role": "legacy_machine_contract",
+      "sha256": "e29f8f8b876838b2775a552774566005d6333aba56ce7be03890d3e67730296c"
+    },
+    {
+      "path": "90_可运行工程包/schemas/legacy-0.1/open-turn.schema.json",
+      "role": "legacy_machine_contract",
+      "sha256": "83f63752754acd9b9814114bc05a7d3fa726de0634b1fc304c8f144ec77533eb"
+    },
+    {
+      "path": "90_可运行工程包/schemas/legacy-0.1/packet.schema.json",
+      "role": "legacy_machine_contract",
+      "sha256": "da4185d3c74f5b28a2ebb61dea3250d0d9e2247801f5a3525c937ed386ba4772"
+    },
+    {
+      "path": "90_可运行工程包/schemas/legacy-0.1/page-request.schema.json",
+      "role": "legacy_machine_contract",
+      "sha256": "4c7388cf232a4d3d4d8328ea05e5c30ffcc51ebfaade711e8efde479ea59b67a"
+    },
+    {
+      "path": "90_可运行工程包/schemas/legacy-0.1/page.schema.json",
+      "role": "legacy_machine_contract",
+      "sha256": "937a0722fbbf845ac4d30c60a170a59376c5da5ed4c01f0899d43c7420191455"
+    },
+    {
+      "path": "90_可运行工程包/schemas/legacy-0.1/turn.schema.json",
+      "role": "legacy_machine_contract",
+      "sha256": "16ae35e20985fc91f8d3bfad6a6b2d8b7e9ad74484ac6b95234e89580840274c"
+    },
+    {
+      "path": "90_可运行工程包/schemas/open-turn.schema.json",
+      "role": "machine_contract",
+      "sha256": "0f0d88beea772e373b86bf29ae47a473a9d33a5c0cdf2b5df0ffdca7785c53f8"
+    },
+    {
+      "path": "90_可运行工程包/schemas/packet.schema.json",
+      "role": "machine_contract",
+      "sha256": "e3aa7bd83369d924edd06328f8e12094b174ab3a44abf0eaac2913792bfddba0"
+    },
+    {
+      "path": "90_可运行工程包/schemas/page-request.schema.json",
+      "role": "machine_contract",
+      "sha256": "ec1066639726a8bd689c330a5f6969ef2dbece01bf717a5bd6c6b98e67c2819b"
+    },
+    {
+      "path": "90_可运行工程包/schemas/page.schema.json",
+      "role": "machine_contract",
+      "sha256": "8ae63db9fe5fe8427ea0d984baeeeb5fcde30b50e00bacb01f81f3fd5465af0c"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-ack.schema.json",
+      "role": "machine_contract",
+      "sha256": "fd70fc026f6f62777acd81f12436ae7565743c27da3a67e061f94a43e3a8156f"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-delete.schema.json",
+      "role": "machine_contract",
+      "sha256": "e403b88ec60bddf87b2d0748caeeaad1a0ba88dad12a372ea846ae84a7c9724a"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-list-result.schema.json",
+      "role": "machine_contract",
+      "sha256": "c55c8508ad8df53feeb53c56f53434cd0d3793ff23d130cec453cdaf17ce814a"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-list.schema.json",
+      "role": "machine_contract",
+      "sha256": "88eee3457e2cddb9d864d902e394f20558b822ffab808dbef1d405613d58cd86"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-restore.schema.json",
+      "role": "machine_contract",
+      "sha256": "2823455f0296c66fa71a25e9b7c3aa1006dc68554f3094a119dc0b522e74196f"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-restored.schema.json",
+      "role": "machine_contract",
+      "sha256": "0a771ac2d8cd209ab0336315ee62437c381b32e5bf46de420808c4bd8046e8d3"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-retry.schema.json",
+      "role": "machine_contract",
+      "sha256": "a95f2094b54e4fae87d64a22d189c4f18680f735454bb0d53f6983f492e3b202"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-save.schema.json",
+      "role": "machine_contract",
+      "sha256": "5529e979fe73d764df265e65e35d970c7c36cd24eee4d56c7c1889b8316f43b9"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-status-result.schema.json",
+      "role": "machine_contract",
+      "sha256": "ed0720bfec211ec40d583669f868ac6300e7377300d5eb9411cf7ffef0026197"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-status.schema.json",
+      "role": "machine_contract",
+      "sha256": "49617c2942ac52dceff0d5395dd2d3dcb7d3a75645276db2f59de3d9f5e9aaac"
+    },
+    {
+      "path": "90_可运行工程包/schemas/turn.schema.json",
+      "role": "machine_contract",
+      "sha256": "c46d6f270900250e98c9cee140a32566979b9405eb30e92a27150bdd4717af81"
+    },
+    {
+      "path": "90_可运行工程包/tests/test_recovery.py",
+      "role": "test",
+      "sha256": "b041554bfb685dbba41db091d9b91575e6abc06059cc234d8c67b5e4e49da934"
+    },
+    {
+      "path": "90_可运行工程包/tests/test_runtime.py",
+      "role": "test",
+      "sha256": "000c827b958fe927ea5a26c720a2e8dc908be94c3197e3fb56ae928c75e000b8"
+    },
+    {
+      "path": "90_可运行工程包/update_package_index.py",
+      "role": "source_or_guide",
+      "sha256": "3e483f512d0212d8a246b4e6b67e992c57a3994ac22b171bad6ce766c562768f"
+    },
+    {
+      "path": "90_可运行工程包/validation-output.txt",
+      "role": "execution_evidence",
+      "sha256": "a8c3576840229464fe83f30ebab4848c1d8ddb6479cfcd628ed359f7252ba482"
+    },
+    {
+      "path": "90_可运行工程包/validation-results.json",
+      "role": "execution_evidence",
+      "sha256": "5a17cb71c89c165ea4b42c0852de224fa7704f85029a4de83085fc39db355eaa"
+    }
+  ],
+  "product_decisions": {
+    "O1": {
+      "status": "approved_for_P0",
+      "source": "U05",
+      "date": "2026-10-24",
+      "requirement": "精确恢复跨会话暂停现场",
+      "engineering_status": "reference_implemented_acceptance_passed",
+      "document_id": "DC-RESUME-SCOPE-01"
+    }
+  },
+  "local_export": "LOCAL_EXPORT.json"
+}

@@ -1,0 +1,24 @@
+{
+  "expected_revision": 3,
+  "idempotency_key": "example-5",
+  "reason": "用户明确采用；预算缺项仍然存在",
+  "input": {
+    "kind": "dialogue",
+    "reference": "synthetic-input",
+    "text": "用户明确采用；预算缺项仍然存在",
+    "target_ids": []
+  },
+  "commands": [
+    {
+      "op": "adopt_skeleton",
+      "id": "skeleton-a",
+      "acknowledge_unknowns": true,
+      "confirmation_scope": [
+        "cities",
+        "order",
+        "stays",
+        "connections"
+      ]
+    }
+  ]
+}

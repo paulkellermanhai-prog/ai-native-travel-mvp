@@ -1,0 +1,133 @@
+{
+  "date": "2026-10-26",
+  "scope": "C3 deliverable static integrity only; no Policy execution",
+  "case_count": 58,
+  "seed_count": 33,
+  "all_pass": true,
+  "checks": [
+    {
+      "name": "eight_authored_documents",
+      "pass": true,
+      "detail": [
+        "00_从这里开始.md",
+        "01_资料基线与场景夹具.md",
+        "02_正式场景矩阵.md",
+        "03_完整测试案例.md",
+        "04_多轮推演与竞争裁决.md",
+        "05_评测与判定规格.md",
+        "06_一致性审查与全量追踪.md",
+        "07_C3验收报告.md"
+      ]
+    },
+    {
+      "name": "58_unique_cases",
+      "pass": true,
+      "detail": {
+        "count": 58
+      }
+    },
+    {
+      "name": "all_expected_cases",
+      "pass": true,
+      "detail": {
+        "missing": []
+      }
+    },
+    {
+      "name": "33_seeds_present",
+      "pass": true,
+      "detail": {
+        "seeds": 33,
+        "branches": 41,
+        "added": 17
+      }
+    },
+    {
+      "name": "case_four_required_sections",
+      "pass": true,
+      "detail": {
+        "incomplete": []
+      }
+    },
+    {
+      "name": "relative_links_exist",
+      "pass": true,
+      "detail": {
+        "missingLinks": []
+      }
+    },
+    {
+      "name": "trace_G",
+      "pass": true,
+      "detail": {
+        "missing": []
+      }
+    },
+    {
+      "name": "trace_K",
+      "pass": true,
+      "detail": {
+        "missing": []
+      }
+    },
+    {
+      "name": "trace_INV-",
+      "pass": true,
+      "detail": {
+        "missing": []
+      }
+    },
+    {
+      "name": "trace_A",
+      "pass": true,
+      "detail": {
+        "missing": []
+      }
+    },
+    {
+      "name": "trace_NAP-P",
+      "pass": true,
+      "detail": {
+        "missing": []
+      }
+    },
+    {
+      "name": "trace_NAP-R",
+      "pass": true,
+      "detail": {
+        "missing": []
+      }
+    },
+    {
+      "name": "all_cases_have_G_INV_A",
+      "pass": true,
+      "detail": {
+        "missing": []
+      }
+    },
+    {
+      "name": "eight_rule_conflicts",
+      "pass": true
+    },
+    {
+      "name": "three_walkthroughs",
+      "pass": true
+    },
+    {
+      "name": "twelve_calibration_items",
+      "pass": true
+    },
+    {
+      "name": "no_run_results_claimed",
+      "pass": true
+    },
+    {
+      "name": "reference_inputs_byte_identical",
+      "pass": true
+    },
+    {
+      "name": "nonempty_payload",
+      "pass": true
+    }
+  ]
+}

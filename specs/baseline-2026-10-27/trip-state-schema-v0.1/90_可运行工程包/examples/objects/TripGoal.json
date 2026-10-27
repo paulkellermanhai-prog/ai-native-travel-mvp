@@ -1,0 +1,29 @@
+{
+  "id": "goal",
+  "type": "TripGoal",
+  "trip_id": "trip-egypt-test",
+  "version": 1,
+  "status": "active",
+  "scope": {
+    "kind": "trip",
+    "ids": []
+  },
+  "source": {
+    "actor": "user",
+    "actor_id": "user-demo",
+    "reference": "synthetic-input",
+    "text": "测试材料，不代表真实用户或现实交通",
+    "at": "2030-01-01T00:00:00Z"
+  },
+  "dependencies": [],
+  "updated_at": "2030-01-01T00:00:00Z",
+  "destination_ids": [
+    "egypt"
+  ],
+  "purpose": "测试多城市旅行骨架",
+  "success_definition": "理解取舍、保留核验边界",
+  "traveler_ids": [
+    "traveler-demo"
+  ],
+  "current_task": "compare"
+}
