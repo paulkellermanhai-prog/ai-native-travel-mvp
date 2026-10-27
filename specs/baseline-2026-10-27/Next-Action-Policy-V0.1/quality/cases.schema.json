@@ -1,0 +1,466 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:antu:nap:0.1:cases",
+  "title": "NAP C3-derived record",
+  "type": "object",
+  "properties": {
+    "dataset_version": {
+      "const": "0.1.0-c3r2"
+    },
+    "case_id": {
+      "type": "string",
+      "pattern": "^(?:[SMXCNWJ][0-9]{2}|F[0-9]{2}-[AB])$"
+    },
+    "kind": {
+      "enum": [
+        "scenario",
+        "walkthrough",
+        "calibration"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
+    },
+    "seed_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "related_case_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "full_text": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "path",
+        "section",
+        "sha256",
+        "full_text"
+      ],
+      "additionalProperties": false
+    },
+    "rule_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "prd_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "initial_state": {
+      "type": "object",
+      "properties": {
+        "representation": {
+          "const": "product_semantics"
+        },
+        "fixtures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "enum": [
+                  "Q0",
+                  "Q1",
+                  "Q2",
+                  "Q3",
+                  "Q4",
+                  "Q5",
+                  "Q6"
+                ]
+              },
+              "semantics": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "semantics"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "case_conditions": {
+          "type": "string",
+          "minLength": 1
+        },
+        "inherited_conditions": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "clock": {
+          "const": "2026-10-26T10:00:00+08:00"
+        },
+        "query_date_window": {
+          "type": "object",
+          "properties": {
+            "start": {
+              "const": "2027-02-01"
+            },
+            "end": {
+              "const": "2027-02-09"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "representation",
+        "fixtures",
+        "case_conditions",
+        "inherited_conditions",
+        "clock",
+        "query_date_window"
+      ],
+      "additionalProperties": false
+    },
+    "trigger_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "user_input",
+              "ui_event",
+              "tool_result",
+              "state_change",
+              "system_event"
+            ]
+          },
+          "description": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "event_id",
+          "kind",
+          "description"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tool_conditions": {
+      "type": "object",
+      "properties": {
+        "fixtures": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "enum": [
+                  "T0",
+                  "T1",
+                  "T2",
+                  "T3",
+                  "T4",
+                  "T5",
+                  "T6",
+                  "T7"
+                ]
+              },
+              "semantics": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "id",
+              "semantics"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "source_conditions": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "fixtures",
+        "source_conditions"
+      ],
+      "additionalProperties": false
+    },
+    "expectations": {
+      "type": "object",
+      "properties": {
+        "expected_behavior": {
+          "type": "string",
+          "minLength": 1
+        },
+        "forbidden_behavior": {
+          "type": "string",
+          "minLength": 1
+        },
+        "state_expectations": {
+          "type": "string",
+          "minLength": 1
+        },
+        "continuity_expectations": {
+          "type": "string",
+          "minLength": 1
+        },
+        "multi_solution_notes": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "expected_behavior",
+        "forbidden_behavior",
+        "state_expectations",
+        "continuity_expectations",
+        "multi_solution_notes"
+      ],
+      "additionalProperties": false
+    },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "step_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "order": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "event_kind": {
+            "enum": [
+              "user_input",
+              "ui_event",
+              "tool_result",
+              "state_change",
+              "system_event"
+            ]
+          },
+          "event": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_behavior": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state_expectations": {
+            "type": "string",
+            "minLength": 1
+          },
+          "forbidden_behavior": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "step_id",
+          "order",
+          "event_kind",
+          "event",
+          "expected_behavior",
+          "state_expectations",
+          "forbidden_behavior"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 1
+    },
+    "variants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "variant_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reset_before": {
+            "const": true
+          },
+          "trigger": {
+            "type": "string",
+            "minLength": 1
+          },
+          "expected_behavior": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state_expectations": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "required": [
+          "variant_id",
+          "reset_before",
+          "trigger",
+          "expected_behavior",
+          "state_expectations"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "counterfactual": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "pair_group": {
+              "type": "string",
+              "minLength": 1
+            },
+            "compared_case_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "changed_variable": {
+              "type": "string",
+              "minLength": 1
+            },
+            "must_differ": {
+              "type": "string",
+              "minLength": 1
+            },
+            "unchanged_conditions": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "pair_group",
+            "compared_case_id",
+            "changed_variable",
+            "must_differ",
+            "unchanged_conditions"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "materialization": {
+      "type": "object",
+      "properties": {
+        "trip_state_schema_version": {
+          "const": "0.1.0"
+        },
+        "decision_context_runtime_version": {
+          "const": "0.2.0"
+        },
+        "fixture_builder_status": {
+          "const": "NOT_IMPLEMENTED"
+        },
+        "required_checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "required": [
+        "trip_state_schema_version",
+        "decision_context_runtime_version",
+        "fixture_builder_status",
+        "required_checks"
+      ],
+      "additionalProperties": false
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "const": "NOT_RUN"
+        },
+        "actual_result": {
+          "type": "null"
+        },
+        "policy_pass_rate": {
+          "type": "null"
+        }
+      },
+      "required": [
+        "status",
+        "actual_result",
+        "policy_pass_rate"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "dataset_version",
+    "case_id",
+    "kind",
+    "title",
+    "seed_id",
+    "related_case_ids",
+    "source",
+    "rule_refs",
+    "prd_refs",
+    "initial_state",
+    "trigger_events",
+    "tool_conditions",
+    "expectations",
+    "steps",
+    "variants",
+    "counterfactual",
+    "materialization",
+    "execution"
+  ],
+  "additionalProperties": false
+}

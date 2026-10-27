@@ -1,0 +1,69 @@
+{
+  "title": "ANTU C3 product validation package",
+  "version": "C3-R2",
+  "date": "2026-10-26",
+  "scope": "C3 only; not formal NAP specification",
+  "manifest_excludes_itself": true,
+  "files": [
+    {
+      "path": "00_从这里开始.md",
+      "bytes": 2481,
+      "sha256": "5fa8c71f26bd1723b7ebeb2fc254586eb8080c80750c068d6b72bfcdf3b101c7"
+    },
+    {
+      "path": "01_资料基线与场景夹具.md",
+      "bytes": 6487,
+      "sha256": "afb891325591dd49f3757dd3b355f91ce0b5df320ab3be6c0a563ee93bd50acb"
+    },
+    {
+      "path": "02_正式场景矩阵.md",
+      "bytes": 7080,
+      "sha256": "16eba0ae2c43dbcefc35efe5696f839dd526fc86225d3b664c7edc26e0366e89"
+    },
+    {
+      "path": "03_完整测试案例.md",
+      "bytes": 38278,
+      "sha256": "f814bad65eef253f50246ed1a474c82dcb0839f08f0fd72a9ed928ddf6e1d265"
+    },
+    {
+      "path": "04_多轮推演与竞争裁决.md",
+      "bytes": 8183,
+      "sha256": "4d89abffcf9a42f327e24c9bc1fe478f8adb4a105d3f2914f4207d9b732e8a65"
+    },
+    {
+      "path": "05_评测与判定规格.md",
+      "bytes": 9922,
+      "sha256": "2f4db3eb19421b328da45803ee568996e4c42ce492ac02a7afba899b21c3bd76"
+    },
+    {
+      "path": "06_一致性审查与全量追踪.md",
+      "bytes": 14943,
+      "sha256": "dc945c97aea5787bfb373cbcf5fe89f86880a401f259ad3c4a4c962d1068a368"
+    },
+    {
+      "path": "07_C3验收报告.md",
+      "bytes": 5887,
+      "sha256": "0ae7b79f5a6d3beb97171b064b9c6ddb5662c0b6357c025807dd9dd995f715d5"
+    },
+    {
+      "path": "references/C3-R1_场景种子与任务.md",
+      "bytes": 20551,
+      "sha256": "38ce4ff645bd449295980d8d427ffbd76b6fd85cc6ca7570ce3fd326d839f271"
+    },
+    {
+      "path": "references/C3_完整补充资料.md",
+      "bytes": 49190,
+      "sha256": "5ba2791f034b694caeec384081bfbed97117d09070e2c0241111d0e65f78ffcc"
+    },
+    {
+      "path": "source-manifest.json",
+      "bytes": 5550,
+      "sha256": "26162ae857c05d9ef82a09f01d10848879ec20d7c7470fb8fca982f0198925d6"
+    },
+    {
+      "path": "validation-results.json",
+      "bytes": 2430,
+      "sha256": "0057d0ca65331f0fa2b34ede4f9c0ad02a9b30f92364cce3994eb3fd389d8064"
+    }
+  ]
+}

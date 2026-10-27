@@ -1,0 +1,76 @@
+name: E01 CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e01-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  engineering:
+    name: E01 engineering
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: antu
+          POSTGRES_PASSWORD: antu_ci_only
+          POSTGRES_DB: antu_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U antu -d antu_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://antu:antu_ci_only@127.0.0.1:5432/antu_test?schema=public
+      NEXT_TELEMETRY_DISABLED: "1"
+      CI: "true"
+    steps:
+      - name: Checkout the PR head
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Pin npm and record versions
+        run: |
+          npm install --global npm@11.19.1
+          node --version
+          npm --version
+          git rev-parse HEAD
+          test -n "$DATABASE_URL"
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify dependency tree and specification handoff
+        run: |
+          npm ls --all
+          npm run specs:verify
+      - name: Validate Prisma schema
+        run: npm run db:validate
+      - name: Generate Prisma client
+        run: npm run db:generate
+      - name: Check TypeScript
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: Vitest including real PostgreSQL integration
+        run: npm test
+      - name: Check database connectivity
+        run: npm run db:check
+      - name: Production build
+        run: npm run build

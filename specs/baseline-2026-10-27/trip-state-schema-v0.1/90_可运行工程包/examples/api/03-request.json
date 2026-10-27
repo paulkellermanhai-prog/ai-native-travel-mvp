@@ -1,0 +1,24 @@
+{
+  "expected_revision": 3,
+  "idempotency_key": "example-3",
+  "reason": "模型提出采用骨架，等待用户确认",
+  "input": {
+    "kind": "dialogue",
+    "reference": "synthetic-input",
+    "text": "模型提出采用骨架，等待用户确认",
+    "target_ids": []
+  },
+  "commands": [
+    {
+      "op": "adopt_skeleton",
+      "id": "skeleton-a",
+      "acknowledge_unknowns": true,
+      "confirmation_scope": [
+        "cities",
+        "order",
+        "stays",
+        "connections"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trip-state.example/spec/0.1/history.schema.json",
+  "title": "history",
+  "type": "object",
+  "properties": {
+    "intents": {
+      "type": "array",
+      "items": {
+        "$ref": "https://trip-state.example/spec/0.1/OperationIntent.schema.json"
+      },
+      "minItems": 0
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "$ref": "https://trip-state.example/spec/0.1/ChangeRecord.schema.json"
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "intents",
+    "changes"
+  ],
+  "additionalProperties": false
+}

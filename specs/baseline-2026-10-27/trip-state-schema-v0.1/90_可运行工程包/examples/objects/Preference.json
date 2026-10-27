@@ -1,0 +1,35 @@
+{
+  "id": "pref-culture",
+  "type": "Preference",
+  "trip_id": "trip-egypt-test",
+  "version": 1,
+  "status": "active",
+  "scope": {
+    "kind": "trip",
+    "ids": []
+  },
+  "source": {
+    "actor": "user",
+    "actor_id": "user-demo",
+    "reference": "synthetic-input",
+    "text": "测试材料，不代表真实用户或现实交通",
+    "at": "2030-01-01T00:00:00Z"
+  },
+  "dependencies": [],
+  "updated_at": "2030-01-01T00:00:00Z",
+  "subject_ids": [
+    "luxor"
+  ],
+  "aspect": "文化体验",
+  "polarity": "positive",
+  "certainty": "explicit",
+  "support": "supported",
+  "priority": "important",
+  "expression": "我喜欢文化体验；不代表必须去某座城",
+  "condition": {
+    "op": "always"
+  },
+  "evidence_refs": [
+    "synthetic-dialogue-1"
+  ]
+}

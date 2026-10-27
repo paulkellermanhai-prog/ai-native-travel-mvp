@@ -1,0 +1,257 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trip-state.example/spec/0.1/DestinationEntity.schema.json",
+  "title": "DestinationEntity",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "trip_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "type": {
+      "const": "DestinationEntity"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "known",
+        "retired"
+      ]
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "trip",
+                "entity",
+                "skeleton",
+                "traveler"
+              ]
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "date"
+              ]
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true,
+              "maxItems": 0
+            },
+            "start": {
+              "type": "string",
+              "format": "date"
+            },
+            "end": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "required": [
+            "kind",
+            "ids",
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "enum": [
+            "user",
+            "model",
+            "system",
+            "tool"
+          ]
+        },
+        "actor_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "description": "输入或适配器证据标识"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "原始表达或结果摘要"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "actor",
+        "actor_id",
+        "reference",
+        "text",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "input",
+              "evidence",
+              "association"
+            ]
+          }
+        },
+        "required": [
+          "object_id",
+          "version",
+          "paths",
+          "relation"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entity_kind": {
+      "type": "string",
+      "enum": [
+        "country",
+        "city",
+        "region",
+        "experience",
+        "transport_node"
+      ]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "description": "非空文本"
+    },
+    "parent_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "geo_identity": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "description": "非空文本"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "knowledge_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "非空文本"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "coverage": {
+      "type": "string",
+      "enum": [
+        "unknown",
+        "partial",
+        "covered"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "trip_id",
+    "type",
+    "version",
+    "status",
+    "scope",
+    "source",
+    "dependencies",
+    "updated_at",
+    "entity_kind",
+    "name",
+    "parent_id",
+    "geo_identity",
+    "knowledge_refs",
+    "coverage"
+  ],
+  "additionalProperties": false
+}

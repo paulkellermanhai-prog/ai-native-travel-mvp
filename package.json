@@ -16,6 +16,7 @@
     "db:validate": "prisma validate",
     "db:generate": "prisma generate",
     "db:check": "node --env-file-if-exists=.env scripts/db-check.mjs",
+    "specs:verify": "node scripts/specs.mjs verify",
     "check": "npm run db:validate && npm run db:generate && npm run typecheck && npm run lint && npm test && npm run build"
   },
   "dependencies": {

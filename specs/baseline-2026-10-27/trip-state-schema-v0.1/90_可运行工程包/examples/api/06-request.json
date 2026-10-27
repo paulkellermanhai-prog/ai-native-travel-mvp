@@ -1,0 +1,58 @@
+{
+  "expected_revision": 4,
+  "idempotency_key": "example-6",
+  "reason": "连续编辑前创建独立暂定版本",
+  "input": {
+    "kind": "dialogue",
+    "reference": "synthetic-input",
+    "text": "连续编辑前创建独立暂定版本",
+    "target_ids": []
+  },
+  "commands": [
+    {
+      "op": "create",
+      "object_type": "Skeleton",
+      "id": "skeleton-b",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "dependencies": [],
+      "data": {
+        "purpose": "plan",
+        "stops": [
+          {
+            "entity_id": "cairo",
+            "nights": 2
+          },
+          {
+            "entity_id": "luxor",
+            "nights": 2
+          }
+        ],
+        "connections": [
+          {
+            "from_id": "cairo",
+            "to_id": "luxor",
+            "fact_ids": [
+              "fact-cairo-luxor"
+            ]
+          }
+        ],
+        "cost_fact_ids": [
+          "cost-transport"
+        ],
+        "parent_id": null,
+        "overrides": [],
+        "tradeoffs": {
+          "gains": [
+            "文化体验"
+          ],
+          "losses": [
+            "转场时间"
+          ]
+        }
+      }
+    }
+  ]
+}

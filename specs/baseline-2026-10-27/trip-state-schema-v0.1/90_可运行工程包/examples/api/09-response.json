@@ -1,0 +1,266 @@
+{
+  "outcome": "applied",
+  "revision": 8,
+  "proposal_id": "proposal-0000000000000000000000000000001c",
+  "proposal_digest": "559cf4c9d88114f4dc300ae141e34929164c857b4c36e7c796a2f46d60ee66f5",
+  "confirmation_required": false,
+  "affected_ids": [
+    "skeleton-a"
+  ],
+  "diff": [
+    {
+      "id": "skeleton-a",
+      "before": {
+        "id": "skeleton-a",
+        "type": "Skeleton",
+        "trip_id": "trip-egypt-test",
+        "version": 4,
+        "status": "active",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "source": {
+          "actor": "user",
+          "actor_id": "user-demo",
+          "reference": "synthetic-input",
+          "text": "测试材料，不代表真实用户或现实交通",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "dependencies": [
+          {
+            "object_id": "constraint-budget",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "constraint-dates",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "constraint-nights",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "cost-transport",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value",
+              "/freshness",
+              "/applicability",
+              "/expires_at"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "fact-cairo-luxor",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value",
+              "/freshness",
+              "/applicability",
+              "/expires_at"
+            ],
+            "relation": "input"
+          }
+        ],
+        "updated_at": "2030-01-01T00:00:00Z",
+        "purpose": "plan",
+        "stops": [
+          {
+            "entity_id": "cairo",
+            "nights": 2
+          },
+          {
+            "entity_id": "luxor",
+            "nights": 2
+          }
+        ],
+        "connections": [
+          {
+            "from_id": "cairo",
+            "to_id": "luxor",
+            "fact_ids": [
+              "fact-cairo-luxor"
+            ]
+          }
+        ],
+        "cost_fact_ids": [
+          "cost-transport"
+        ],
+        "parent_id": null,
+        "overrides": [],
+        "tradeoffs": {
+          "gains": [
+            "文化体验"
+          ],
+          "losses": [
+            "转场时间"
+          ]
+        },
+        "assessment": {
+          "status": "stale",
+          "total_nights": 4,
+          "connection_minutes": [
+            60
+          ],
+          "cost_groups": [
+            {
+              "currency": "CNY",
+              "people": 2,
+              "subtotal_minor": 120000,
+              "fact_ids": [
+                "cost-transport"
+              ]
+            }
+          ],
+          "cost_coverage": "partial",
+          "unknowns": [
+            "inputs_changed",
+            "partial_budget:constraint-budget"
+          ],
+          "violations": [],
+          "checked_at": "2030-01-01T00:00:00Z"
+        }
+      },
+      "after": {
+        "id": "skeleton-a",
+        "type": "Skeleton",
+        "trip_id": "trip-egypt-test",
+        "version": 5,
+        "status": "active",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "source": {
+          "actor": "user",
+          "actor_id": "user-demo",
+          "reference": "synthetic-input",
+          "text": "测试材料，不代表真实用户或现实交通",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "dependencies": [
+          {
+            "object_id": "constraint-budget",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "constraint-dates",
+            "version": 2,
+            "paths": [
+              "/status",
+              "/value"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "constraint-nights",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "cost-transport",
+            "version": 2,
+            "paths": [
+              "/status",
+              "/value",
+              "/freshness",
+              "/applicability",
+              "/expires_at"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "fact-cairo-luxor",
+            "version": 2,
+            "paths": [
+              "/status",
+              "/value",
+              "/freshness",
+              "/applicability",
+              "/expires_at"
+            ],
+            "relation": "input"
+          }
+        ],
+        "updated_at": "2030-01-01T00:00:00Z",
+        "purpose": "plan",
+        "stops": [
+          {
+            "entity_id": "cairo",
+            "nights": 2
+          },
+          {
+            "entity_id": "luxor",
+            "nights": 2
+          }
+        ],
+        "connections": [
+          {
+            "from_id": "cairo",
+            "to_id": "luxor",
+            "fact_ids": [
+              "fact-cairo-luxor"
+            ]
+          }
+        ],
+        "cost_fact_ids": [
+          "cost-transport"
+        ],
+        "parent_id": null,
+        "overrides": [],
+        "tradeoffs": {
+          "gains": [
+            "文化体验"
+          ],
+          "losses": [
+            "转场时间"
+          ]
+        },
+        "assessment": {
+          "status": "pending",
+          "total_nights": 4,
+          "connection_minutes": [
+            null
+          ],
+          "cost_groups": [],
+          "cost_coverage": "none",
+          "unknowns": [
+            "connection:0:missing_or_conflicting_evidence",
+            "cost:cost-transport",
+            "partial_budget:constraint-budget"
+          ],
+          "violations": [],
+          "checked_at": "2030-01-01T00:00:00Z"
+        }
+      }
+    }
+  ],
+  "errors": []
+}

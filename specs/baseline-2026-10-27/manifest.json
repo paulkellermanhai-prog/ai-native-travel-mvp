@@ -1,0 +1,967 @@
+{
+  "format": "antu-specification-handoff/v1",
+  "date": "2026-10-27",
+  "source": "authorized local product workspace; source_path is relative to that directory",
+  "approval": {
+    "trip_state_0_1_0": "DEVELOPMENT_BASELINE_PENDING_OWNER_CONFIRMATION",
+    "decision_context_r4": "CANDIDATE_PENDING_REVIEW",
+    "next_action_policy_0_1_0": "OWNER_APPROVAL_NOT_RECORDED"
+  },
+  "scope": "E02 authoritative contracts and reference fixtures; copied reference code is not application implementation",
+  "related_sources_not_copied": [
+    {
+      "path": "AI Native旅行产品｜项目思考总纲 V2.md",
+      "sha256": "a9c777103f6b146f3473187755dac355c04b0368e04d78489b32535b15af7995",
+      "reason": "PRD retains this source association; raw V2 contains local personal filesystem paths and is not needed to redefine the PRD for E02"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/source-manifest.json",
+      "sha256": "26162ae857c05d9ef82a09f01d10848879ec20d7c7470fb8fca982f0198925d6",
+      "reason": "Local export metadata contains personal filesystem paths; original C3 documents and their hashes are retained"
+    }
+  ],
+  "unresolved": [
+    "DC prose table says 0.1.0 while index/code/schema use 0.2.0",
+    "NAP references sibling nap-c3-validation; byte-identical source is nested in the NAP directory"
+  ],
+  "exclusions": [
+    "duplicate reading mirrors",
+    "historical Handoff discussions",
+    "local exports and absolute paths",
+    "distribution builders and packaging-only tests",
+    "DC runtime implementation and legacy contracts",
+    "private environments, credentials, caches and OS metadata"
+  ],
+  "files": [
+    {
+      "path": "AI Native旅行产品｜PRD V0.1.md",
+      "source_path": "AI Native旅行产品｜PRD V0.1.md",
+      "bytes": 49163,
+      "sha256": "3cb1ed7e3f4522ac4ef0e46960ab801d5a7f5c93e5528c83c2e72933767ed62d"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/DECISIONS.md",
+      "source_path": "Next-Action-Policy-V0.1/DECISIONS.md",
+      "bytes": 6649,
+      "sha256": "5942ec58db8cc3dc8d8ac169fb662eb4fd8a24f760823226cdf5a595b8aaeaa7"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/README.md",
+      "source_path": "Next-Action-Policy-V0.1/README.md",
+      "bytes": 6458,
+      "sha256": "ffaf46dd42711580aac7d0e8e62b3274a43728ed3ca1ad615bdb311fd388cb36"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/engineering/contracts.md",
+      "source_path": "Next-Action-Policy-V0.1/engineering/contracts.md",
+      "bytes": 16714,
+      "sha256": "0261558e13021ddc977bccc0f6a2cff45bf3f518a91e66b00778bf8b92afcce9"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/engineering/contracts.schema.json",
+      "source_path": "Next-Action-Policy-V0.1/engineering/contracts.schema.json",
+      "bytes": 18529,
+      "sha256": "eb195a3158a75a8da8f06b74f842bb848d32a3fb3df37bf7e8c63f4a3c483fc5"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/engineering/runtime.md",
+      "source_path": "Next-Action-Policy-V0.1/engineering/runtime.md",
+      "bytes": 15161,
+      "sha256": "da8226f9c1358793df589472b86ba82d9e76769d8ac6b66fbcc0048e9458918b"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/00_从这里开始.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/00_从这里开始.md",
+      "bytes": 2481,
+      "sha256": "5fa8c71f26bd1723b7ebeb2fc254586eb8080c80750c068d6b72bfcdf3b101c7"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/01_资料基线与场景夹具.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/01_资料基线与场景夹具.md",
+      "bytes": 6487,
+      "sha256": "afb891325591dd49f3757dd3b355f91ce0b5df320ab3be6c0a563ee93bd50acb"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/02_正式场景矩阵.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/02_正式场景矩阵.md",
+      "bytes": 7080,
+      "sha256": "16eba0ae2c43dbcefc35efe5696f839dd526fc86225d3b664c7edc26e0366e89"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/03_完整测试案例.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/03_完整测试案例.md",
+      "bytes": 38278,
+      "sha256": "f814bad65eef253f50246ed1a474c82dcb0839f08f0fd72a9ed928ddf6e1d265"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/04_多轮推演与竞争裁决.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/04_多轮推演与竞争裁决.md",
+      "bytes": 8183,
+      "sha256": "4d89abffcf9a42f327e24c9bc1fe478f8adb4a105d3f2914f4207d9b732e8a65"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/05_评测与判定规格.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/05_评测与判定规格.md",
+      "bytes": 9922,
+      "sha256": "2f4db3eb19421b328da45803ee568996e4c42ce492ac02a7afba899b21c3bd76"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/06_一致性审查与全量追踪.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/06_一致性审查与全量追踪.md",
+      "bytes": 14943,
+      "sha256": "dc945c97aea5787bfb373cbcf5fe89f86880a401f259ad3c4a4c962d1068a368"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/07_C3验收报告.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/07_C3验收报告.md",
+      "bytes": 5887,
+      "sha256": "0ae7b79f5a6d3beb97171b064b9c6ddb5662c0b6357c025807dd9dd995f715d5"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/package-manifest.json",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/package-manifest.json",
+      "bytes": 2164,
+      "sha256": "febd3203a4c70be3b1f33325881ffb15cc6215887c2f0f76dfc33f994bdb3ecd"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/references/C3-R1_场景种子与任务.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/references/C3-R1_场景种子与任务.md",
+      "bytes": 20551,
+      "sha256": "38ce4ff645bd449295980d8d427ffbd76b6fd85cc6ca7570ce3fd326d839f271"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/references/C3_完整补充资料.md",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/references/C3_完整补充资料.md",
+      "bytes": 49190,
+      "sha256": "5ba2791f034b694caeec384081bfbed97117d09070e2c0241111d0e65f78ffcc"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/nap-c3-validation/validation-results.json",
+      "source_path": "Next-Action-Policy-V0.1/nap-c3-validation/validation-results.json",
+      "bytes": 2430,
+      "sha256": "0057d0ca65331f0fa2b34ede4f9c0ad02a9b30f92364cce3994eb3fd389d8064"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/package-index.json",
+      "source_path": "Next-Action-Policy-V0.1/package-index.json",
+      "bytes": 80094,
+      "sha256": "289cbc796f28148573cb4cbf72d49450203c648d0c40d42138d26815f02a39a3"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/policy/action-policy.md",
+      "source_path": "Next-Action-Policy-V0.1/policy/action-policy.md",
+      "bytes": 8942,
+      "sha256": "c18efed036285653bfb76ff1b0de3872512b6d7a5afc1b8a938cbbfa6107112b"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/policy/behavior-spec.md",
+      "source_path": "Next-Action-Policy-V0.1/policy/behavior-spec.md",
+      "bytes": 10135,
+      "sha256": "39c5c9c8bf6d44ae251eae470499385fa5be06623931b4263736628242054f14"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/quality/cases.jsonl",
+      "source_path": "Next-Action-Policy-V0.1/quality/cases.jsonl",
+      "bytes": 323393,
+      "sha256": "2ff9167787b97791cbd296aa0fd4286f82f0ac56e34af06ad7abda46833d4ac2"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/quality/cases.schema.json",
+      "source_path": "Next-Action-Policy-V0.1/quality/cases.schema.json",
+      "bytes": 10293,
+      "sha256": "70fc152488956e6e3a1ddf7214cafb8bd9dc39cee37f81c5ee5f06f260e11e38"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/quality/check_package.py",
+      "source_path": "Next-Action-Policy-V0.1/quality/check_package.py",
+      "bytes": 13651,
+      "sha256": "d3a909fb6a47985cd4627caf43199bc68aa3029124836cdcce9a3404ee051651"
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/quality/evaluation.md",
+      "source_path": "Next-Action-Policy-V0.1/quality/evaluation.md",
+      "bytes": 11384,
+      "sha256": "0e40d74d4484968e055976bf53db7c694fedb1876c0ae0e69a1d475f887bf553"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "source_path": "decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "bytes": 9555,
+      "sha256": "06859a521ca2cef323f9fce27aa4c4a9732129b524587a93020b04b907e51259"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "source_path": "decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "bytes": 8952,
+      "sha256": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "source_path": "decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "bytes": 8715,
+      "sha256": "d9eb74c8b25390db2e9eb9eb3d6aa66b1f1ea8c965e528a9c5528758d3000f37"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
+      "source_path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
+      "bytes": 5840,
+      "sha256": "78792ffdc71bf9fc338a625be9a6a59687ed0260d2ca43e35e02ea56c957134a"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "source_path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "bytes": 13928,
+      "sha256": "83b4f9568aa6c2b2ac839740c747077a913f56d0996d2391c98119cd41ecbc87"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
+      "source_path": "decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
+      "bytes": 180626,
+      "sha256": "5e51de6da5ec94a7cb2f2c1337b3b0ae2a365414186715b258e071e7070a4199"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/README.md",
+      "source_path": "decision-context-v0.1/90_可运行工程包/README.md",
+      "bytes": 5177,
+      "sha256": "44af51c1c52677c9fce6347a9accb8b7148a51bc269b7aa19228b3e97ab37360"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py",
+      "bytes": 8790,
+      "sha256": "9c878b3660ed6bba49e5472bc67f37949dfa7e7699c3e7bc22c15d36cd2d5669"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/examples/exploration.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/examples/exploration.json",
+      "bytes": 12606,
+      "sha256": "992f5b93cdd4e3fc97f48fb8a5a3b33aa24a0b3015192326004b09459fd5f1b1"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/examples/recovery.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/examples/recovery.json",
+      "bytes": 17109,
+      "sha256": "1fedad54a7e50bf74d15aaba3f46b5a8bdcdd53c1331ad2aa326c4691eef3b4c"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "bytes": 15629,
+      "sha256": "dbe78901fbe4e2283727fbdfde5ff54a2b8d8d01bf4dcd947e5c546288b5b661"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "bytes": 15615,
+      "sha256": "0f318890cbda2f7f7b4388a687e67c800080f10b3f1f72e5f6e52de1b2366420"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "bytes": 15134,
+      "sha256": "9d4ae5e72f2bb1fc65005e6d00eac109b9e5507510bad50075bd300016321df3"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "bytes": 15622,
+      "sha256": "82f327c57503d0508b5d78a559c11a99a8ed2dfabf4fd840324197ea1872ce32"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "bytes": 15548,
+      "sha256": "6be635c3b0f50301733fde951158ead957f9ad4458792a22f927a172fcceee7b"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "bytes": 15936,
+      "sha256": "0f0d88beea772e373b86bf29ae47a473a9d33a5c0cdf2b5df0ffdca7785c53f8"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "bytes": 18014,
+      "sha256": "e3aa7bd83369d924edd06328f8e12094b174ab3a44abf0eaac2913792bfddba0"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "bytes": 15615,
+      "sha256": "ec1066639726a8bd689c330a5f6969ef2dbece01bf717a5bd6c6b98e67c2819b"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "bytes": 16940,
+      "sha256": "8ae63db9fe5fe8427ea0d984baeeeb5fcde30b50e00bacb01f81f3fd5465af0c"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "bytes": 15334,
+      "sha256": "fd70fc026f6f62777acd81f12436ae7565743c27da3a67e061f94a43e3a8156f"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "bytes": 15658,
+      "sha256": "e403b88ec60bddf87b2d0748caeeaad1a0ba88dad12a372ea846ae84a7c9724a"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "bytes": 16338,
+      "sha256": "c55c8508ad8df53feeb53c56f53434cd0d3793ff23d130cec453cdaf17ce814a"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "bytes": 15277,
+      "sha256": "88eee3457e2cddb9d864d902e394f20558b822ffab808dbef1d405613d58cd86"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "bytes": 15537,
+      "sha256": "2823455f0296c66fa71a25e9b7c3aa1006dc68554f3094a119dc0b522e74196f"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "bytes": 18677,
+      "sha256": "0a771ac2d8cd209ab0336315ee62437c381b32e5bf46de420808c4bd8046e8d3"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "bytes": 15279,
+      "sha256": "a95f2094b54e4fae87d64a22d189c4f18680f735454bb0d53f6983f492e3b202"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "bytes": 16122,
+      "sha256": "5529e979fe73d764df265e65e35d970c7c36cd24eee4d56c7c1889b8316f43b9"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "bytes": 15916,
+      "sha256": "ed0720bfec211ec40d583669f868ac6300e7377300d5eb9411cf7ffef0026197"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "bytes": 15281,
+      "sha256": "49617c2942ac52dceff0d5395dd2d3dcb7d3a75645276db2f59de3d9f5e9aaac"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "bytes": 16137,
+      "sha256": "c46d6f270900250e98c9cee140a32566979b9405eb30e92a27150bdd4717af81"
+    },
+    {
+      "path": "decision-context-v0.1/package-index.json",
+      "source_path": "decision-context-v0.1/package-index.json",
+      "bytes": 23172,
+      "sha256": "9ad8031b6d8475c58f08c30bb7f3640260b37427022452227cd5f621ff5ddb38"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/AUTHORITY_FINAL.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/AUTHORITY_FINAL.md",
+      "bytes": 8900,
+      "sha256": "84ffda0b03e5055c0a39a3683dae68fe93ec60feebbb06a5011349917366283d"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/CONSISTENCY_REVIEW.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/CONSISTENCY_REVIEW.md",
+      "bytes": 6278,
+      "sha256": "c7a6e3f60b2245af54ebc3e5fa8a79358f888604272b19944ea6edc6d5fd6c29"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/ENUM_GLOSSARY.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/ENUM_GLOSSARY.md",
+      "bytes": 6659,
+      "sha256": "39755c968b8e3d2b746c0d2dcdf91f013720f062d5d435e56a27a0ab39eb4d46"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
+      "bytes": 13066,
+      "sha256": "33893fe6262d034d66033a0b731fd1474ec52350e6e50c89f3bfc77e1b3d8241"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/FIELD_DICTIONARY_FINAL.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/FIELD_DICTIONARY_FINAL.md",
+      "bytes": 77696,
+      "sha256": "0c8417187633dd2b850b724be24f0d7c112fb143fc0f5adc8682dab2c249a2bc"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/FINAL_CANDIDATE.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/FINAL_CANDIDATE.md",
+      "bytes": 8157,
+      "sha256": "822fb716df9d384194820b98001afb907e7d606f2f0950caf0dc1b22cedef49c"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/FINAL_CONSISTENCY_REVIEW.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/FINAL_CONSISTENCY_REVIEW.md",
+      "bytes": 3638,
+      "sha256": "015ddb8a3cd30386b26dde287ec7ccb6a449b07b0b34bc1ca65e4d5f21f05372"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/HISTORY_FINAL.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/HISTORY_FINAL.md",
+      "bytes": 3857,
+      "sha256": "40edd6432c57c87cb8d6ed587f8e25a7a4ef72b033423329189a38f0554055b0"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/INVARIANTS_FINAL.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/INVARIANTS_FINAL.md",
+      "bytes": 5544,
+      "sha256": "f1f12447f06bef094a07a68d6af8c6111c8ac61d9646034cb7f987ff0f0e0c90"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/LIFECYCLE_FINAL.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/LIFECYCLE_FINAL.md",
+      "bytes": 6477,
+      "sha256": "7b03ad92cd5521683977bfb85d2f2cab2380b9b0da2a41fa27be73bf9a2b84e7"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/OBJECT_RELATIONSHIPS_FINAL.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/OBJECT_RELATIONSHIPS_FINAL.md",
+      "bytes": 9354,
+      "sha256": "b495793c5b3127a0748bbc1545722fbbd7ba91eee513f0df1d6389ae987fb166"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/OPEN_TRADEOFFS.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/OPEN_TRADEOFFS.md",
+      "bytes": 1400,
+      "sha256": "ee22bc541a1675db3704e9dffeaf7bd5b2081239fb269310aabc27106461d31a"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/PACKAGE_GUIDE.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/PACKAGE_GUIDE.md",
+      "bytes": 3049,
+      "sha256": "df1f40cc9d2ed6f061b8eafe78f1ba6bb651e5a03b400e80570d3a703dc51eb2"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/PROPAGATION_FINAL.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/PROPAGATION_FINAL.md",
+      "bytes": 7599,
+      "sha256": "0dd69fe4e0094de1c7b3e48a9d6d24709e05e830caf530e76445d572019eb11a"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/README.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/README.md",
+      "bytes": 3171,
+      "sha256": "ba734a2999d626e12308ea03e55bf59e8afc9e722ca66505facef98155a90b4d"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/SCENARIO_VALIDATION.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/SCENARIO_VALIDATION.md",
+      "bytes": 11519,
+      "sha256": "a74a651e14089b292f9be13a3f7e9a3efea4e5b8c6de4a1a6f1d349d8dfb2d77"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/SHARED_TYPES.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/SHARED_TYPES.md",
+      "bytes": 9395,
+      "sha256": "98f4a5a0feb9fa7bda8ec13b4827184a3587b3b4596c68e43d97cc51bbd8db45"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/SPECIFICATION.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/SPECIFICATION.md",
+      "bytes": 24757,
+      "sha256": "9516ecd29b93e56b3aa2458c62a8228da98f7374233c20f4c1a6009abd00f152"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/STATE_TRANSITIONS.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/STATE_TRANSITIONS.md",
+      "bytes": 11371,
+      "sha256": "0dd6489378c15250377b55046e0310896cd33ad8681cc99b3d7e86774e891230"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/STATE_TRANSITIONS_FINAL.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/STATE_TRANSITIONS_FINAL.md",
+      "bytes": 14945,
+      "sha256": "f5292d4c251e08937e0692ea79641c4bb0f5f7d27dff4888a44a3d29714a702b"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/TRACEABILITY.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/TRACEABILITY.md",
+      "bytes": 8360,
+      "sha256": "61201d6bfb17cbbdd9a2f731c2eb7899a047a7969391d1ca6897aeb9f8970071"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/V1_READINESS.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/V1_READINESS.md",
+      "bytes": 3023,
+      "sha256": "02f344a58c48cfaee6416a26ddc485a5c333d7b85d6c19375ae398078f338186"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
+      "bytes": 2367,
+      "sha256": "3149aaa7752bcedd242b422180fb6194bacbc62445ab4bb6f2ec82e1c9ac2966"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/00-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/00-request.json",
+      "bytes": 944,
+      "sha256": "6b1105da355119ef2940b68202691477872ea9e472bb04409ad1b2f9301db8cb"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/00-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/00-response.json",
+      "bytes": 1358,
+      "sha256": "d3e0ace953e295cef3025b6bc42ffd75665fb4584e9e37eb7a08c43008ccb3da"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/01-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/01-request.json",
+      "bytes": 413,
+      "sha256": "72770ad51d40346071983adcb85a09ed85fbe1e3b789070a1da0e44568aea89d"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/01-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/01-response.json",
+      "bytes": 6784,
+      "sha256": "c8747975eeee4362cbbb8de79607d9d67ed547b631b9f2fe17ad346eaf4a9d26"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/02-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/02-request.json",
+      "bytes": 426,
+      "sha256": "611cea76cf962d4f1e2492e3813284edd25402e9d12206853afd011fe37a0c01"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/02-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/02-response.json",
+      "bytes": 2514,
+      "sha256": "8a7d025961c7ecbce7849b7aca1f2ecad34d35e3d96bcc50ac4a00ff3196b95b"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/03-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/03-request.json",
+      "bytes": 521,
+      "sha256": "1fddadb50b856e2bb6ca627c2a6b9b1f33f292628f435dec41203a3319e8cfc8"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/03-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/03-response.json",
+      "bytes": 6490,
+      "sha256": "03a04129bee6771583fd1d5b31e5c7d5bb09e2e6bd0aa752e32fad96ca52fdab"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/04-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/04-request.json",
+      "bytes": 176,
+      "sha256": "c0fd3bff575ba4bd5a6a23a9793f347aa1ce78890747668d09cc11100264acc0"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/04-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/04-response.json",
+      "bytes": 282,
+      "sha256": "7b948568e12158d12defd433a4681b14dbefb8daf09137fe4ec113db158686cf"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/05-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/05-request.json",
+      "bytes": 521,
+      "sha256": "d08a0e5002db06f9360aee2e6b009b1d8611e3cdc81c755894d5a4bb00bc54b9"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/05-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/05-response.json",
+      "bytes": 6472,
+      "sha256": "cb663b5df86f5598ef4131ecea923453505c96a0c3fc24945aa1ce8a21f70aa2"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/06-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/06-request.json",
+      "bytes": 1193,
+      "sha256": "6f32a7e5da4f4b4cfa48bf3cbb256663bd6014b0217f2ee7f767542e547e9e90"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/06-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/06-response.json",
+      "bytes": 3060,
+      "sha256": "fdb6e61b9a21266190258a9a1487a222c0722cdb9394323afb04f676b810307d"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/07-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/07-request.json",
+      "bytes": 625,
+      "sha256": "ecb907b76680fcbcc5e54aa4a38bac751618fe62c63a963f09d8ab095c5f1c04"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/07-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/07-response.json",
+      "bytes": 3477,
+      "sha256": "4fa73accdf4a5ec4dd159a13e5bb3476147e1ce2ab3f79fddbf6fd02508b8fa1"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/08-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/08-request.json",
+      "bytes": 552,
+      "sha256": "57076184a8a112a1691fbb00ff134d814136ed320bbcc3c5db476b5091a4a400"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/08-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/08-response.json",
+      "bytes": 17956,
+      "sha256": "ab3aed2703209dbf0c5bc2526ddd8bb5325a398397e8e27a7413bf9c29145437"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/09-request.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/09-request.json",
+      "bytes": 381,
+      "sha256": "81be049c1608b1eac98828f77d404c49c01302b2796fefe15c1a939131617daf"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/09-response.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/api/09-response.json",
+      "bytes": 6470,
+      "sha256": "4e556aa8bbd7016847f2ad4d3ad5c9b393255f5edccda3b5ea0849956f5f9775"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/complete-egypt-state.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/complete-egypt-state.json",
+      "bytes": 18318,
+      "sha256": "110eca24c175bdd79511dd3d7af94894231f69f5a7aa155a25835ff8d7949215"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/decision-context.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/decision-context.json",
+      "bytes": 1671,
+      "sha256": "23c1ef75d2e7a2d261f58ebcd9a36c237759513d43e16622a0e751efb6802fc4"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/final-state.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/final-state.json",
+      "bytes": 21601,
+      "sha256": "26a6962542221b5e78df639a163b8f8bd8ecd4e208639b4814eaa3c8b6f0833d"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/history.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/history.json",
+      "bytes": 72202,
+      "sha256": "0b721ac37425bc0c1f4b4243ab4294448e687a1032cd42385245aa685eef1e49"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/initial-egypt-state.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/initial-egypt-state.json",
+      "bytes": 13781,
+      "sha256": "0df678603703600f3f5774abbb681b4ef2200e26ec4daa0ae989a507434a8cd5"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/invalid-cases.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/invalid-cases.json",
+      "bytes": 49731,
+      "sha256": "ed044a395800e5dc5682c921261034551f80e83da8ed126799f5560f6fc39ee4"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/minimal-state.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/minimal-state.json",
+      "bytes": 131,
+      "sha256": "7c46b6e8f79f9f01fd1259152e67520feb0d57a1a40e3ce672aef600ef362f58"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/multi-turn-trace.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/multi-turn-trace.json",
+      "bytes": 281442,
+      "sha256": "0e80e93cb804f005657446b78259c0259dbd61f9ea520ca6108ca2830c3e038d"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Candidate.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Candidate.json",
+      "bytes": 844,
+      "sha256": "5120d7023b5dcae0bd903870245f718f1d30a9178de777ccb77af303f8e427f5"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/ChangeRecord.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/ChangeRecord.json",
+      "bytes": 1722,
+      "sha256": "050b4ee6ec514a7a0480ec7a86f5eeca174251fbba6ea1609c8a28c125911140"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Constraint.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Constraint.json",
+      "bytes": 582,
+      "sha256": "2a2215bc494d389190443d2d9165fee90010836263189f10ed0db5c6fe2b2be7"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Decision.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Decision.json",
+      "bytes": 1010,
+      "sha256": "c6d6ba97753088971eb25016c00c7045962d7ad3897dd8c8b22b777102938d2c"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/DecisionContext.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/DecisionContext.json",
+      "bytes": 1671,
+      "sha256": "23c1ef75d2e7a2d261f58ebcd9a36c237759513d43e16622a0e751efb6802fc4"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/DestinationEntity.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/DestinationEntity.json",
+      "bytes": 608,
+      "sha256": "025b71624e10b30f5eb17bc47b8fe4065c360e1174f50d2aa32d2f701ff2da2d"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/ExternalFact.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/ExternalFact.json",
+      "bytes": 1139,
+      "sha256": "a08446cc2dc2a5ee3dbc7bc93df14d53712f7ae6d3c46fdd5ddc3858cecb180d"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/OpenIssue.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/OpenIssue.json",
+      "bytes": 757,
+      "sha256": "79424211d6aa5081bd8c9d9f6d448ff8c4a6405ed20a5b420d63f8b033c770a5"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/OperationIntent.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/OperationIntent.json",
+      "bytes": 390,
+      "sha256": "4811adf26164aedca171e15f8b5424f103e31a43cf623270010bddaf10adf087"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Preference.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Preference.json",
+      "bytes": 775,
+      "sha256": "c1127f11b9ac4756af495ef7e8e56611e0b19c9be1b9afe70a7397e56acffcce"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Skeleton.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/Skeleton.json",
+      "bytes": 2253,
+      "sha256": "5eafbe25140a7e91333f64ffdac4af563092044b46345900a1c91d0a91cacebd"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/TripGoal.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/objects/TripGoal.json",
+      "bytes": 649,
+      "sha256": "1898dedfead02af416477091bb65ef881f6b4c55a3851394789eb371b9046db4"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/examples/scenario-traces.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/examples/scenario-traces.json",
+      "bytes": 1306674,
+      "sha256": "90d551cefc89272f68bc091d10e1ec48b41a0cfd8601a5da3d533192747f3a82"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/requirements.txt",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/requirements.txt",
+      "bytes": 107,
+      "sha256": "d993e8c54f162ebcb016db49b6f667fe2359b350f90b6bb561c22b54c03efabd"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/rules/field-dictionary.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/rules/field-dictionary.json",
+      "bytes": 1164133,
+      "sha256": "d5ac5982e948284eddc9b63c6eaa9da7e8c2d42a301b394575b61060a7a9fd00"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/rules/transitions.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/rules/transitions.json",
+      "bytes": 22898,
+      "sha256": "ab5a0e09f266938e575472af81d314ff191ade7986d71e49472c1f40d1bef01c"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/scenario_runner.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/scenario_runner.py",
+      "bytes": 11599,
+      "sha256": "12d2ba98306299838f1bf7810c8689cc3ecde2436c758c9d51dc5e00554b45bb"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Candidate.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Candidate.schema.json",
+      "bytes": 8216,
+      "sha256": "5c4e3de3f5489afea17f5761b733df54474d0c8b5805e0ebd7021a361f9341a7"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/ChangeRecord.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/ChangeRecord.schema.json",
+      "bytes": 5749,
+      "sha256": "f3f4d5dad698917676ce1b9036554c108f14ba2886820f2558565cbffb58cd77"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Constraint.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Constraint.schema.json",
+      "bytes": 12700,
+      "sha256": "fd9b89260255f64cd449504e4a52f3a8d9347c3d433a7363816fd227720223a2"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Decision.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Decision.schema.json",
+      "bytes": 6368,
+      "sha256": "e94a0730abbd000ca565112e1446c7fabc59d74e3c0f745f72dbcd32820e3448"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/DecisionContext.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/DecisionContext.schema.json",
+      "bytes": 3011,
+      "sha256": "b48a143bb6fc50eb6859305a783bb6b6b1de4e10e5e7b2ade3feededd3172aa7"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/DestinationEntity.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/DestinationEntity.schema.json",
+      "bytes": 5474,
+      "sha256": "80b18d43f8db8abe318d7335192386cef7280c6dac29c2b113713ccba52c28dd"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/ExternalFact.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/ExternalFact.schema.json",
+      "bytes": 10887,
+      "sha256": "84939312a1f9af75bc1333c5d9ff3142b74bb96ec3c280cd94f23ab8d4c05c2b"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/OpenIssue.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/OpenIssue.schema.json",
+      "bytes": 6173,
+      "sha256": "645fd45267f0880babcc52277067645d7a9873b5887a0a71aa3e4590a4212840"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/OperationIntent.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/OperationIntent.schema.json",
+      "bytes": 1922,
+      "sha256": "3417069753c6cd115c8873b8fb5648544a673d2a828ac274049edbbd8984b7bd"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Preference.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Preference.schema.json",
+      "bytes": 7979,
+      "sha256": "1a21d3f611adc1ce264c9272e795b7cdc760161b8a10aa1b0510b06324855c2e"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Skeleton.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/Skeleton.schema.json",
+      "bytes": 20307,
+      "sha256": "543a434829297c18dab495752bad283595729b97acdd0d5297c91830b455159c"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/TripGoal.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/TripGoal.schema.json",
+      "bytes": 5187,
+      "sha256": "4baa030c0f8237f5a1dd424413140698895591ab2f1a54fa0e0368dc296c381b"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/change-request.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/change-request.schema.json",
+      "bytes": 1718,
+      "sha256": "a49f81e579fd11a2c593a03c4be14646a6a32315e205f23383bce1857a485f78"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/command.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/command.schema.json",
+      "bytes": 127939,
+      "sha256": "af386da7267dff13187f7bad70a51d83522453549de342b47e17f1eca4ced059"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/common.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/common.schema.json",
+      "bytes": 13884,
+      "sha256": "d3ce31b9e4df52031ad977b09118c59710482282f58de02f7307575af9b31e5c"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/confirm-request.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/confirm-request.schema.json",
+      "bytes": 703,
+      "sha256": "df147f358ac0de766e7459a85c8f7f6a42d8be217e9f001d49d8ae4e157eb76a"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/context-request.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/context-request.schema.json",
+      "bytes": 613,
+      "sha256": "fe61bb28928ac12e814dba0065151783ad31dfec950d595a3a6ebe6c51c17e7e"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/history.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/history.schema.json",
+      "bytes": 626,
+      "sha256": "e4a6b803557f53d2561e32e2e2f47b0d2517266d8835de7a4e263e6c34d33915"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/response.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/response.schema.json",
+      "bytes": 5016,
+      "sha256": "0ff5cf6c677855eceda87b863c29154dde5af67785a0fadb7f93219487d52b08"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/schemas/state.schema.json",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/schemas/state.schema.json",
+      "bytes": 1848,
+      "sha256": "ef3bc93d7b602ddb69d56ad592bd5f210445cbd063784cbfac5aeea4ebfe388b"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tests/test_artifacts.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tests/test_artifacts.py",
+      "bytes": 8101,
+      "sha256": "c268d1c3a49b34dcfe39f4a7caa79a67806a875dec82f8b16dbf06516b73049b"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tests/test_global_consistency.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tests/test_global_consistency.py",
+      "bytes": 11491,
+      "sha256": "d9c0d54261caa40a118bd466f446922bfb4c29fc9a64a4f8b3f9df6a35fc0183"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tests/test_reservation_profile.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tests/test_reservation_profile.py",
+      "bytes": 7258,
+      "sha256": "68f7f996833881f2cda471b06de205fe8ff7c4095d561e4ddf951542464dffc0"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tests/test_tripstate.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tests/test_tripstate.py",
+      "bytes": 35475,
+      "sha256": "423e888051080e37923f8fab8275762b8b84ddf753ae96e20b7885844e04fb29"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/__init__.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/__init__.py",
+      "bytes": 82,
+      "sha256": "f1f72a1969488eb8587a4a5ad1c9986c261b5685b85386fa4087b4dbd5cbc2f7"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/api.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/api.py",
+      "bytes": 1958,
+      "sha256": "33098e2696e4f4886fd7b45ce2ec5e8d0ad4a938b332021eb64a95b7c3a2efc6"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/contracts.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/contracts.py",
+      "bytes": 20463,
+      "sha256": "2ba4b92efa2f7767b97b3a666da191a70c5a8ed71f24ef49fae7d0776b8f1821"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/engine.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/engine.py",
+      "bytes": 42560,
+      "sha256": "7c9d80611a0b08b06842967446bc7c8ff9f54ee2e13210d7fa978d210700c777"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/fixtures.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/fixtures.py",
+      "bytes": 6284,
+      "sha256": "9334647d3a5c3d6318b1f396d4776f4121f6070d6f277b123cd87c85e2fea3cd"
+    },
+    {
+      "path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/rules.py",
+      "source_path": "trip-state-schema-v0.1/90_可运行工程包/tripstate/rules.py",
+      "bytes": 30893,
+      "sha256": "540a4877fc6fe53b0695f24b1f259e11e110baef2e5117db05bed4cc92ba2815"
+    },
+    {
+      "path": "trip-state-schema-v0.1/package-index.json",
+      "source_path": "trip-state-schema-v0.1/package-index.json",
+      "bytes": 35052,
+      "sha256": "416ee1a0012861fb1362c69fcae934ceb4f458db721c6e9cd816200390b60868"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "id": "decision-proposal-0000000000000000000000000000000f",
+  "type": "Decision",
+  "trip_id": "trip-egypt-test",
+  "version": 2,
+  "status": "confirmed",
+  "scope": {
+    "kind": "trip",
+    "ids": []
+  },
+  "dependencies": [],
+  "source": {
+    "actor": "user",
+    "actor_id": "user-demo",
+    "reference": "synthetic-input",
+    "text": "用户明确采用；预算缺项仍然存在",
+    "at": "2030-01-01T00:00:00Z"
+  },
+  "updated_at": "2030-01-01T00:00:00Z",
+  "subject_id": "skeleton-a",
+  "subject_version": 3,
+  "decision_kind": "adopt_skeleton",
+  "value": "accept",
+  "confirmation_scope": [
+    "cities",
+    "order",
+    "stays",
+    "connections"
+  ],
+  "basis_ids": [
+    "constraint-budget",
+    "constraint-dates",
+    "constraint-nights",
+    "cost-transport",
+    "fact-cairo-luxor"
+  ],
+  "acknowledged_unknowns": [
+    "partial_budget:constraint-budget"
+  ],
+  "confirmed_by": "user-demo",
+  "confirmed_at": "2030-01-01T00:00:00Z",
+  "supersedes": null,
+  "review_state": "stale"
+}
