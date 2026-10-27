@@ -56,10 +56,16 @@ jobs:
           test -n "$DATABASE_URL"
       - name: Install locked dependencies
         run: npm ci
+      - name: Install isolated original Python contract oracle
+        run: |
+          python3 -m venv "$RUNNER_TEMP/trip-state-oracle"
+          "$RUNNER_TEMP/trip-state-oracle/bin/python" -m pip install -r scripts/requirements-oracle.txt
+          echo "TRIP_STATE_PYTHON=$RUNNER_TEMP/trip-state-oracle/bin/python" >> "$GITHUB_ENV"
       - name: Verify dependency tree and specification handoff
         run: |
           npm ls --all
           npm run specs:verify
+          npm run contracts:check
       - name: Validate Prisma schema
         run: npm run db:validate
       - name: Generate Prisma client

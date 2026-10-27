@@ -79,7 +79,10 @@ if (mode === "export") {
     if (!target.startsWith(`${bundle}${path.sep}`) || fs.lstatSync(target).isSymbolicLink()) throw new Error(`Unsafe manifest path: ${file.path}`);
     if (fs.statSync(target).size !== file.bytes || digest(target) !== file.sha256) throw new Error(`Specification integrity failed: ${file.path}`);
   }
-  console.log(JSON.stringify({ verified_files: manifest.files.length, trip_state_baseline: manifest.approval.trip_state_0_1_0, unresolved: manifest.unresolved }));
+  const approvalPath = path.join(root, "specs", "trip-state-development-baseline.json");
+  const approval = fs.existsSync(approvalPath) ? JSON.parse(fs.readFileSync(approvalPath, "utf8")) : null;
+  if (approval && (approval.version !== "0.1.0" || approval.status !== "OWNER_CONFIRMED_FOR_E02_DEVELOPMENT" || approval.source_manifest_sha256 !== digest(manifestPath))) throw new Error("Development baseline does not match the Owner-confirmed snapshot");
+  console.log(JSON.stringify({ verified_files: manifest.files.length, snapshot_trip_state_status: manifest.approval.trip_state_0_1_0, current_development_baseline: approval?.status ?? "PENDING_OWNER_CONFIRMATION", unresolved: manifest.unresolved }));
 } else {
   throw new Error("Use: node scripts/specs.mjs export <local-product-directory> | verify");
 }

@@ -2,7 +2,7 @@
 
 版本化快照：[`baseline-2026-10-27/`](baseline-2026-10-27/)。这里是从已授权的本地产品工作区逐字节复制的权威正文、机器契约与必要样例；原规格未被修改。应用不从这里直接导入 Python 参考实现，也没有因此实现 Trip State、Decision Context 或 NAP。
 
-**Trip State 0.1.0 是待 Owner 确认的 E02 开发基线，不是本任务代签批准的最终发布基线。** DC R4 和 NAP 的原审核状态保留。
+**Owner 已于 2026-10-27 明确确认 Trip State 0.1.0 为 E02 正式开发基线。** 确认原话、适用范围和快照哈希绑定见 [开发基线记录](trip-state-development-baseline.json)。原始快照里的待确认状态保留为交接当时的历史记录，不改写来源元数据。当前只授权 E02-01 编码，完成后由技术负责人审核；DC R4 和 NAP 的原审核状态保留。
 
 | 阅读顺序 | 入口 | 用途 |
 | --- | --- | --- |
@@ -22,13 +22,13 @@
 npm run specs:verify
 ```
 
-该命令在本地、GitHub Actions 和新云端任务中都可执行，不依赖 Mac 的上级目录；它证明字节完整和候选状态保留，不代表业务规则已实现、Owner 已批准或 E02 已验收。`scripts/specs.mjs export <已授权的产品目录>` 是本次来源复制工具，已存在的版本化清单禁止覆盖。
+该命令在本地、GitHub Actions 和云端任务中都可执行，不依赖 Mac 的上级目录；它校验字节完整，并核对独立开发确认记录的快照绑定，不代表业务规则已实现或 E02 已验收。`scripts/specs.mjs export <已授权的产品目录>` 是来源复制工具，已存在的版本化清单禁止覆盖。
 
 TS `tripstate/` 和四份语义测试文件仅作原有参考运行逻辑与移植对照；分发打包工具和只验证阅读镜像的 `test_package.py` 没有交接。DC 交接当前机器契约、两份样例、声明源和五份工程规格，没有交接其运行模块实现及 legacy 契约。历史验证报告只作原来源状态记录，不能算作本次新执行结果。
 
 ## 必须保留的未决事项
 
-1. **Owner 确认：** TS 开发基线待确认；DC 仍为最终审核候选；NAP `owner_approval=NOT_RECORDED`、C3-R2 有条件通过。
+1. **审核范围：** TS 0.1.0 开发基线已获 Owner 明确确认；E02 后续切片按技术负责人审核逐步实施。DC 仍为最终审核候选；NAP `owner_approval=NOT_RECORDED`、C3-R2 有条件通过。
 2. **DC 版本：** 运行索引、代码和机器 Schema 为 `0.2.0`，原工程正文第 3 节表格仍写 `0.1.0`。正文照原样复制，未偷偷修正；正式 DC/NAP 接入前需规格负责人处理。E02 不实现该模块。
 3. **NAP 路径：** 原文指向同级 `../nap-c3-validation`，实际来源在 NAP 内部的 [nap-c3-validation](baseline-2026-10-27/Next-Action-Policy-V0.1/nap-c3-validation/)。10 份来源均已复制且哈希与原索引匹配；没有修改原链接或宣称原包检查器可直接运行。
 4. **未复制的个人路径元数据：** V2 总纲原文和 C3 `source-manifest.json` 含本机个人路径，未作为正文上传。保留原摘要和源关联于本次 manifest 的 `related_sources_not_copied`；E02 以已完整交接的 PRD 和 TS 契约实施，不凭摘要补写 V2 内容。
