@@ -6,7 +6,7 @@ AI Native Travel Product MVP — Sprint 1 / E01 engineering foundation.
 
 此前实际验收：[2026-10-27 E01 验收复核](docs/E01验收复核-2026-10-27.md)。[规格读取基线](docs/specification-baseline.json)保留当时本地四份资料的版本、摘要、审核状态与路径差异；它是历史检查记录。
 
-E01 收尾交接：[云端可读的版本化规格](specs/README.md)、[E02 最小编码任务](docs/E02最小编码任务.md)。此前的本地读取清单保留为历史检查；当前源码交接以 specs 的 manifest 为准，候选批准状态未改变。
+最新 E01 收尾：[CI、新云任务与规格交接验收](docs/E01收尾与E02交接-2026-10-27.md)、[云端可读的版本化规格](specs/README.md)、[E02 最小编码任务](docs/E02最小编码任务.md)。此前的本地读取清单保留为历史检查；当前源码交接以 specs 的 manifest 为准，候选批准状态未改变。
 
 ## Runtime
 

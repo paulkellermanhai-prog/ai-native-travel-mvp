@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-27",
+  "scope": "E01 closure, byte-preserved source handoff and E02 plan only",
+  "repository": "paulkellermanhai-prog/ai-native-travel-mvp",
+  "pull_request": 1,
+  "tested_sha": "04e429f767b3e0e9a32fc35a1063159404c8e399",
+  "github_actions": {
+    "run_id": 40475319148,
+    "job_id": 122092006337,
+    "url": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/40475319148",
+    "conclusion": "success",
+    "all_steps_passed": true,
+    "tests": {"passed": 7, "failed": 0, "skipped": 0},
+    "postgres_server": "17.11",
+    "db_check_ok": 1
+  },
+  "new_cloud_task": {
+    "thread_id": "01a17c88-a905-73fb-bfea-b6b401a97010",
+    "title": "ANTU E01 新云任务恢复验收",
+    "initial_sha": "d9f7145363fddd50078f125f2f403dc2b076f11d",
+    "tested_sha": "04e429f767b3e0e9a32fc35a1063159404c8e399",
+    "initial_postgres_running": false,
+    "initial_and_final_git_clean": true,
+    "runtime": {"node": "24.22.1", "npm": "11.19.1", "postgres_server": "17.11"},
+    "command_exit_codes": {"git_fetch_explicit_e01_branch": 0, "ff_only": 0, "npm_ci": 0, "npm_ls_all": 0, "specs_verify": 0, "check": 0, "db_check": 0},
+    "tests": {"passed": 7, "failed": 0, "skipped": 0},
+    "production_http": {"home": 200, "health": 200, "content_assertions_passed": true},
+    "source_files_readable_and_hash_verified": 155,
+    "full_evidence_location_within_that_task": "/workspace/.e01-runtime/e01-fresh-task-20261027.json",
+    "execution_limit": "Default sandbox EPERM resolved through normal require_escalated approval, without network or security policy changes",
+    "default_fetch_refspec": "+refs/heads/main:refs/remotes/origin/main",
+    "e01_branch_fetch_was_explicit": true,
+    "only_own_services_stopped": true
+  },
+  "local_clean_temporary_validation": {"npm_ci": 0, "specs_verify": 0, "check": 0, "tests": {"passed": 6, "failed": 0, "skipped": 1}, "limitation": "Mac has no running PostgreSQL; iCloud duplicate generated caches prevented original-directory typecheck, so source-only temporary validation was used"},
+  "package_lock_sha256": "bc44396fc047275cc45242c849422216e056558311858c25b0c39ca0127ced81",
+  "handoff_manifest": "specs/baseline-2026-10-27/manifest.json",
+  "trip_state_baseline": "DEVELOPMENT_BASELINE_PENDING_OWNER_CONFIRMATION",
+  "unresolved": ["DC prose 0.1.0 versus machine/runtime 0.2.0", "NAP sibling reference versus actual nested C3 location", "Owner confirmation and technical-lead approval before E02 coding"],
+  "merged": false,
+  "business_implementation_started": false,
+  "note": "This receipt records its tested SHA. Later report-only commits must obtain their own latest-head PR check; inspect PR Checks for that conclusion."
+}
