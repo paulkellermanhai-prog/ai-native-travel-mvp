@@ -15,7 +15,7 @@ export function instantMicros(value: string): bigint {
   return BigInt(seconds) * 1000n + BigInt((fraction + "000000").slice(0, 6));
 }
 
-// Read-only receipt validation from rules.py. No fact ingestion, freshness command or provider integration.
+// Original strict receipt profile; used by static validation and controlled command guards.
 export function reservationProfile(fact: ExternalFact): Record<string, string> | null {
   const raw = fact.query.parameters;
   if (!raw.some((p) => p.name === "profile" && p.value === "reservation-v0.1")) return null;

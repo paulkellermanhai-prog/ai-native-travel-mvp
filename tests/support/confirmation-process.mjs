@@ -40,7 +40,12 @@ process.once("message", async (message) => {
     ...(typeof nextUuid === "number" ? { uuid: () => (nextUuid++).toString(16).padStart(32, "0") } : {}),
     authorize: (trip, credential) => {
       if (trip !== message.tripId || credential !== "synthetic-child-session") throw new Error("Denied by synthetic child host");
-      return { tripId: trip, actor: { role: message.method === "submit" ? "model" : "user", id: message.method === "submit" ? "scenario-ai" : "scenario-user" } };
+      // Explicit synthetic host fixtures only; this IPC process is guarded by NODE_ENV and a disposable database.
+      const actors = { model: { role: "model", id: "scenario-ai" }, user: { role: "user", id: "scenario-user" },
+        tool: { role: "tool", id: "scenario-provider" }, system: { role: "system", id: "scenario-system" } };
+      const role = message.syntheticActor ?? (message.method === "submit" ? "model" : "user");
+      if (!Object.hasOwn(actors, role)) throw new Error("Unknown synthetic host fixture");
+      return { tripId: trip, actor: actors[role] };
     },
   });
   try {
