@@ -54,8 +54,8 @@ describe.skipIf(!config)("E02-02 real PostgreSQL storage", () => {
 
   it("migrates a genuinely empty database and can deploy again without drift", async () => {
     expect(config!.emptyTablesBeforeMigration).toBe(0);
-    const { rows } = await owner.query('SELECT migration_name, finished_at FROM "_prisma_migrations" WHERE rolled_back_at IS NULL');
-    expect(rows).toHaveLength(1); expect(rows[0].migration_name).toBe("202610280001_trip_state_storage"); expect(rows[0].finished_at).toBeTruthy();
+    const { rows } = await owner.query('SELECT migration_name, finished_at FROM "_prisma_migrations" WHERE rolled_back_at IS NULL ORDER BY migration_name');
+    expect(rows).toHaveLength(2); expect(rows[0].migration_name).toBe("202610280001_trip_state_storage"); expect(rows[0].finished_at).toBeTruthy(); expect(rows[1].migration_name).toBe("202610280002_confirmation_capability"); expect(rows[1].finished_at).toBeTruthy();
     execFileSync(process.execPath, ["node_modules/prisma/build/index.js", "migrate", "deploy"], { encoding: "utf8", env: { ...process.env, MIGRATION_DATABASE_URL: config!.migrationUrl }, stdio: "pipe" });
   });
   it("round-trips real source snapshots and append-only intent/change history", async () => {

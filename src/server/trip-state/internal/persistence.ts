@@ -4,8 +4,8 @@ import { PrismaClient, Prisma } from "../../../generated/prisma/client";
 import { parseContract } from "../contracts";
 import { parseStateReferences } from "../references";
 import { checkStateCounters, safeCounter } from "../numbers";
-import { planCommand, validateActor, failureResponse, type Actor, type CommandRequest } from "../commands";
-import { validateStateSemantics, rule } from "../semantics";
+import { planCommand, previewCommand, planConfirmation, validateActor, failureResponse, stampTime, type Actor, type CommandRequest, type PendingDetails, type PendingProposal } from "../commands";
+import { validateStateSemantics, rule, instantMicros } from "../semantics";
 import { decodeCommandJson, digest } from "../command-json";
 import { TripStateContractError } from "../contracts";
 import type { TripStateContracts, State } from "../contracts.generated";
@@ -22,6 +22,8 @@ export type SyntheticStorageBatch = {
   change: TripStateContracts["ChangeRecord"];
   response: TripStateContracts["response"];
   proposalExpiresAt?: Date;
+  proposalCreatedAt?: Date;
+  proposalDetails?: PendingDetails;
 };
 export type StorageCheckpoint = "snapshot" | "history" | "proposal" | "idempotency" | "before-commit";
 
@@ -87,6 +89,48 @@ export function openTripStateReader(connectionString: string) {
   };
 }
 
+async function appendHistory(tx: Prisma.TransactionClient, tripId: string, intent: TripStateContracts["OperationIntent"], change: TripStateContracts["ChangeRecord"]) {
+  const last = await tx.tripStateHistory.findFirst({ where: { tripId }, orderBy: { sequence: "desc" } });
+  await tx.tripStateHistory.create({ data: { tripId, sequence: (last?.sequence ?? 0n) + 1n, intentId: intent.id, changeRecordId: change.id, intent: json(intent), change: json(change) } });
+}
+
+async function confirmPrepared(client: PrismaClient, tripId: string, proposalId: string, value: unknown, actor: Actor, host: CommandHost) {
+  rule(actor.role === "user", "PERMISSION", "只有经鉴权用户可确认");
+  const request = parseContract("confirm-request", value); safeCounter(request.expected_revision, "expected_revision");
+  const requestDigest = digest({ proposal_id: proposalId, request });
+  return client.$transaction(async (tx) => {
+    const [document] = await tx.$queryRaw<Array<{ revision: bigint; snapshot: string }>>`SELECT "revision", "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId"=${tripId} FOR UPDATE`;
+    requireStorage(!!document, "STORAGE_TRIP_NOT_FOUND", "Aggregate does not exist");
+    const before = storageState(document.snapshot);
+    requireStorage(BigInt(before.revision) === document.revision, "STORAGE_INTEGRITY", "Stored revision and JSONB disagree");
+    const [cached] = await tx.$queryRaw<Array<{ requestDigest: string; request: string; response: string }>>`SELECT "requestDigest", "request"::text AS "request", "response"::text AS "response" FROM "TripStateIdempotency" WHERE "tripId"=${tripId} AND "actorId"=${actor.id} AND "operationDomain"='confirmation' AND "key"=${request.idempotency_key}`;
+    if (cached) {
+      rule(cached.requestDigest === requestDigest && same(decodeCommandJson(cached.request), request), "IDEMPOTENCY_CONFLICT", "确认幂等键内容不同");
+      return storageResponse(cached.response);
+    }
+    const [row] = await tx.$queryRaw<Array<{ basisRevision: bigint; digest: string; payload: string }>>`SELECT "basisRevision", "digest", "payload"::text AS "payload" FROM "TripStateProposal" WHERE "tripId"=${tripId} AND "proposalId"=${proposalId}`;
+    rule(row, "PROPOSAL_NOT_FOUND", "提案不存在或已经处理");
+    const payload = decodeCommandJson(row.payload) as { request: unknown; actor: Actor; digest: string; expires: string; cache_key: string[]; details?: PendingDetails };
+    const original = parseContract("change-request", payload.request); validateActor(payload.actor); safeCounter(original.expected_revision, "expected_revision");
+    rule(payload.details && row.digest === payload.digest && row.basisRevision === BigInt(original.expected_revision)
+      && same(payload.cache_key, [payload.actor.id, payload.actor.role, original.idempotency_key])
+      && payload.expires === payload.details.expires_at, "STORAGE_INTEGRITY", "Proposal metadata disagrees");
+    const [originalCache] = await tx.$queryRaw<Array<{ requestDigest: string; request: string; response: string }>>`SELECT "requestDigest", "request"::text AS "request", "response"::text AS "response" FROM "TripStateIdempotency" WHERE "tripId"=${tripId} AND "actorId"=${payload.actor.id} AND "operationDomain"=${payload.actor.role} AND "key"=${original.idempotency_key}`;
+    rule(originalCache && originalCache.requestDigest === digest(original) && same(decodeCommandJson(originalCache.request), original), "STORAGE_INTEGRITY", "Original submit cache is missing or changed");
+    const shown = storageResponse(originalCache.response);
+    rule(shown.outcome === "pending_confirmation" && shown.proposal_id === proposalId && shown.proposal_digest === row.digest
+      && same(shown.diff, payload.details.diff), "STORAGE_INTEGRITY", "Displayed proposal cache disagrees");
+    const pending: PendingProposal = { proposalId, request: original, actor: payload.actor, digest: row.digest, expires: payload.expires, details: payload.details };
+    const plan = planConfirmation(before, pending, request, actor, host.clock, host.uuid);
+    const updated = await tx.tripStateDocument.updateMany({ where: { tripId, revision: document.revision }, data: { revision: BigInt(plan.snapshot.revision), snapshot: json(plan.snapshot) } });
+    requireStorage(updated.count === 1, "VERSION_CONFLICT", "Conditional update lost its expected revision");
+    await appendHistory(tx, tripId, plan.intent, plan.change);
+    await tx.tripStateIdempotency.create({ data: { tripId, actorId: actor.id, operationDomain: "confirmation", key: request.idempotency_key, requestDigest, request: json(request), response: json(plan.response) } });
+    await tx.$queryRaw`SELECT public.finalize_trip_confirmation(${tripId},${proposalId},${JSON.stringify(plan.response)}::jsonb)`;
+    return plan.response;
+  }, { timeout: 15000, maxWait: 15000 });
+}
+
 async function commitPrepared(client: PrismaClient, envelope: {
   tripId: string; request: Request; key: RequestKey; materialize: (current: State) => SyntheticStorageBatch;
 }, fault?: (point: StorageCheckpoint) => void | Promise<void>) {
@@ -144,25 +188,31 @@ async function commitPrepared(client: PrismaClient, envelope: {
       const updated = await tx.tripStateDocument.updateMany({ where: { tripId: batch.tripId, revision: current.revision }, data: { revision: BigInt(after.revision), snapshot: json(after) } });
       requireStorage(updated.count === 1, "VERSION_CONFLICT", "Conditional update lost its expected revision");
       await fault?.("snapshot");
-      const last = await tx.tripStateHistory.findFirst({ where: { tripId: batch.tripId }, orderBy: { sequence: "desc" } });
-      await tx.tripStateHistory.create({ data: { tripId: batch.tripId, sequence: (last?.sequence ?? 0n) + 1n, intentId: intent.id, changeRecordId: change.id, intent: json(intent), change: json(change) } });
+      await appendHistory(tx, batch.tripId, intent, change);
       await fault?.("history");
       if (batch.proposalExpiresAt) {
         const [clock] = await tx.$queryRaw<Array<{ now: Date }>>`SELECT clock_timestamp() AS "now"`;
-        const expiry = batch.proposalExpiresAt.getTime();
+        const created = batch.proposalCreatedAt ?? clock.now;
+        const expiry = batch.proposalDetails?.expires_at ?? stampTime(batch.proposalExpiresAt);
         requireStorage("commands" in request && !!change.proposal_id && !!change.request_digest
-          && expiry > clock.now.getTime() && expiry <= clock.now.getTime() + 300000,
-        "CONFIRMATION_EXPIRED", "Proposal must expire within five minutes of database time");
+          && instantMicros(expiry) > BigInt(created.getTime()) * 1000n && instantMicros(expiry) <= BigInt(created.getTime()) * 1000n + 300000000n,
+        "CONFIRMATION_EXPIRED", "Proposal must expire within five minutes of its trusted creation time");
         for (const object of before.objects) if (object.type === "ExternalFact") {
-          const nextExpiry = Date.parse(object.expires_at);
-          requireStorage(nextExpiry <= clock.now.getTime() || expiry <= nextExpiry, "CONFIRMATION_EXPIRED", "Proposal cannot outlive the next known fact expiry");
+          const next = instantMicros(object.expires_at);
+          requireStorage(next <= BigInt(created.getTime()) * 1000n || instantMicros(expiry) <= next, "CONFIRMATION_EXPIRED", "Proposal cannot outlive the next known fact expiry");
         }
-        await tx.tripStateProposal.create({ data: {
-          tripId: batch.tripId, proposalId: change.proposal_id, basisRevision: current.revision,
-          digest: change.request_digest, expiresAt: batch.proposalExpiresAt,
-          payload: json({ request, actor: { role: intent.actor_role, id: intent.actor_id }, digest: change.request_digest,
-            expires: batch.proposalExpiresAt.toISOString(), cache_key: [batch.key.actorId, batch.key.operationDomain, batch.key.key] }),
-        } });
+        const payload = { request, actor: { role: intent.actor_role, id: intent.actor_id }, digest: change.request_digest,
+          expires: expiry, cache_key: [batch.key.actorId, batch.key.operationDomain, batch.key.key],
+          ...(batch.proposalDetails ? { details: batch.proposalDetails } : {}) };
+        if (batch.proposalDetails) {
+          // Preserve a dependency deadline's microseconds; JavaScript Date and Prisma timestamps retain only milliseconds.
+          await tx.$executeRaw`INSERT INTO "TripStateProposal" ("tripId","proposalId","basisRevision","digest","payload","createdAt","expiresAt")
+            VALUES (${batch.tripId},${change.proposal_id},${current.revision},${change.request_digest},${JSON.stringify(payload)}::jsonb,${created},${expiry}::timestamptz)`;
+        } else {
+          // Preserve the existing isolated synthetic harness and its Prisma error mapping.
+          await tx.tripStateProposal.create({ data: { tripId: batch.tripId, proposalId: change.proposal_id, basisRevision: current.revision,
+            digest: change.request_digest, payload: json(payload), createdAt: created, expiresAt: batch.proposalExpiresAt } });
+        }
       }
       await fault?.("proposal");
       await tx.tripStateIdempotency.create({ data: { ...identity, requestDigest: batch.key.requestDigest, request: json(request), response: json(response) } });
@@ -235,6 +285,27 @@ export async function openTripCommandService(connectionString: string, host: Com
       const state = validateStateSemantics({ schema_version: "0.1.0", trip_id: tripId, revision: 0, effective_skeleton_id: null, objects: [] });
       await client.tripStateDocument.create({ data: { tripId, revision: 0n, snapshot: json(state) } });
       return state;
+    },
+    async preview(tripId: string, input: unknown, credential: unknown) {
+      const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
+      const actor = await authorize(tripId, credential);
+      const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId"=${tripId}`;
+      requireStorage(!!row, "STORAGE_TRIP_NOT_FOUND", "Aggregate does not exist");
+      const before = storageState(row.snapshot);
+      try { return previewCommand(before, captured, actor, host.clock, host.uuid); }
+      catch (error) { if (error instanceof TripStateContractError) return failureResponse(before, error); throw error; }
+    },
+    async confirm(tripId: string, proposalId: string, input: unknown, credential: unknown) {
+      const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
+      const actor = await authorize(tripId, credential);
+      try { return await confirmPrepared(client, tripId, proposalId, captured, actor, host); }
+      catch (error) {
+        const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId"=${tripId}`;
+        requireStorage(!!row, "STORAGE_TRIP_NOT_FOUND", "Aggregate does not exist");
+        const failure = error instanceof TripStateContractError || error instanceof StorageError
+          ? new TripStateContractError(error.code, error.message) : new TripStateContractError("INTERNAL_FAILURE", "Confirmation storage failed; retry with the same idempotency key to recover its durable outcome");
+        return failureResponse(storageState(row.snapshot), failure);
+      }
     },
     async submit(tripId: string, input: unknown, credential: unknown) {
       const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);

@@ -30,6 +30,22 @@ else:
     steps = []
     with patch("tripstate.engine.uuid4", side_effect=lambda: UUID(int=next(counter))):
         for operation in payload["operations"]:
-            response = store.submit(operation["request"], Actor(**operation["actor"]))
-            steps.append(dict(response=response, state_after=store.get_state(), audit=store.get_history()))
+            if "clock" in operation:
+                now = datetime.fromisoformat(operation["clock"].replace("Z", "+00:00"))
+            method = operation.get("method", "submit")
+            request = dict(operation["request"])
+            actor = Actor(**operation["actor"])
+            if method == "confirm":
+                prior = steps[operation["proposalIndex"]]["response"]
+                proposal = operation.get("proposalId", prior["proposal_id"])
+                if request["proposal_digest"] == "@digest":
+                    request["proposal_digest"] = prior["proposal_digest"]
+                response = store.confirm(proposal, request, actor)
+            else:
+                response = getattr(store, method)(request, actor)
+            result = dict(response=response, state_after=store.get_state(), audit=store.get_history())
+            if payload.get("mode") == "lifecycle":
+                result["pending"] = {key: dict(request=p["request"], actor=dict(role=p["actor"].role, id=p["actor"].id),
+                    digest=p["digest"], expires=p["expires"].isoformat(), cache_key=p["cache_key"]) for key, p in store._pending.items()}
+            steps.append(result)
     json.dump(steps, sys.stdout, ensure_ascii=False)

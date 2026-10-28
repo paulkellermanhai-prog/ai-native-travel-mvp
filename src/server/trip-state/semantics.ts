@@ -8,7 +8,7 @@ export function rule(value: unknown, code: string, message: string): asserts val
 }
 
 // Python datetime compares microseconds; Date.parse alone would silently collapse distinct instants.
-function instant(value: string): bigint {
+export function instantMicros(value: string): bigint {
   const fraction = /\.(\d+)(?=Z|[+-]\d\d:\d\d$)/.exec(value)?.[1] ?? "";
   const seconds = Date.parse(value.replace(/\.\d+(?=Z|[+-]\d\d:\d\d$)/, ""));
   rule(Number.isFinite(seconds), "SCHEMA", "Invalid timestamp");
@@ -50,7 +50,7 @@ export function validateStateSemantics(value: unknown): State {
       rule(value.categories.length, "BUDGET_SCOPE", "费用口径不得为空");
     }
     if (value.kind === "date_window") rule(value.start <= value.end, "DATE_RANGE", "旅行日期反向");
-    if (value.kind === "entry_exit") rule(!value.arrival || !value.departure || instant(value.arrival) < instant(value.departure), "DATE_RANGE", "入离境时间反向");
+    if (value.kind === "entry_exit") rule(!value.arrival || !value.departure || instantMicros(value.arrival) < instantMicros(value.departure), "DATE_RANGE", "入离境时间反向");
   }
   const receiptRefs: string[] = [];
   for (const o of state.objects) {
@@ -61,7 +61,7 @@ export function validateStateSemantics(value: unknown): State {
     if (o.type === "Constraint") constraint(o.value, o.hardness);
     if (o.type === "Candidate" && ["excluded", "conditionally_excluded"].includes(o.status)) rule(o.exclusion_reason, "EXCLUSION_REASON", "排除须保留原因");
     if (o.type === "ExternalFact") {
-      rule(instant(o.observed_at) < instant(o.expires_at), "FACT_TIME", "失效时间必须晚于观察时间");
+      rule(instantMicros(o.observed_at) < instantMicros(o.expires_at), "FACT_TIME", "失效时间必须晚于观察时间");
       rule(o.valid_for.start <= o.valid_for.end, "FACT_TIME", "事实适用日期反向");
       if (["empty", "timeout", "error"].includes(o.query_status)) rule(o.value === null && o.verification === "unverified", "FALSE_VERIFICATION", "失败或空集不得有已核验结论");
       if (["date_specific", "purchasable"].includes(o.verification)) {
