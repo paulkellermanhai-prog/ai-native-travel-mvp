@@ -7,8 +7,8 @@
   "confirmation_quote": "我确认采用 Trip State Schema 0.1.0 作为 ANTU MVP Engineering E02 的正式开发基线。既有产品机制和完整 MVP 范围保持不变，后续按技术负责人审查的切片逐步编码和验收。",
   "source_manifest": "specs/baseline-2026-10-27/manifest.json",
   "source_manifest_sha256": "4c7eab1c14dbb78d27df4df977255f1847be9111313274054a3807f7a5807127",
-  "authorized_slice": "E02-04B only; stop for technical-lead review before E02-04C",
+  "authorized_slice": "E02-04C only; stop for technical-lead review before E02-04D",
   "slice_authorization_on": "2026-10-28",
-  "slice_authorization_source": "Technical-lead E02-04A PASS, approval to merge PR #5 and start E02-04B Preference/Candidate/Decision lifecycle and propagation, conveyed explicitly by Owner in this task",
+  "slice_authorization_source": "Technical-lead E02-04B PASS, approval to merge PR #6 and start E02-04C ExternalFact only, conveyed explicitly by Owner in this task; E02-04D four remaining commands are dependency registration only",
   "scope_note": "Development-baseline confirmation only. Does not approve DC/NAP candidates, change MVP scope, or claim later implementation acceptance. Historical source snapshot approval metadata remains unchanged."
 }

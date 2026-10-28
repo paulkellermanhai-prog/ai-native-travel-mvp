@@ -43,6 +43,14 @@ function diff(before: State, after: State) {
   return [...new Set([...a.keys(), ...b.keys()])].sort().filter((id) => !same(a.get(id), b.get(id)))
     .map((id) => ({ id, before: a.get(id) ?? null, after: b.get(id) ?? null }));
 }
+// Python sorted(set(...)) orders Unicode code points rather than UTF-16 code units.
+function missingFields(fields: string[]): string[] {
+  return [...new Set(fields)].sort((a, b) => {
+    const x = Array.from(a, (c) => c.codePointAt(0)!), y = Array.from(b, (c) => c.codePointAt(0)!);
+    for (let i = 0; i < Math.min(x.length, y.length); i++) if (x[i] !== y[i]) return x[i] - y[i];
+    return x.length - y.length;
+  });
+}
 function checkedInput(beforeValue: unknown, requestValue: unknown, actor: Actor) {
   validateActor(actor);
   const before = validateStateSemantics(beforeValue), request = parseContract("change-request", requestValue);
@@ -77,9 +85,9 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
   const source = { actor: actor.role, actor_id: actor.id, reference: request.input.reference, text: request.input.text, at: stamp };
   const unsupported = (message: string): never => { throw new TripStateContractError("E02_SLICE_UNSUPPORTED", message); };
   function get(id: string): ObjectRecord { const o = objects.get(id); rule(o, "DANGLING_REF", `引用不存在: ${id}`); return o; }
-  function make(id: string, kind: "TripGoal" | "Preference" | "Constraint" | "DestinationEntity" | "Candidate" | "Skeleton" | "Decision" | "OpenIssue", data: object, scope = { kind: "trip", ids: [] } as ObjectRecord["scope"], dependencies: ObjectRecord["dependencies"] = []) {
+  function make(id: string, kind: ObjectRecord["type"], data: object, scope = { kind: "trip", ids: [] } as ObjectRecord["scope"], dependencies: ObjectRecord["dependencies"] = []) {
     rule(!objects.has(id), "DUPLICATE_ID", id);
-    const initial = { TripGoal: "draft", Preference: "active", Constraint: "proposed", DestinationEntity: "known", Candidate: "exploring", Skeleton: "active", Decision: "proposed", OpenIssue: "open" };
+    const initial = { TripGoal: "draft", Preference: "active", Constraint: "proposed", DestinationEntity: "known", Candidate: "exploring", Skeleton: "active", Decision: "proposed", OpenIssue: "open", ExternalFact: "active" };
     const o = parseContract(kind, { id, type: kind, trip_id: state.trip_id, version: 1, status: initial[kind], scope: structuredClone(scope), source: structuredClone(source), dependencies: structuredClone(dependencies), updated_at: stamp, ...data });
     state.objects.push(o); objects.set(id, o); return o;
   }
@@ -122,12 +130,6 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
       const o = get(cmd.id);
       rule(!["confirm", "reconsider", "resolve", "dismiss", "revoke"].includes(cmd.event), "DEDICATED_COMMAND", "此转换必须经专用业务命令");
       rule(!(cmd.event === "supersede" && ["Skeleton", "Decision"].includes(o.type)), "DEDICATED_COMMAND", "骨架及决定的替代只能由专用采用／选择命令原子完成");
-      if (o.type === "ExternalFact") {
-        const edge = transitions.find((t) => t.object_type === o.type && t.from_state === o.status && t.event === cmd.event);
-        rule(edge, "ILLEGAL_TRANSITION", `${o.type}:${o.status} -> ${cmd.event}`);
-        rule(edge.actors.includes(actor.role), "PERMISSION", "执行主体没有此转换权限");
-        unsupported("ExternalFact lifecycle writes require E02-04C");
-      }
       if (o.type === "OpenIssue" && cmd.event === "make_actionable") rule(o.candidate_actions.length > 0, "ACTION_NOT_READY", "至少需要一个可尝试的候选动作");
       transition(o, cmd.event);
       if (o.type === "Constraint" && o.override_policy === "fixed") {
@@ -175,10 +177,36 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
       const o = get(cmd.id); rule(o.type === "Decision", "REF_TYPE", cmd.id); transition(o, "revoke");
       if (o.decision_kind === "adopt_skeleton" && o.subject_id === state.effective_skeleton_id) state.effective_skeleton_id = null;
     } else if (cmd.op === "ingest_fact") {
-      rule(actor.role === "tool", "PERMISSION", "事实由可信适配器导入，普通用户/模型不能写核验结论"); unsupported("ExternalFact ingestion requires E02-04C");
+      rule(actor.role === "tool", "PERMISSION", "事实由可信适配器导入，普通用户/模型不能写核验结论");
+      // The command whitelist excludes derived metadata; the trusted adapter supplies observations only.
+      const o = make(cmd.id, "ExternalFact", { ...cmd.data, verification: "unverified", freshness: "stale", applicability: "unknown" }, cmd.scope, cmd.dependencies);
+      rule(o.type === "ExternalFact", "REF_TYPE", cmd.id);
+      const at = BigInt(now.getTime()) * 1000n;
+      rule(instantMicros(o.observed_at) <= at, "FACT_TIME", "观察时间不能来自未来");
+      if (o.value?.kind === "transport" && o.query_status === "result") {
+        const value = o.value;
+        const missing: string[] = (["service_exists", "departure", "arrival"] as const).filter((key) => value[key] === null);
+        if (o.value.service_exists === false) missing.push("explicit_no_service_outcome_required");
+        o.missing_fields = missingFields([...o.missing_fields, ...missing]);
+      }
+      if (o.value?.kind === "condition" && o.value.value === null) o.missing_fields = missingFields([...o.missing_fields, "value"]);
+      const complete = ["result", "no_service"].includes(o.query_status) && o.query.date !== null && o.missing_fields.length === 0 && o.value !== null;
+      o.verification = complete ? "date_specific" : o.value !== null ? "estimated" : "unverified";
+      o.freshness = instantMicros(o.expires_at) > at ? "current" : "stale";
+      o.applicability = complete && o.valid_for.start <= o.query.date! && o.query.date! <= o.valid_for.end ? "applicable" : "unknown";
     } else if (cmd.op === "check_freshness") {
-      rule(actor.role === "system", "PERMISSION", "时效维护由系统执行"); unsupported("ExternalFact freshness writes require E02-04C");
-    } else unsupported("Calculation/adoption and issue-resolution commands are outside E02-04B");
+      rule(actor.role === "system", "PERMISSION", "时效维护由系统执行");
+      for (const o of objects.values()) if (o.type === "ExternalFact" && instantMicros(o.expires_at) <= BigInt(now.getTime()) * 1000n) o.freshness = "stale";
+    } else unsupported("Calculation/adoption and issue-resolution commands require E02-04D");
+  }
+  // An existing confirmed commitment cannot disappear without one fresh, same-receipt successor.
+  for (const previous of before.objects) {
+    const profile = previous.type === "ExternalFact" ? reservationProfile(previous) : null;
+    if (!profile || previous.status !== "active" || profile.commitment_state !== "confirmed" || !["superseded", "contradicted"].includes(get(previous.id).status)) continue;
+    const successors = state.objects.filter((f) => f.type === "ExternalFact" && !old.has(f.id) && reservationProfile(f)?.confirmation_ref === profile.confirmation_ref);
+    const next = successors[0], at = BigInt(now.getTime()) * 1000n;
+    rule(successors.length === 1 && next?.type === "ExternalFact" && next.status === "active" && next.freshness === "current"
+      && instantMicros(next.expires_at) > at && instantMicros(next.observed_at) <= at, "COMMITTED_FACT_EVIDENCE", "取消或变更已确认住宿须在同笔提交中导入可信同回执后继");
   }
   validateStateSemantics(state);
   // Original date-edit normalization of existing observations; never upgrades verification/freshness or imports facts.
