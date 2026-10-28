@@ -81,12 +81,20 @@ jobs:
       - name: Vitest including real PostgreSQL integration
         env:
           E02_ENGINE_EVIDENCE_PATH: ${{ runner.temp }}/e02-03-typescript-scenario-a.json
+          E02_CONFIRMATION_EVIDENCE_PATH: ${{ runner.temp }}/e02-04a-confirmation.jsonl
         run: npm test
       - name: Preserve actual TypeScript Scenario A execution evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: e02-03-typescript-scenario-a
           path: ${{ runner.temp }}/e02-03-typescript-scenario-a.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve actual PostgreSQL confirmation lifecycle execution
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e02-04a-confirmation
+          path: ${{ runner.temp }}/e02-04a-confirmation.jsonl
           if-no-files-found: error
           retention-days: 14
       - name: Check database connectivity

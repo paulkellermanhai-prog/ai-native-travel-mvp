@@ -3,6 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { Client } from "pg";
+import { grantConfirmationRuntime } from "./grant-confirmation-runtime.mjs";
 
 if (process.env.E02_TEST_PROVISION !== "1") throw new Error("Explicit E02_TEST_PROVISION=1 is required for disposable local test provisioning");
 const adminUrl = process.env.MIGRATION_DATABASE_URL;
@@ -40,6 +41,7 @@ try {
   await owner.query(`GRANT SELECT, INSERT ON "TripStateDocument" TO ${quote(runtimeRole)}`);
   await owner.query(`GRANT UPDATE ("revision", "snapshot") ON "TripStateDocument" TO ${quote(runtimeRole)}`);
   await owner.query(`GRANT SELECT, INSERT ON "TripStateHistory", "TripStateProposal", "TripStateIdempotency" TO ${quote(runtimeRole)}`);
+  await grantConfirmationRuntime(owner, runtimeRole);
   parsed.username = runtimeRole; parsed.password = password;
   const result = { migrationUrl, runtimeUrl: parsed.toString(), database, runtimeRole, emptyTablesBeforeMigration: 0 };
   fs.writeFileSync(output, `${JSON.stringify(result)}\n`, { mode: 0o600, flag: "wx" });

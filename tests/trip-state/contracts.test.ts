@@ -200,7 +200,7 @@ describe("E02-01 immutable offline contracts", () => {
       expect(result(() => entry.mode === "state" ? parseStateReferences(entry.value) : parseContract(entry.schema as ContractName, entry.value)), entry.name).toBe(entry.expected);
     }
     console.info(`Python contract oracle: ${cases.length} matching cases; 7 original scenarios, 31 saved steps`);
-  });
+  }, 65000); // The existing subprocess has a 60s bound; keep the runner budget consistent.
 });
 
 // TypeScript checks these boundaries too; no execution or new business fields are involved.

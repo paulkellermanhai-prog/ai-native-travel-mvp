@@ -66,13 +66,13 @@ describe("E02-03 original Scenario A execution", () => {
 });
 
 describe("command permissions, lifecycle and failure atomicity", () => {
-  const cases: Array<{ name: string; step: number; state: State; actor?: Actor; code: string; mutate?: (r: CommandRequest) => void }> = [
+  const cases: Array<{ name: string; step: number; state: State; actor?: Actor; code?: string; pending?: boolean; mutate?: (r: CommandRequest) => void }> = [
     { name: "user cannot maintain catalog", step: 0, state: scenario.initial_state, code: "PERMISSION" },
     { name: "tool cannot create state", step: 0, state: scenario.initial_state, actor: { role: "tool", id: "trusted-tool" }, code: "PERMISSION" },
     { name: "model cannot promote inferred expression to explicit", step: 4, state: scenario.steps[3].state_after, actor: model, code: "PERMISSION" },
-    { name: "explicit preference cannot be overwritten by model", step: 4, state: scenario.steps[4].state_after, actor: model, code: "E02_SLICE_UNSUPPORTED" },
-    { name: "pending user confirmation is never faked", step: 1, state: scenario.steps[0].state_after, actor: model, code: "E02_SLICE_UNSUPPORTED" },
-    { name: "model acceptance never impersonates user", step: 6, state: scenario.steps[5].state_after, actor: model, code: "E02_SLICE_UNSUPPORTED" },
+    { name: "explicit preference model edit remains pending", step: 4, state: scenario.steps[4].state_after, actor: model, pending: true },
+    { name: "pending user confirmation is never faked", step: 1, state: scenario.steps[0].state_after, actor: model, pending: true },
+    { name: "model acceptance never impersonates user", step: 6, state: scenario.steps[5].state_after, actor: model, pending: true },
     { name: "double activation follows original transition table", step: 2, state: scenario.steps[2].state_after, code: "ILLEGAL_TRANSITION" },
     { name: "missing intent target", step: 2, state: scenario.steps[1].state_after, code: "DANGLING_REF", mutate: (r) => { r.input.target_ids = ["missing"]; } },
     { name: "unknown destination reference", step: 1, state: scenario.steps[0].state_after, code: "DANGLING_REF", mutate: (r) => { const c = r.commands[0]; if (c.op === "create" && c.object_type === "TripGoal") c.data.destination_ids = ["missing"]; } },
@@ -82,12 +82,13 @@ describe("command permissions, lifecycle and failure atomicity", () => {
     { name: "terminal expression is immutable", step: 4, state: (() => { const s = structuredClone(scenario.steps[4].state_after); s.objects.find((o) => o.id === "pref-new")!.status = "withdrawn"; return s; })(), code: "IMMUTABLE_HISTORY" },
     { name: "dedicated confirmation cannot be a status transition", step: 2, state: scenario.steps[1].state_after, code: "DEDICATED_COMMAND", mutate: (r) => { r.commands = [{ op: "transition", id: "goal-new", event: "confirm" }]; } },
   ];
-  it.each(cases)("$name", ({ step, state, actor, code, mutate }) => {
+  it.each(cases)("$name", ({ step, state, actor, code, pending, mutate }) => {
     const before = structuredClone(state), request = requestAt(step, state.revision); mutate?.(request);
     const actual = execute(state, request, actor);
-    expect(actual.response).toMatchObject({ outcome: "rejected", diff: [], errors: [{ code }] });
+    if (pending) expect(actual.response).toMatchObject({ outcome: "pending_confirmation", confirmation_required: true, errors: [] });
+    else expect(actual.response).toMatchObject({ outcome: "rejected", diff: [], errors: [{ code }] });
     expect(actual.state).toEqual(before); expect(state).toEqual(before);
-    if (code !== "E02_SLICE_UNSUPPORTED") {
+    if (!pending) {
       const python = oracle<Array<{ response: { errors: Array<{ code: string }> }; state_after: State }>>({ initial: state, operations: [{ request, actor: actor ?? user }] });
       expect(python[0].response.errors[0].code).toBe(code); expect(python[0].state_after).toEqual(before);
     }

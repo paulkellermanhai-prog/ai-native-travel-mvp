@@ -3,14 +3,17 @@ import { isDeepStrictEqual as same } from "node:util";
 import transitions from "../../../specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/rules/transitions.json";
 import { parseContract, TripStateContractError } from "./contracts";
 import { digest } from "./command-json";
-import { validateStateSemantics, rule } from "./semantics";
+import { validateStateSemantics, rule, instantMicros } from "./semantics";
 import { incrementCounter, safeCounter } from "./numbers";
 import type { State, TripStateContracts, Condition } from "./contracts.generated";
 
 export type Actor = Readonly<{ role: "user" | "model" | "system" | "tool"; id: string }>;
 export type CommandRequest = TripStateContracts["change-request"];
+export type ConfirmRequest = TripStateContracts["confirm-request"];
+export type PendingDetails = { diff: TripStateContracts["response"]["diff"]; effective: string | null; created_at: string; expires_at: string };
 export type CommandBatch = {
   tripId: string; request: CommandRequest; key: { actorId: string; operationDomain: Actor["role"]; key: string; requestDigest: string };
+  proposalExpiresAt?: Date; proposalCreatedAt?: Date; proposalDetails?: PendingDetails;
   snapshot: State; intent: TripStateContracts["OperationIntent"]; change: TripStateContracts["ChangeRecord"]; response: TripStateContracts["response"];
 };
 type ObjectRecord = State["objects"][number];
@@ -42,8 +45,7 @@ function diff(before: State, after: State) {
   return [...new Set([...a.keys(), ...b.keys()])].sort().filter((id) => !same(a.get(id), b.get(id)))
     .map((id) => ({ id, before: a.get(id) ?? null, after: b.get(id) ?? null }));
 }
-/** Executes this slice's commands; never reads a machine trace or invokes the Python engine. */
-export function planCommand(beforeValue: unknown, requestValue: unknown, actor: Actor, clock: () => Date = () => new Date(), uuid = defaultUuid): CommandBatch {
+function checkedInput(beforeValue: unknown, requestValue: unknown, actor: Actor) {
   validateActor(actor);
   const before = validateStateSemantics(beforeValue), request = parseContract("change-request", requestValue);
   if (before.objects.some((o) => !["DestinationEntity", "TripGoal", "Preference", "Candidate", "Decision", "OpenIssue"].includes(o.type))) {
@@ -51,13 +53,32 @@ export function planCommand(beforeValue: unknown, requestValue: unknown, actor: 
   }
   safeCounter(request.expected_revision, "expected_revision");
   rule(request.expected_revision === before.revision, "VERSION_CONFLICT", "旅行版本已改变；重新读取并预览");
+  for (const id of request.input.target_ids) rule(before.objects.some((o) => o.id === id), "DANGLING_REF", "操作意图引用不存在");
+  return { before, request };
+}
+export function needsConfirmation(state: State, request: CommandRequest, actor: Actor): boolean {
+  if (actor.role === "user") return false;
+  const objects = new Map(state.objects.map((o) => [o.id, o]));
+  return request.commands.some((cmd) => {
+    if (["adopt_skeleton", "decide_candidate", "withdraw_decision", "dismiss_issue"].includes(cmd.op)) return true;
+    if (cmd.op === "create" && (["TripGoal", "Constraint"].includes(cmd.object_type) || cmd.object_type === "Preference" && cmd.data.certainty === "explicit")) return true;
+    const old = "id" in cmd ? objects.get(cmd.id) : undefined;
+    if (!old || cmd.op !== "revise" && cmd.op !== "transition") return false;
+    if (old.type === "Constraint" && old.override_policy === "fixed" && cmd.op === "transition" && cmd.event === "invalidate" && actor.role === "system") return false;
+    return ["TripGoal", "Constraint"].includes(old.type) || old.type === "Preference" && old.certainty === "explicit"
+      || cmd.op === "transition" && actor.role === "model" && ["exclude", "archive", "withdraw", "supersede"].includes(cmd.event);
+  });
+}
+export function stampTime(now: Date): string {
+  rule(Number.isFinite(now.getTime()), "SCHEMA", "Invalid host clock");
+  return now.getUTCMilliseconds() === 0 ? now.toISOString().replace(".000Z", "Z") : now.toISOString().replace(/\.(\d{3})Z$/, (_, ms) => `.${ms}000Z`);
+}
+
+// Pure execution. A hypothetical pending-user is used only for proposal calculation, never a storage grant.
+function executeCommands(before: State, request: CommandRequest, actor: Actor, proposal: string, now: Date): State {
   const old = new Map(before.objects.map((o) => [o.id, o]));
-  for (const id of request.input.target_ids) rule(old.has(id), "DANGLING_REF", "操作意图引用不存在");
-  rule(actor.role !== "tool", "PERMISSION", "工具仅能导入事实或使已有事实被替代／反证");
   const state = structuredClone(before), objects = new Map(state.objects.map((o) => [o.id, o]));
-  const now = clock(); rule(Number.isFinite(now.getTime()), "SCHEMA", "Invalid host clock");
-  const stamp = now.getUTCMilliseconds() === 0 ? now.toISOString().replace(".000Z", "Z") : now.toISOString().replace(/\.(\d{3})Z$/, (_, ms) => `.${ms}000Z`);
-  const proposal = `proposal-${uuid()}`;
+  const stamp = stampTime(now);
   const source = { actor: actor.role, actor_id: actor.id, reference: request.input.reference, text: request.input.text, at: stamp };
   const unsupported = (message: string): never => { throw new TripStateContractError("E02_SLICE_UNSUPPORTED", message); };
   function get(id: string): ObjectRecord { const o = objects.get(id); rule(o, "DANGLING_REF", `引用不存在: ${id}`); return o; }
@@ -74,10 +95,6 @@ export function planCommand(beforeValue: unknown, requestValue: unknown, actor: 
     Object.assign(o, { status: edge.to_state });
   }
   for (const cmd of request.commands) {
-    // Confirmation is a later slice. Do not impersonate the reference's pending-user actor.
-    const prior = "id" in cmd ? objects.get(cmd.id) : undefined;
-    if (actor.role !== "user" && (cmd.op === "decide_candidate" || cmd.op === "create" && (["TripGoal", "Constraint"].includes(cmd.object_type) || cmd.object_type === "Preference" && cmd.data.certainty === "explicit")
-      || ["revise", "transition"].includes(cmd.op) && prior && (["TripGoal", "Constraint"].includes(prior.type) || prior.type === "Preference" && prior.certainty === "explicit"))) unsupported("此操作需要 E02-04 待确认流程；本切片不执行或伪造确认");
     if (cmd.op === "create") {
       if (!["DestinationEntity", "TripGoal", "Preference", "Candidate"].includes(cmd.object_type)) unsupported("Create kind is outside the reviewed Scenario A slice");
       rule(cmd.object_type !== "DestinationEntity" || actor.role === "system", "PERMISSION", "目录由系统适配器维护");
@@ -145,14 +162,77 @@ export function planCommand(beforeValue: unknown, requestValue: unknown, actor: 
   const delta = diff(before, state);
   if (delta.length || before.effective_skeleton_id !== state.effective_skeleton_id) state.revision = incrementCounter(before.revision, "revision");
   validateStateSemantics(state);
-  const proposalDigest = digest({ request, diff: delta, effective: state.effective_skeleton_id });
-  const response = parseContract("response", { outcome: "applied", revision: state.revision, proposal_id: proposal, proposal_digest: proposalDigest,
-    confirmation_required: false, affected_ids: delta.map((d) => d.id), diff: delta, errors: [] });
-  const intent = parseContract("OperationIntent", { id: `intent-${uuid()}`, type: "OperationIntent", trip_id: state.trip_id, actor_id: actor.id, actor_role: actor.role,
+  return state;
+}
+
+function prepared(beforeValue: unknown, requestValue: unknown, actor: Actor, clock: () => Date, uuid: () => string) {
+  const { before, request } = checkedInput(beforeValue, requestValue, actor), now = clock(), proposal = `proposal-${uuid()}`;
+  const needs = needsConfirmation(before, request, actor);
+  rule(actor.role !== "tool", "PERMISSION", "工具仅能导入事实或使已有事实被替代／反证");
+  const after = executeCommands(before, request, needs ? { role: "user", id: "pending-user" } : actor, proposal, now);
+  const delta = diff(before, after), proposalDigest = digest({ request, diff: delta, effective: after.effective_skeleton_id });
+  return { before, request, now, proposal, needs, after, delta, proposalDigest };
+}
+function response(outcome: TripStateContracts["response"]["outcome"], revision: number, proposal: string, proposalDigest: string, delta: TripStateContracts["response"]["diff"], confirmationRequired = false) {
+  return parseContract("response", { outcome, revision, proposal_id: proposal, proposal_digest: proposalDigest,
+    confirmation_required: confirmationRequired, affected_ids: delta.map((d) => d.id), diff: delta, errors: [] });
+}
+function journal(before: State, after: State, request: CommandRequest, actor: Actor, result: TripStateContracts["response"], now: Date, uuid: () => string, confirmationActor: string | null = null) {
+  const stamp = stampTime(now);
+  const intent = parseContract("OperationIntent", { id: `intent-${uuid()}`, type: "OperationIntent", trip_id: before.trip_id, actor_id: actor.id, actor_role: actor.role,
     input: structuredClone(request.input), base_revision: request.expected_revision, created_at: stamp });
-  const change = parseContract("ChangeRecord", { id: `change-${uuid()}`, type: "ChangeRecord", trip_id: state.trip_id, proposal_id: proposal, intent_id: intent.id,
-    outcome: "applied", actions: request.commands.map((c) => c.op), reason: request.reason, base_revision: before.revision, result_revision: state.revision,
-    created_at: stamp, confirmation_actor: actor.role === "user" ? actor.id : null, request_digest: proposalDigest, affected_ids: response.affected_ids,
-    effective_before: before.effective_skeleton_id, effective_after: state.effective_skeleton_id, diff: delta });
-  return { tripId: state.trip_id, request, key: { actorId: actor.id, operationDomain: actor.role, key: request.idempotency_key, requestDigest: digest(request) }, snapshot: state, intent, change, response };
+  const change = parseContract("ChangeRecord", { id: `change-${uuid()}`, type: "ChangeRecord", trip_id: before.trip_id, proposal_id: result.proposal_id, intent_id: intent.id,
+    outcome: result.outcome, actions: request.commands.map((c) => c.op), reason: request.reason, base_revision: before.revision, result_revision: after.revision,
+    created_at: stamp, confirmation_actor: confirmationActor ?? (actor.role === "user" && result.outcome === "applied" ? actor.id : null), request_digest: result.proposal_digest,
+    affected_ids: result.affected_ids, effective_before: before.effective_skeleton_id, effective_after: after.effective_skeleton_id, diff: result.diff });
+  return { intent, change };
+}
+export function proposalDeadline(state: State, now: Date): string {
+  let expiry = BigInt(now.getTime()) * 1000n + 300000000n;
+  for (const o of state.objects) if (o.type === "ExternalFact") {
+    const next = instantMicros(o.expires_at);
+    if (next > BigInt(now.getTime()) * 1000n && next < expiry) expiry = next;
+  }
+  const remainder = (expiry % 1000000n + 1000000n) % 1000000n;
+  const base = new Date(Number((expiry - remainder) / 1000n)).toISOString().replace(/\.\d{3}Z$/, "");
+  const fraction = remainder.toString().padStart(6, "0");
+  return base + (fraction === "000000" ? "Z" : `.${fraction}Z`);
+}
+
+/** Real TS execution; no trace/Python imports. A pending diff never becomes the authoritative snapshot. */
+export function planCommand(beforeValue: unknown, requestValue: unknown, actor: Actor, clock: () => Date = () => new Date(), uuid = defaultUuid): CommandBatch {
+  const p = prepared(beforeValue, requestValue, actor, clock, uuid), snapshot = p.needs ? structuredClone(p.before) : p.after;
+  const result = response(p.needs ? "pending_confirmation" : "applied", snapshot.revision, p.proposal, p.proposalDigest, p.delta, p.needs);
+  return { tripId: p.before.trip_id, request: p.request,
+    key: { actorId: actor.id, operationDomain: actor.role, key: p.request.idempotency_key, requestDigest: digest(p.request) },
+    snapshot, response: result, ...journal(p.before, snapshot, p.request, actor, result, p.now, uuid),
+    ...(p.needs ? { proposalExpiresAt: new Date(proposalDeadline(p.before, p.now)), proposalCreatedAt: p.now,
+      proposalDetails: { diff: p.delta, effective: p.after.effective_skeleton_id, created_at: stampTime(p.now), expires_at: proposalDeadline(p.before, p.now) } } : {}) };
+}
+export function previewCommand(beforeValue: unknown, requestValue: unknown, actor: Actor, clock: () => Date = () => new Date(), uuid = defaultUuid) {
+  const p = prepared(beforeValue, requestValue, actor, clock, uuid);
+  return response("preview", p.before.revision, p.proposal, p.proposalDigest, p.delta, p.needs);
+}
+
+export type PendingProposal = {
+  proposalId: string; request: CommandRequest; actor: Actor; digest: string; expires: string; details: PendingDetails;
+};
+export function planConfirmation(beforeValue: unknown, pending: PendingProposal, requestValue: unknown, actor: Actor, clock: () => Date = () => new Date(), uuid = defaultUuid) {
+  validateActor(actor); rule(actor.role === "user", "PERMISSION", "只有经鉴权用户可确认");
+  const request = parseContract("confirm-request", requestValue), before = validateStateSemantics(beforeValue);
+  safeCounter(request.expected_revision, "expected_revision");
+  rule(request.proposal_digest === pending.digest, "CONFIRMATION_SCOPE", "确认内容与所展示提案不同");
+  rule(request.expected_revision === before.revision && before.revision === pending.request.expected_revision, "VERSION_CONFLICT", "确认依据已变化，必须重新预览");
+  const now = clock(); stampTime(now);
+  rule(BigInt(now.getTime()) * 1000n < instantMicros(pending.expires), "CONFIRMATION_EXPIRED", "确认已过期，必须重新核验");
+  const { request: original } = checkedInput(before, pending.request, pending.actor);
+  rule(needsConfirmation(before, original, pending.actor) && pending.actor.role !== "tool", "STORAGE_INTEGRITY", "Persisted proposal must require an authorized confirmation");
+  rule(instantMicros(pending.expires) === instantMicros(proposalDeadline(before, new Date(pending.details.created_at))), "STORAGE_INTEGRITY", "Proposal expiry does not match its original creation/dependency conditions");
+  const preview = executeCommands(before, original, { role: "user", id: "pending-user" }, pending.proposalId, new Date(pending.details.created_at));
+  rule(same(diff(before, preview), pending.details.diff) && preview.effective_skeleton_id === pending.details.effective
+    && digest({ request: original, diff: pending.details.diff, effective: pending.details.effective }) === pending.digest,
+  "STORAGE_INTEGRITY", "Persisted request, displayed diff and digest disagree");
+  const after = request.accept ? executeCommands(before, original, actor, pending.proposalId, now) : structuredClone(before);
+  const result = response(request.accept ? "applied" : "rejected", after.revision, pending.proposalId, pending.digest, diff(before, after));
+  return { snapshot: after, response: result, ...journal(before, after, original, pending.actor, result, now, uuid, actor.id) };
 }

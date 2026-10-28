@@ -92,8 +92,8 @@ describe.skipIf(!config)("E02-03 real command-only PostgreSQL channel", () => {
     expect(await s.state(tripId, tokens[0])).toEqual({ ...scenario.initial_state, trip_id: tripId });
     expect(await counts(tripId)).toEqual({ history: 0, requests: 0, proposals: 0 });
     await s.submit(tripId, scenario.steps[0].request, tokens[0]);
-    expect(await s.submit(tripId, scenario.steps[1].request, tokens[3])).toMatchObject({ outcome: "rejected", errors: [{ code: "E02_SLICE_UNSUPPORTED" }] });
-    expect(await counts(tripId)).toEqual({ history: 1, requests: 1, proposals: 0 });
+    expect(await s.submit(tripId, scenario.steps[1].request, tokens[3])).toMatchObject({ outcome: "pending_confirmation", confirmation_required: true });
+    expect(await counts(tripId)).toEqual({ history: 2, requests: 2, proposals: 1 });
   });
   it("rolls back a real mid-transaction history uniqueness failure through the command path", async () => {
     const { s, tripId, tokens, host } = await setup();
