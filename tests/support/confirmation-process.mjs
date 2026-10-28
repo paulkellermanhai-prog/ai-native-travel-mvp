@@ -51,7 +51,7 @@ process.once("message", async (message) => {
   try {
     const response = message.method === "submit" ? await service.submit(message.tripId, message.request, "synthetic-child-session")
       : await service.confirm(message.tripId, message.proposalId, message.request, "synthetic-child-session");
-    process.send({ response, processId: process.pid });
+    process.send({ response, processId: process.pid, ...(message.includeSnapshot ? { state: await service.state(message.tripId, "synthetic-child-session"), history: await service.history(message.tripId, "synthetic-child-session") } : {}) });
   } finally { await service.close(); process.disconnect(); }
 });
 process.send({ ready: true });

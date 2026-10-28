@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { planCommand, type Actor, type CommandRequest } from "../../src/server/trip-state/commands";
-import { TripStateContractError } from "../../src/server/trip-state/contracts";
 import type { State } from "../../src/server/trip-state/contracts.generated";
 import { base, bcg, change, createFrom, object } from "../support/bcg-fixtures";
 import { clock, uuids, oracle, traces, type Audit } from "../support/command-fixtures";
@@ -146,9 +145,10 @@ describe("E02-04B lifecycle and retained preference authority", () => {
       kind.startsWith("user-") ? "FIXED_CONSTRAINT" : kind === "stale-only" ? "FIXED_CONSTRAINT_EVIDENCE" : undefined);
     if (batch) expect(object(batch.snapshot, c.id, "Constraint").status).toBe("invalidated");
   });
-  it.each(["recalculate", "adopt_skeleton"] as const)("clearly refuses unimplemented %s without pretending to have calculated facts", (op) => {
+  it.each(["recalculate", "adopt_skeleton"] as const)("executes newly authorized %s against the original Python rules", (op) => {
     const request = change(base, [op === "recalculate" ? { op, id: "skeleton-a" } : { op, id: "skeleton-a", confirmation_scope: ["cities", "order", "stays", "connections"], acknowledge_unknowns: true }]);
-    expect(() => planCommand(base, request, user, clock, uuids())).toThrowError(TripStateContractError);
-    expect(() => planCommand(base, request, user, clock, uuids())).toThrowError(expect.objectContaining({ code: "E02_SLICE_UNSUPPORTED" }));
+    const batch = compare(base, request)!;
+    expect(object(batch.snapshot, "skeleton-a", "Skeleton").assessment.status).toBe("pending");
+    expect(batch.snapshot.effective_skeleton_id).toBe(op === "adopt_skeleton" ? "skeleton-a" : null);
   });
 });

@@ -7,12 +7,13 @@ export function conditionReferences(c: Condition): string[] {
 }
 
 // Read existing observation metadata only. No provider calls, verification upgrade or freshness writes.
-export function factUsable(fact: ExternalFact, now: Date): boolean {
+export function factUsable(fact: ExternalFact, now: Date, window: { start: string; end: string } | null = null): boolean {
   const at = BigInt(now.getTime()) * 1000n;
   return fact.status === "active" && fact.freshness === "current" && fact.applicability === "applicable"
     && instantMicros(fact.expires_at) > at && instantMicros(fact.observed_at) <= at && fact.missing_fields.length === 0
     && ["result", "no_service"].includes(fact.query_status) && fact.query.date !== null
     && fact.valid_for.start <= fact.query.date && fact.query.date <= fact.valid_for.end
+    && (!window || window.start <= fact.query.date && fact.query.date <= window.end)
     && ["date_specific", "purchasable"].includes(fact.verification);
 }
 function pointer(value: unknown, path: string): unknown {
