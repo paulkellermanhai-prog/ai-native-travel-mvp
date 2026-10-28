@@ -10,6 +10,8 @@ AI Native Travel Product MVP — Sprint 1 / E01 engineering foundation.
 
 E01 已经技术负责人验收并合并 main。Owner 已明确确认 Trip State 0.1.0 开发基线；当前只实施 [E02-01 契约接入](docs/E02-01验收.md)，完成后停止审核。原规格快照保持不变，新的确认记录单独保存在 specs 中。
 
+E02-01 已获 PASS，PR #2 已合并。当前切片：[E02-02 持久化与验收](docs/E02-02验收.md)，只提供受保护的数据库基础设施和内部合成测试写入口，不提供生产业务状态写入能力。完成后停止，等待技术负责人审核。
+
 ## Runtime
 
 - Node.js 24.22.1 LTS, npm 11.19.1 (`.nvmrc` / `.node-version`).

@@ -70,6 +70,10 @@ jobs:
         run: npm run db:validate
       - name: Generate Prisma client
         run: npm run db:generate
+      - name: Empty database migration and least-privilege storage test identity
+        run: |
+          E02_TEST_PROVISION=1 MIGRATION_DATABASE_URL="$DATABASE_URL" node scripts/prepare-storage-tests.mjs "$RUNNER_TEMP/e02-storage.json"
+          node --input-type=module -e 'import fs from "node:fs"; const p=process.env.RUNNER_TEMP+"/e02-storage.json"; const e=JSON.parse(fs.readFileSync(p)); fs.appendFileSync(process.env.GITHUB_ENV,"E02_STORAGE_ENV_FILE="+p+"\nDATABASE_URL="+e.runtimeUrl+"\n");'
       - name: Check TypeScript
         run: npm run typecheck
       - name: Lint
