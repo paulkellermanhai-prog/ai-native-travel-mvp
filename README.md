@@ -8,9 +8,9 @@ AI Native Travel Product MVP — Sprint 1 / E01 engineering foundation.
 
 最新 E01 收尾：[CI、新云任务与规格交接验收](docs/E01收尾与E02交接-2026-10-27.md)、[云端可读的版本化规格](specs/README.md)、[E02 最小编码任务](docs/E02最小编码任务.md)。此前的本地读取清单保留为历史检查；当前源码交接以 specs 的 manifest 为准，候选批准状态未改变。
 
-E01 已经技术负责人验收并合并 main。Owner 已明确确认 Trip State 0.1.0 开发基线；当前只实施 [E02-01 契约接入](docs/E02-01验收.md)，完成后停止审核。原规格快照保持不变，新的确认记录单独保存在 specs 中。
+E01、E02-01、E02-02 已经技术负责人验收；PR #1/#2/#3 已合并。Owner 已确认 Trip State 0.1.0 开发基线；当前切片为 [E02-03 七步场景命令引擎与验收](docs/E02-03验收.md)，完成后停止审核。原规格快照保持不变。
 
-E02-01 已获 PASS，PR #2 已合并。当前切片：[E02-02 持久化与验收](docs/E02-02验收.md)，只提供受保护的数据库基础设施和内部合成测试写入口，不提供生产业务状态写入能力。完成后停止，等待技术负责人审核。
+此前验收：[E02-01 契约](docs/E02-01验收.md)、[E02-02 持久化](docs/E02-02验收.md)。内部命令通道要求宿主注入真实授权结果；当前没有生产身份适配器或公开业务写入 HTTP 路由。合成存储写入口仍仅供隔离测试。
 
 ## Runtime
 
@@ -43,10 +43,10 @@ npm run db:check
 
 `check` runs Prisma schema validation and client generation, TypeScript, ESLint, Vitest, and a production build. `npm start` serves that build. Database checks need a running PostgreSQL and DATABASE_URL. The Prisma integration test is explicitly skipped when DATABASE_URL is absent; supply it to exercise the real database connection. No paid services or provider keys are required.
 
-The Prisma schema intentionally has no business models or migrations. Prisma 7.10.1 can generate a client for this empty schema; the integration test uses a raw `SELECT 1` through the PostgreSQL adapter. E01 must not invent Trip State, Decision Context, or NAP fields. The PostgreSQL adapter is pinned to the matching Prisma version.
+Prisma contains four infrastructure tables for original Trip State JSONB, append-only history, pending proposals and idempotency. Runtime and migration identities are separate. See the E02-02 report for database provisioning; set E02_STORAGE_ENV_FILE to a private provisioning result to execute all storage and command integration tests. CI provisions a genuinely empty PostgreSQL 17 database and forbids skipping these tests. The PostgreSQL adapter is pinned to the matching Prisma version.
 
 ## Source boundaries
 
-`src/app/` contains the bootstrap page and health route; `tests/` contains foundation tests. The pre-existing local Trip State, Decision Context, NAP and PRD documents remain their respective authorities; they have not been copied into this engineering commit or implemented here. The NAP specification is still an engineering review candidate and retains its stated Owner review limits. No business behavior is claimed as implemented.
+`src/app/` contains the bootstrap page and health route; `tests/` contains foundation tests. Byte-preserved authoritative PRD and Trip State/DC/NAP snapshots are versioned under specs/ with a SHA-256 manifest. The TypeScript implementation executes the reviewed Scenario A subset; Python runs only as an independent test oracle. The NAP/DC specifications retain their review limits and unresolved issues; their runtime modules are not implemented.
 
 See `docs/E01-report.md` for actual checks and acceptance status and `docs/cloud-environment.md` for repeatable cloud setup.
