@@ -3,6 +3,11 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Prisma } from "../../../generated/prisma/client";
 import { parseContract } from "../contracts";
 import { parseStateReferences } from "../references";
+import { checkStateCounters, safeCounter } from "../numbers";
+import { planCommand, validateActor, failureResponse, type Actor, type CommandRequest } from "../commands";
+import { validateStateSemantics, rule } from "../semantics";
+import { decodeCommandJson, digest } from "../command-json";
+import { TripStateContractError } from "../contracts";
 import type { TripStateContracts, State } from "../contracts.generated";
 
 type Request = TripStateContracts["change-request"] | TripStateContracts["confirm-request"];
@@ -29,16 +34,25 @@ function requireStorage(condition: boolean, code: string, message: string): asse
 }
 const json = (value: unknown) => JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
 const same = (a: unknown, b: unknown) => isDeepStrictEqual(a, b);
+function storageState(value: unknown) { const state = parseContract("state", typeof value === "string" ? decodeCommandJson(value) : value); checkStateCounters(state); return state; }
+function storageResponse(value: unknown) { const response = parseContract("response", typeof value === "string" ? decodeCommandJson(value) : value); safeCounter(response.revision, "response revision"); return response; }
+
+function storageHistory(rows: Array<{ intent: string; change: string }>) {
+  const history = parseContract("history", { intents: rows.map((r) => decodeCommandJson(r.intent)), changes: rows.map((r) => decodeCommandJson(r.change)) });
+  for (const intent of history.intents) safeCounter(intent.base_revision, "history base revision");
+  for (const change of history.changes) { safeCounter(change.base_revision, "history base revision"); safeCounter(change.result_revision, "history result revision"); }
+  return history;
+}
 
 function createClient(connectionString: string) {
   // Prisma 7's timestamp adapter requires a UTC session to preserve instants from non-UTC servers.
   const url = new URL(connectionString);
-  url.searchParams.set("options", "-c timezone=UTC");
+  url.searchParams.set("options", `${url.searchParams.get("options") ?? ""} -c timezone=UTC`.trim());
   return new PrismaClient({ adapter: new PrismaPg({ connectionString: url.toString() }) });
 }
 
 function requireSyntheticEnvironment() {
-  requireStorage(process.env.NODE_ENV === "test", "STORAGE_WRITE_DISABLED", "Business writes require a future trusted command/authorization/semantic guard");
+  requireStorage(process.env.NODE_ENV === "test", "STORAGE_WRITE_DISABLED", "Generic snapshot/batch writes are restricted to isolated synthetic tests");
 }
 
 // Read-only storage API. The host must authorize trip access before calling it.
@@ -46,16 +60,16 @@ export function openTripStateReader(connectionString: string) {
   const client = createClient(connectionString);
   return {
     async state(tripId: string) {
-      const row = await client.tripStateDocument.findUnique({ where: { tripId } });
-      return row ? parseContract("state", row.snapshot) : null;
+      const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${tripId}`;
+      return row ? storageState(row.snapshot) : null;
     },
     async history(tripId: string) {
-      const rows = await client.tripStateHistory.findMany({ where: { tripId }, orderBy: { sequence: "asc" } });
-      return parseContract("history", { intents: rows.map((r) => r.intent), changes: rows.map((r) => r.change) });
+      const rows = await client.$queryRaw<Array<{ intent: string; change: string }>>`SELECT "intent"::text AS "intent", "change"::text AS "change" FROM "TripStateHistory" WHERE "tripId" = ${tripId} ORDER BY "sequence"`;
+      return storageHistory(rows);
     },
     async idempotency(tripId: string, key: Omit<RequestKey, "requestDigest">) {
-      const row = await client.tripStateIdempotency.findUnique({ where: { tripId_actorId_operationDomain_key: { tripId, ...key } } });
-      return row ? { requestDigest: row.requestDigest, request: row.request, response: parseContract("response", row.response) } : null;
+      const [row] = await client.$queryRaw<Array<{ requestDigest: string; request: string; response: string }>>`SELECT "requestDigest", "request"::text AS "request", "response"::text AS "response" FROM "TripStateIdempotency" WHERE "tripId" = ${tripId} AND "actorId" = ${key.actorId} AND "operationDomain" = ${key.operationDomain} AND "key" = ${key.key}`;
+      return row ? { requestDigest: row.requestDigest, request: decodeCommandJson(row.request), response: storageResponse(row.response) } : null;
     },
     async pending(tripId: string, proposalId: string) {
       // Consistent snapshot: the proposal basis and aggregate revision are read in one statement.
@@ -73,43 +87,34 @@ export function openTripStateReader(connectionString: string) {
   };
 }
 
-/** No production writer is exported. Only an ephemeral, non-owner test identity can enter here. */
-export async function openSyntheticStorageHarness(connectionString: string, fault?: (point: StorageCheckpoint) => void | Promise<void>) {
-  requireSyntheticEnvironment();
-  const client = createClient(connectionString);
-  try {
-    const [identity] = await client.$queryRaw<Array<{ database: string; privileged: boolean; owns: boolean }>>`
-      SELECT current_database() AS "database",
-        (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls) AS "privileged",
-        EXISTS (SELECT 1 FROM pg_class c WHERE c.relname IN ('TripStateDocument','TripStateHistory','TripStateProposal','TripStateIdempotency')
-          AND pg_has_role(current_user, c.relowner, 'USAGE')) AS "owns"
-      FROM pg_roles r WHERE r.rolname = current_user`;
-    requireStorage(/^antu_e02_test_[a-z0-9_]+$/.test(identity.database) && !identity.privileged && !identity.owns,
-      "STORAGE_IDENTITY", "Synthetic writes require an isolated test database and a non-owner, unprivileged runtime role");
-  } catch (error) { await client.$disconnect(); throw error; }
-
-  async function commit(batch: SyntheticStorageBatch) {
-    requireSyntheticEnvironment();
-    const request = parseContract(batch.key.operationDomain === "confirmation" ? "confirm-request" : "change-request", batch.request);
-    requireStorage(request.idempotency_key === batch.key.key && !!batch.key.requestDigest, "STORAGE_INTEGRITY", "Request identity mismatch");
+async function commitPrepared(client: PrismaClient, envelope: {
+  tripId: string; request: Request; key: RequestKey; materialize: (current: State) => SyntheticStorageBatch;
+}, fault?: (point: StorageCheckpoint) => void | Promise<void>) {
+    const request = parseContract(envelope.key.operationDomain === "confirmation" ? "confirm-request" : "change-request", envelope.request);
+    requireStorage(request.idempotency_key === envelope.key.key && !!envelope.key.requestDigest, "STORAGE_INTEGRITY", "Request identity mismatch");
+    safeCounter(request.expected_revision, "expected_revision");
     return client.$transaction(async (tx) => {
       const rows = await tx.$queryRaw<Array<{ revision: bigint; snapshot: Prisma.JsonValue }>>`
-        SELECT "revision", "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${batch.tripId} FOR UPDATE`;
+        SELECT "revision", "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${envelope.tripId} FOR UPDATE`;
       const current = rows[0];
       requireStorage(!!current, "STORAGE_TRIP_NOT_FOUND", "Aggregate does not exist");
-      const identity = { tripId: batch.tripId, actorId: batch.key.actorId, operationDomain: batch.key.operationDomain, key: batch.key.key };
-      const previous = await tx.tripStateIdempotency.findUnique({ where: { tripId_actorId_operationDomain_key: identity } });
+      const identity = { tripId: envelope.tripId, actorId: envelope.key.actorId, operationDomain: envelope.key.operationDomain, key: envelope.key.key };
+      const [previous] = await tx.$queryRaw<Array<{ requestDigest: string; request: string; response: string }>>`SELECT "requestDigest", "request"::text AS "request", "response"::text AS "response" FROM "TripStateIdempotency" WHERE "tripId" = ${identity.tripId} AND "actorId" = ${identity.actorId} AND "operationDomain" = ${identity.operationDomain} AND "key" = ${identity.key}`;
       // Replay precedes the revision check, as in the original Store. Compare body too, even for a claimed digest collision.
       if (previous) {
-        requireStorage(previous.requestDigest === batch.key.requestDigest && same(previous.request, request), "IDEMPOTENCY_CONFLICT", "Same key has a different request");
-        return { replayed: true, response: parseContract("response", previous.response) };
+        requireStorage(previous.requestDigest === envelope.key.requestDigest && same(decodeCommandJson(previous.request), request), "IDEMPOTENCY_CONFLICT", "Same key has a different request");
+        return { replayed: true, response: storageResponse(previous.response) };
       }
       requireStorage(current.revision === BigInt(request.expected_revision), "VERSION_CONFLICT", "Aggregate revision changed");
-      const before = parseContract("state", current.snapshot);
-      const after = parseStateReferences(batch.snapshot);
+      const before = storageState(current.snapshot);
+      requireStorage(BigInt(before.revision) === current.revision, "STORAGE_INTEGRITY", "Stored revision and JSONB disagree");
+      const batch = envelope.materialize(structuredClone(before));
+      requireStorage(batch.tripId === envelope.tripId && same(batch.request, request) && same(batch.key, envelope.key), "STORAGE_INTEGRITY", "Internal plan changed its transaction envelope");
+      const after = parseStateReferences(batch.snapshot); checkStateCounters(after);
       const intent = parseContract("OperationIntent", batch.intent);
       const change = parseContract("ChangeRecord", batch.change);
-      const response = parseContract("response", batch.response);
+      const response = storageResponse(batch.response);
+      safeCounter(intent.base_revision, "intent base revision"); safeCounter(change.base_revision, "change base revision"); safeCounter(change.result_revision, "change result revision");
       requireStorage(after.trip_id === batch.tripId && intent.trip_id === batch.tripId && change.trip_id === batch.tripId
         && change.intent_id === intent.id && intent.base_revision === request.expected_revision
         && change.base_revision === request.expected_revision && change.result_revision === after.revision
@@ -166,13 +171,101 @@ export async function openSyntheticStorageHarness(connectionString: string, faul
       return { replayed: false, response };
     }, { timeout: 15000, maxWait: 15000 });
   }
+
+/** This generic synthetic writer remains test-only; command service below has no batch-input API. */
+export async function openSyntheticStorageHarness(connectionString: string, fault?: (point: StorageCheckpoint) => void | Promise<void>) {
+  requireSyntheticEnvironment();
+  const client = createClient(connectionString);
+  try {
+    const [identity] = await client.$queryRaw<Array<{ database: string; privileged: boolean; owns: boolean }>>`
+      SELECT current_database() AS "database",
+        (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls) AS "privileged",
+        EXISTS (SELECT 1 FROM pg_class c WHERE c.relname IN ('TripStateDocument','TripStateHistory','TripStateProposal','TripStateIdempotency')
+          AND pg_has_role(current_user, c.relowner, 'USAGE')) AS "owns"
+      FROM pg_roles r WHERE r.rolname = current_user`;
+    requireStorage(/^antu_e02_test_[a-z0-9_]+$/.test(identity.database) && !identity.privileged && !identity.owns,
+      "STORAGE_IDENTITY", "Synthetic writes require an isolated test database and a non-owner, unprivileged runtime role");
+  } catch (error) { await client.$disconnect(); throw error; }
+
+
   return {
     async seedSyntheticSnapshot(snapshot: unknown) {
       requireSyntheticEnvironment();
-      const state = parseStateReferences(snapshot);
+      const state = parseStateReferences(snapshot); checkStateCounters(state);
       await client.tripStateDocument.create({ data: { tripId: state.trip_id, revision: BigInt(state.revision), snapshot: json(state) } });
     },
-    commitSyntheticBatch: commit,
+    commitSyntheticBatch: async (batch: SyntheticStorageBatch) => {
+      requireSyntheticEnvironment();
+      return commitPrepared(client, { ...batch, materialize: () => batch }, fault);
+    },
+    close: () => client.$disconnect(),
+  };
+}
+
+export type HostGrant = Readonly<{ tripId: string; actor: Actor }>;
+export type CommandHost = {
+  // A server-installed authentication + trip-authorization integration. Never take this callback from request data.
+  authorize: (tripId: string, credential: unknown) => HostGrant | Promise<HostGrant>;
+  clock?: () => Date;
+  uuid?: () => string;
+};
+
+/** Internal command-only channel. No arbitrary snapshot, journal, Actor or patch is accepted from a caller. */
+export async function openTripCommandService(connectionString: string, host: CommandHost) {
+  rule(host && typeof host.authorize === "function", "ACTOR", "A trusted host authorization integration is required");
+  const client = createClient(connectionString);
+  try {
+    const [identity] = await client.$queryRaw<Array<{ privileged: boolean; owns: boolean }>>`
+      SELECT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls) AS "privileged",
+        EXISTS (SELECT 1 FROM pg_class c WHERE c.relname IN ('TripStateDocument','TripStateHistory','TripStateProposal','TripStateIdempotency')
+          AND pg_has_role(current_user, c.relowner, 'USAGE')) AS "owns"
+      FROM pg_roles r WHERE r.rolname = current_user`;
+    requireStorage(!identity.privileged && !identity.owns, "STORAGE_IDENTITY", "Command runtime must not own database objects or hold administrative privileges");
+  } catch (error) { await client.$disconnect(); throw error; }
+  async function authorize(tripId: string, credential: unknown): Promise<Actor> {
+    const grant = await host.authorize(tripId, credential);
+    rule(grant && grant.tripId === tripId, "ACTOR", "Host grant does not authorize this trip");
+    validateActor(grant.actor);
+    return Object.freeze({ ...grant.actor });
+  }
+  return {
+    async createTrip(tripId: string, credential: unknown) {
+      const actor = await authorize(tripId, credential);
+      rule(actor.role === "system", "PERMISSION", "Only the trusted host system may initialize an empty trip");
+      const state = validateStateSemantics({ schema_version: "0.1.0", trip_id: tripId, revision: 0, effective_skeleton_id: null, objects: [] });
+      await client.tripStateDocument.create({ data: { tripId, revision: 0n, snapshot: json(state) } });
+      return state;
+    },
+    async submit(tripId: string, input: unknown, credential: unknown) {
+      const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
+      const actor = await authorize(tripId, credential);
+      const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${tripId}`;
+      requireStorage(!!row, "STORAGE_TRIP_NOT_FOUND", "Aggregate does not exist");
+      const before = storageState(row.snapshot);
+      try {
+        const request: CommandRequest = parseContract("change-request", captured);
+        safeCounter(request.expected_revision, "expected_revision");
+        const key = { actorId: actor.id, operationDomain: actor.role, key: request.idempotency_key, requestDigest: digest(request) };
+        const result = await commitPrepared(client, { tripId, request, key, materialize: (current) => planCommand(current, request, actor, host.clock, host.uuid) });
+        return result.response;
+      } catch (error) {
+        if (error instanceof TripStateContractError || error instanceof StorageError) {
+          const [current] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${tripId}`;
+          return failureResponse(storageState(current?.snapshot ?? before), new TripStateContractError(error.code, error.message));
+        }
+        throw error; // Storage faults must roll back and remain observable; never claim they applied.
+      }
+    },
+    async state(tripId: string, credential: unknown) {
+      await authorize(tripId, credential);
+      const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${tripId}`;
+      return row ? validateStateSemantics(storageState(row.snapshot)) : null;
+    },
+    async history(tripId: string, credential: unknown) {
+      await authorize(tripId, credential);
+      const rows = await client.$queryRaw<Array<{ intent: string; change: string }>>`SELECT "intent"::text AS "intent", "change"::text AS "change" FROM "TripStateHistory" WHERE "tripId" = ${tripId} ORDER BY "sequence"`;
+      return storageHistory(rows);
+    },
     close: () => client.$disconnect(),
   };
 }
