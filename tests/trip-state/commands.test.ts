@@ -107,9 +107,12 @@ describe("command permissions, lifecycle and failure atomicity", () => {
     expect(execute(state, request, scenario.steps[0].actor).response.errors[0].code).toBe("DUPLICATE_ID");
     expect(state).toEqual(scenario.initial_state);
   });
-  it("fails closed for states needing later fact/constraint/skeleton command processing", () => {
-    const state = traces[1].initial_state;
-    expect(() => planCommand(state, requestAt(0, state.revision), scenario.steps[0].actor)).toThrowError(expect.objectContaining({ code: "E02_SLICE_UNSUPPORTED" }));
+  it("processes the complete original state without removing unrelated fact/constraint/skeleton objects", () => {
+    const state = traces[1].initial_state, request = requestAt(0, state.revision), actor = scenario.steps[0].actor;
+    const batch = planCommand(state, request, actor, clock, uuids());
+    const python = oracle<Array<{ response: unknown; state_after: State }>>({ initial: state, operations: [{ request, actor }] });
+    expect(batch.response).toEqual(python[0].response); expect(batch.snapshot).toEqual(python[0].state_after);
+    for (const original of state.objects) expect(batch.snapshot.objects.find((o) => o.id === original.id)).toEqual(original);
   });
 });
 

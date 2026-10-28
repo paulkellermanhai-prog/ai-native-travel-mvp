@@ -34,8 +34,10 @@ const { openTripCommandService } = await import(pathToFileURL(path.join(root, "s
 process.once("message", async (message) => {
   const connection = new URL(config.runtimeUrl);
   if (message.applicationName) connection.searchParams.set("application_name", message.applicationName);
+  let nextUuid = message.uuidStart;
   const service = await openTripCommandService(connection.toString(), {
     ...(message.clock ? { clock: () => new Date(message.clock) } : {}),
+    ...(typeof nextUuid === "number" ? { uuid: () => (nextUuid++).toString(16).padStart(32, "0") } : {}),
     authorize: (trip, credential) => {
       if (trip !== message.tripId || credential !== "synthetic-child-session") throw new Error("Denied by synthetic child host");
       return { tripId: trip, actor: { role: message.method === "submit" ? "model" : "user", id: message.method === "submit" ? "scenario-ai" : "scenario-user" } };

@@ -9,7 +9,7 @@ from uuid import UUID
 root = Path(__file__).resolve().parents[2] / "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包"
 sys.path.insert(0, str(root))
 from tripstate.engine import Store, Actor, digest
-from tripstate.rules import validate_state, RuleError
+from tripstate.rules import validate_state, RuleError, condition_value, index
 
 payload = json.load(sys.stdin)
 if payload.get("mode") == "states":
@@ -23,6 +23,10 @@ if payload.get("mode") == "states":
     json.dump(results, sys.stdout)
 elif payload.get("mode") == "digests":
     json.dump([digest(value) for value in payload["values"]], sys.stdout)
+elif payload.get("mode") == "conditions":
+    validate_state(payload["state"])
+    now = datetime.fromisoformat(payload.get("clock", "2030-01-01T00:00:00Z").replace("Z", "+00:00"))
+    json.dump([condition_value(c, index(payload["state"]), now) for c in payload["conditions"]], sys.stdout)
 else:
     counter = iter(range(payload.get("uuidStart", 1000), 100000))
     now = datetime.fromisoformat(payload.get("clock", "2030-01-01T00:00:00Z").replace("Z", "+00:00"))

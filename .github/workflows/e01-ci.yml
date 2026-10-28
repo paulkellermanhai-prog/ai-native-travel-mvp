@@ -82,6 +82,8 @@ jobs:
         env:
           E02_ENGINE_EVIDENCE_PATH: ${{ runner.temp }}/e02-03-typescript-scenario-a.json
           E02_CONFIRMATION_EVIDENCE_PATH: ${{ runner.temp }}/e02-04a-confirmation.jsonl
+          E02_BCG_EVIDENCE_PATH: ${{ runner.temp }}/e02-04b-bcg.json
+          E02_BCG_STORAGE_EVIDENCE_PATH: ${{ runner.temp }}/e02-04b-postgres.jsonl
         run: npm test
       - name: Preserve actual TypeScript Scenario A execution evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -95,6 +97,15 @@ jobs:
         with:
           name: e02-04a-confirmation
           path: ${{ runner.temp }}/e02-04a-confirmation.jsonl
+          if-no-files-found: error
+          retention-days: 14
+      - name: Preserve actual BCG command and PostgreSQL execution
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e02-04b-bcg
+          path: |
+            ${{ runner.temp }}/e02-04b-bcg.json
+            ${{ runner.temp }}/e02-04b-postgres.jsonl
           if-no-files-found: error
           retention-days: 14
       - name: Check database connectivity
