@@ -3,7 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "engines": { "node": "24.x", "npm": "11.x" },
+  "engines": {
+    "node": "24.x",
+    "npm": "11.x"
+  },
   "packageManager": "npm@11.19.1",
   "scripts": {
     "dev": "next dev",
@@ -17,11 +20,15 @@
     "db:generate": "prisma generate",
     "db:check": "node --env-file-if-exists=.env scripts/db-check.mjs",
     "specs:verify": "node scripts/specs.mjs verify",
-    "check": "npm run db:validate && npm run db:generate && npm run typecheck && npm run lint && npm test && npm run build"
+    "contracts:generate": "node scripts/trip-state-contracts.mjs",
+    "contracts:check": "node scripts/trip-state-contracts.mjs --check",
+    "check": "npm run specs:verify && npm run contracts:check && npm run db:validate && npm run db:generate && npm run typecheck && npm run lint && npm test && npm run build"
   },
   "dependencies": {
-    "@prisma/client": "7.10.1",
     "@prisma/adapter-pg": "7.10.1",
+    "@prisma/client": "7.10.1",
+    "ajv": "8.20.0",
+    "ajv-formats": "3.0.1",
     "dotenv": "^17.2.3",
     "next": "16.4.3",
     "pg": "^8.16.3",
@@ -35,6 +42,7 @@
     "@types/react-dom": "^19.2.0",
     "eslint": "9.39.5",
     "eslint-config-next": "16.4.3",
+    "json-schema-to-typescript": "16.0.0",
     "prisma": "7.10.1",
     "typescript": "5.9.3",
     "vitest": "5.0.5"

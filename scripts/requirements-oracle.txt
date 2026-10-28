@@ -1,0 +1,4 @@
+-r ../specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/requirements.txt
+# Enable the original FormatChecker's RFC 3339 check; bare jsonschema omits this optional dependency.
+rfc3339-validator==0.1.4
+six==1.17.0
