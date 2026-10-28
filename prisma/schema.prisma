@@ -7,4 +7,52 @@ datasource db {
   provider = "postgresql"
 }
 
-// E01 establishes tooling only. Add business models from approved specifications.
+// Storage infrastructure only; the JSON documents retain the original business contracts.
+model TripStateDocument {
+  tripId    String                 @id
+  revision  BigInt
+  snapshot  Json                   @db.JsonB
+  history   TripStateHistory[]
+  proposals TripStateProposal[]
+  requests  TripStateIdempotency[]
+}
+
+model TripStateHistory {
+  tripId         String
+  sequence       BigInt
+  intentId       String
+  changeRecordId String
+  intent         Json              @db.JsonB
+  change         Json              @db.JsonB
+  document       TripStateDocument @relation(fields: [tripId], references: [tripId], onDelete: Restrict)
+
+  @@id([tripId, sequence])
+  @@unique([tripId, intentId])
+  @@unique([tripId, changeRecordId])
+}
+
+model TripStateProposal {
+  tripId        String
+  proposalId    String
+  basisRevision BigInt
+  digest        String
+  payload       Json              @db.JsonB
+  createdAt     DateTime          @default(dbgenerated("clock_timestamp()")) @db.Timestamptz(6)
+  expiresAt     DateTime          @db.Timestamptz(6)
+  document      TripStateDocument @relation(fields: [tripId], references: [tripId], onDelete: Restrict)
+
+  @@id([tripId, proposalId])
+}
+
+model TripStateIdempotency {
+  tripId          String
+  actorId         String
+  operationDomain String
+  key             String
+  requestDigest   String
+  request         Json              @db.JsonB
+  response        Json              @db.JsonB
+  document        TripStateDocument @relation(fields: [tripId], references: [tripId], onDelete: Restrict)
+
+  @@id([tripId, actorId, operationDomain, key])
+}
