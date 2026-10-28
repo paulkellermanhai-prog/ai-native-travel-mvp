@@ -3,9 +3,10 @@ import { isDeepStrictEqual as same } from "node:util";
 import transitions from "../../../specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/rules/transitions.json";
 import { parseContract, TripStateContractError } from "./contracts";
 import { digest } from "./command-json";
-import { validateStateSemantics, rule, instantMicros } from "./semantics";
+import { validateStateSemantics, rule, instantMicros, reservationProfile } from "./semantics";
 import { incrementCounter, safeCounter } from "./numbers";
-import type { State, TripStateContracts, Condition } from "./contracts.generated";
+import { conditionValue, conditionReferences as conditionRefs, applicable, reservationOverlapsTrip } from "./conditions";
+import type { State, TripStateContracts } from "./contracts.generated";
 
 export type Actor = Readonly<{ role: "user" | "model" | "system" | "tool"; id: string }>;
 export type CommandRequest = TripStateContracts["change-request"];
@@ -26,9 +27,6 @@ export function failureResponse(state: State, error: TripStateContractError): Tr
   return parseContract("response", { outcome: ["VERSION_CONFLICT", "IDEMPOTENCY_CONFLICT"].includes(error.code) ? "conflict" : "rejected", revision: state.revision,
     proposal_id: null, proposal_digest: null, confirmation_required: false, affected_ids: [], diff: [], errors: [{ code: error.code, message: error.message }] });
 }
-function conditionRefs(c: Condition): string[] {
-  return "object_id" in c ? [c.object_id] : "args" in c ? c.args.flatMap(conditionRefs) : "arg" in c ? conditionRefs(c.arg) : [];
-}
 function changedPaths(old: unknown, next: unknown, prefix = ""): Set<string> {
   if (old && next && typeof old === "object" && typeof next === "object" && !Array.isArray(old) && !Array.isArray(next)) {
     const a = old as Record<string, unknown>, b = next as Record<string, unknown>, result = new Set<string>();
@@ -48,9 +46,6 @@ function diff(before: State, after: State) {
 function checkedInput(beforeValue: unknown, requestValue: unknown, actor: Actor) {
   validateActor(actor);
   const before = validateStateSemantics(beforeValue), request = parseContract("change-request", requestValue);
-  if (before.objects.some((o) => !["DestinationEntity", "TripGoal", "Preference", "Candidate", "Decision", "OpenIssue"].includes(o.type))) {
-    throw new TripStateContractError("E02_SLICE_UNSUPPORTED", "This state needs the later constraint/fact/skeleton command slice; no partial processing is allowed");
-  }
   safeCounter(request.expected_revision, "expected_revision");
   rule(request.expected_revision === before.revision, "VERSION_CONFLICT", "旅行版本已改变；重新读取并预览");
   for (const id of request.input.target_ids) rule(before.objects.some((o) => o.id === id), "DANGLING_REF", "操作意图引用不存在");
@@ -82,73 +77,144 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
   const source = { actor: actor.role, actor_id: actor.id, reference: request.input.reference, text: request.input.text, at: stamp };
   const unsupported = (message: string): never => { throw new TripStateContractError("E02_SLICE_UNSUPPORTED", message); };
   function get(id: string): ObjectRecord { const o = objects.get(id); rule(o, "DANGLING_REF", `引用不存在: ${id}`); return o; }
-  function make(id: string, kind: "TripGoal" | "Preference" | "DestinationEntity" | "Candidate" | "Decision" | "OpenIssue", data: object, scope = { kind: "trip", ids: [] } as ObjectRecord["scope"], dependencies: ObjectRecord["dependencies"] = []) {
+  function make(id: string, kind: "TripGoal" | "Preference" | "Constraint" | "DestinationEntity" | "Candidate" | "Skeleton" | "Decision" | "OpenIssue", data: object, scope = { kind: "trip", ids: [] } as ObjectRecord["scope"], dependencies: ObjectRecord["dependencies"] = []) {
     rule(!objects.has(id), "DUPLICATE_ID", id);
-    const initial = { TripGoal: "draft", Preference: "active", DestinationEntity: "known", Candidate: "exploring", Decision: "proposed", OpenIssue: "open" };
+    const initial = { TripGoal: "draft", Preference: "active", Constraint: "proposed", DestinationEntity: "known", Candidate: "exploring", Skeleton: "active", Decision: "proposed", OpenIssue: "open" };
     const o = parseContract(kind, { id, type: kind, trip_id: state.trip_id, version: 1, status: initial[kind], scope: structuredClone(scope), source: structuredClone(source), dependencies: structuredClone(dependencies), updated_at: stamp, ...data });
     state.objects.push(o); objects.set(id, o); return o;
   }
-  function transition(o: ObjectRecord, event: string) {
+  function transition(o: ObjectRecord, event: string, role = actor.role) {
     const edge = transitions.find((t) => t.object_type === o.type && t.from_state === o.status && t.event === event);
     rule(edge, "ILLEGAL_TRANSITION", `${o.type}:${o.status} -> ${event}`);
-    rule(edge.actors.includes(actor.role), "PERMISSION", "执行主体没有此转换权限");
+    rule(edge.actors.includes(role), "PERMISSION", "执行主体没有此转换权限");
     Object.assign(o, { status: edge.to_state });
+  }
+  function hasCommitment(candidate: Extract<ObjectRecord, { type: "Candidate" }>) {
+    return state.objects.some((f) => {
+      const profile = f.type === "ExternalFact" && f.status === "active" ? reservationProfile(f) : null;
+      return profile && profile.commitment_state === "confirmed" && candidate.subject_ids.includes(profile.city_id) && reservationOverlapsTrip(profile, objects);
+    });
   }
   for (const cmd of request.commands) {
     if (cmd.op === "create") {
-      if (!["DestinationEntity", "TripGoal", "Preference", "Candidate"].includes(cmd.object_type)) unsupported("Create kind is outside the reviewed Scenario A slice");
       rule(cmd.object_type !== "DestinationEntity" || actor.role === "system", "PERMISSION", "目录由系统适配器维护");
-      rule(cmd.object_type !== "TripGoal" || actor.role === "user", "PERMISSION", "目标和约束须用户明确表达");
+      rule(!["TripGoal", "Constraint"].includes(cmd.object_type) || actor.role === "user", "PERMISSION", "目标和约束须用户明确表达");
       rule(cmd.object_type !== "Preference" || cmd.data.certainty !== "explicit" || actor.role === "user", "PERMISSION", "明确偏好须有用户表达");
       if (cmd.object_type === "Candidate") make(cmd.id, "Candidate", { ...cmd.data, review_state: "current" }, cmd.scope, cmd.dependencies);
-      else if (cmd.object_type === "TripGoal" || cmd.object_type === "Preference" || cmd.object_type === "DestinationEntity") make(cmd.id, cmd.object_type, cmd.data, cmd.scope, cmd.dependencies);
+      else if (cmd.object_type === "Skeleton") make(cmd.id, "Skeleton", { ...cmd.data, assessment: { status: "unchecked", total_nights: null,
+        connection_minutes: [], cost_groups: [], cost_coverage: "none", unknowns: [], violations: [], checked_at: null } }, cmd.scope, cmd.dependencies);
+      else {
+        const created = make(cmd.id, cmd.object_type, cmd.data, cmd.scope, cmd.dependencies);
+        if (created.type === "OpenIssue") rule(created.resolution === null && created.evidence_ids.length === 0, "ISSUE_STATE", "新问题不能伪装已解决");
+      }
     } else if (cmd.op === "revise") {
-      if (!["DestinationEntity", "TripGoal", "Preference", "Candidate"].includes(cmd.object_type)) unsupported("Revise kind is outside this slice");
       const o = get(cmd.id); rule(o.type === cmd.object_type, "REF_TYPE", cmd.id);
       rule(!["superseded", "withdrawn", "invalidated", "relaxed", "closed", "retired", "archived", "resolved", "dismissed"].includes(o.status), "IMMUTABLE_HISTORY", "终态不得原位修改；创建新对象或允许的重开操作");
+      rule(o.id !== state.effective_skeleton_id, "EFFECTIVE_IMMUTABLE", "修改有效骨架须创建暂定版本");
+      if (o.type === "Skeleton") rule(!state.objects.some((d) => d.type === "Decision" && d.subject_id === o.id && d.status === "confirmed"), "CONFIRMED_IMMUTABLE", "确认过的骨架须新建版本");
+      if (o.type === "Constraint") rule(o.override_policy !== "fixed", "FIXED_CONSTRAINT", "固定现实条件不可通过普通修改放宽；新增证据并走纠错");
       rule(o.type !== "DestinationEntity" || actor.role === "system", "PERMISSION", "目录仅系统维护");
-      rule(o.type !== "TripGoal" && !(o.type === "Preference" && o.certainty === "explicit") || actor.role === "user", "PERMISSION", "明确值不得被推断覆盖");
+      rule(!["TripGoal", "Constraint"].includes(o.type) && !(o.type === "Preference" && o.certainty === "explicit") || actor.role === "user", "PERMISSION", "明确值不得被推断覆盖");
       if (cmd.object_type === "Preference") rule(cmd.changes.certainty !== "explicit" || actor.role === "user", "PERMISSION", "推断不能升级为明确表达");
       // 'changes' already passed the original per-kind field whitelist; never accept a generic patch.
       Object.assign(o, structuredClone(cmd.changes), { source: structuredClone(source) });
     } else if (cmd.op === "transition") {
       const o = get(cmd.id);
       rule(!["confirm", "reconsider", "resolve", "dismiss", "revoke"].includes(cmd.event), "DEDICATED_COMMAND", "此转换必须经专用业务命令");
-      if (o.type !== "TripGoal" || cmd.event !== "activate") unsupported("Only TripGoal.activate is enabled in this command slice");
-      transition(o, cmd.event); o.source = structuredClone(source);
+      rule(!(cmd.event === "supersede" && ["Skeleton", "Decision"].includes(o.type)), "DEDICATED_COMMAND", "骨架及决定的替代只能由专用采用／选择命令原子完成");
+      if (o.type === "ExternalFact") {
+        const edge = transitions.find((t) => t.object_type === o.type && t.from_state === o.status && t.event === cmd.event);
+        rule(edge, "ILLEGAL_TRANSITION", `${o.type}:${o.status} -> ${cmd.event}`);
+        rule(edge.actors.includes(actor.role), "PERMISSION", "执行主体没有此转换权限");
+        unsupported("ExternalFact lifecycle writes require E02-04C");
+      }
+      if (o.type === "OpenIssue" && cmd.event === "make_actionable") rule(o.candidate_actions.length > 0, "ACTION_NOT_READY", "至少需要一个可尝试的候选动作");
+      transition(o, cmd.event);
+      if (o.type === "Constraint" && o.override_policy === "fixed") {
+        rule(cmd.event === "invalidate" && actor.role === "system", "FIXED_CONSTRAINT", "固定约束只允许系统有依据地失效");
+        rule(o.dependencies.some((d) => d.relation === "evidence" && get(d.object_id).type === "ExternalFact" && ["contradicted", "superseded"].includes(get(d.object_id).status)), "FIXED_CONSTRAINT_EVIDENCE", "固定条件失效须有已被反证或替代的事实依据；单纯过期仍保留原约束");
+      }
+      rule(o.id !== state.effective_skeleton_id, "EFFECTIVE_IMMUTABLE", "当前有效骨架不能单独归档或替代");
+      if (o.type === "Candidate" && ["exclude", "exclude_conditionally"].includes(cmd.event)) {
+        rule(!hasCommitment(o), "COMMITTED_FACT_CONFLICT", "已有住宿确认，不能单独排除其城市；先核验取消／变更");
+        if (actor.role !== "user") rule(o.preference_ids.some((id) => {
+          const p = get(id);
+          return p.type === "Preference" && p.status === "active" && p.polarity === "tradeoff" && p.certainty === "explicit"
+            && (p.scope.kind === "trip" || p.scope.kind === "entity" && p.scope.ids.some((id) => o.subject_ids.includes(id)))
+            && conditionValue(p.condition, objects, now) === true;
+        }), "CONDITION_UNKNOWN", "未确认适用取舍条件成立，不得自动排除");
+        rule(!state.objects.some((d) => d.type === "Decision" && d.subject_id === o.id && d.status === "confirmed" && d.value === "accept"), "CONFIRMED_CANDIDATE", "先明确撤销该候选决定");
+        const effective = state.effective_skeleton_id ? get(state.effective_skeleton_id) : null;
+        rule(!effective || effective.type !== "Skeleton" || !effective.stops.some((stop) => o.subject_ids.includes(stop.entity_id)), "CONFIRMED_CANDIDATE", "排除会影响当前骨架，须创建并确认替代方案");
+        o.exclusion_reason = request.reason;
+      }
+      o.source = structuredClone(source);
     } else if (cmd.op === "decide_candidate") {
       rule(actor.role === "user", "PERMISSION", "用户决定必须经确认");
-      if (cmd.value !== "accept") unsupported("Decision rejection/reversal is reserved for E02-04");
       const o = get(cmd.id); rule(o.type === "Candidate", "REF_TYPE", cmd.id);
-      rule(!["excluded", "conditionally_excluded"].includes(o.status), "CANDIDATE_EXCLUDED", "被排除候选须先重新考虑");
-      if (state.objects.some((d) => d.type === "Decision" && d.subject_id === o.id && d.status === "confirmed")) unsupported("Existing confirmed decisions require the reviewed E02-04 reversal path");
-      if (o.status !== "retained") transition(o, "retain");
+      if (cmd.value !== "reject") rule(!["excluded", "conditionally_excluded"].includes(o.status), "CANDIDATE_EXCLUDED", "被排除候选须先重新考虑");
+      if (cmd.value === "reject") {
+        const effective = state.effective_skeleton_id ? get(state.effective_skeleton_id) : null;
+        rule(!effective || effective.type !== "Skeleton" || !effective.stops.some((stop) => o.subject_ids.includes(stop.entity_id)), "CONFIRMED_CANDIDATE", "拒绝当前骨架中的城市须先确认替代骨架");
+        rule(!hasCommitment(o), "COMMITTED_FACT_CONFLICT", "已有住宿确认，须先核验取消／变更");
+      }
+      const prior = state.objects.filter((d) => d.type === "Decision" && d.subject_id === o.id && d.status === "confirmed");
+      for (const d of prior) transition(d, "supersede", "system"); // Derived effect of the authorized dedicated command, not a caller-supplied Actor.
+      if (o.status !== (cmd.value === "reject" ? "excluded" : "retained")) transition(o, cmd.value === "reject" ? "exclude" : "retain");
+      if (cmd.value === "reject") o.exclusion_reason = request.reason;
       const decision = make(`decision-${proposal}-${objects.size}`, "Decision", { subject_id: o.id, subject_version: o.version,
-        decision_kind: "candidate_choice", value: "accept", confirmation_scope: ["candidate"], basis_ids: [], acknowledged_unknowns: [],
-        confirmed_by: actor.id, confirmed_at: stamp, supersedes: null, review_state: "current" });
+        decision_kind: "candidate_choice", value: cmd.value, confirmation_scope: ["candidate"], basis_ids: [], acknowledged_unknowns: [],
+        confirmed_by: actor.id, confirmed_at: stamp, supersedes: prior.at(-1)?.id ?? null, review_state: "current" });
       transition(decision, "confirm");
-    } else unsupported("Operation belongs to a later E02 slice");
+    } else if (cmd.op === "reconsider") {
+      const o = get(cmd.id); rule(o.type === "Candidate", "REF_TYPE", cmd.id); get(cmd.trigger_id);
+      rule(conditionRefs(o.reconsider_when).includes(cmd.trigger_id), "RECONSIDER_TRIGGER", "触发对象必须属于重新考虑条件");
+      rule(conditionValue(o.reconsider_when, objects, now) === true, "CONDITION_UNKNOWN", "重新考虑条件未成立或未知");
+      transition(o, "reconsider"); o.review_state = "current";
+    } else if (cmd.op === "withdraw_decision") {
+      const o = get(cmd.id); rule(o.type === "Decision", "REF_TYPE", cmd.id); transition(o, "revoke");
+      if (o.decision_kind === "adopt_skeleton" && o.subject_id === state.effective_skeleton_id) state.effective_skeleton_id = null;
+    } else if (cmd.op === "ingest_fact") {
+      rule(actor.role === "tool", "PERMISSION", "事实由可信适配器导入，普通用户/模型不能写核验结论"); unsupported("ExternalFact ingestion requires E02-04C");
+    } else if (cmd.op === "check_freshness") {
+      rule(actor.role === "system", "PERMISSION", "时效维护由系统执行"); unsupported("ExternalFact freshness writes require E02-04C");
+    } else unsupported("Calculation/adoption and issue-resolution commands are outside E02-04B");
   }
   validateStateSemantics(state);
-  // Original field-sensitive propagation, including implicit links; no calculations or fact mutation.
+  // Original date-edit normalization of existing observations; never upgrades verification/freshness or imports facts.
+  const windows = state.objects.flatMap((o) => o.type === "Constraint" && o.status === "active" && o.hardness === "hard" && o.scope.kind === "trip" && o.value.kind === "date_window" ? [o.value] : []);
+  for (const fact of state.objects) if (fact.type === "ExternalFact" && fact.query.date !== null) {
+    if (windows.length && !windows.every((w) => w.start <= fact.query.date! && fact.query.date! <= w.end)) fact.applicability = "not_applicable";
+    else if (["date_specific", "purchasable"].includes(fact.verification) && fact.valid_for.start <= fact.query.date && fact.query.date <= fact.valid_for.end) fact.applicability = "applicable";
+  }
+  // Original field-sensitive propagation, including implicit links; no calculations or observation-value writes.
   const changed = new Map(state.objects.filter((o) => !same(old.get(o.id), o)).map((o) => [o.id, changedPaths(old.get(o.id) ?? {}, o)]));
   const affected = new Set<string>();
   while (true) {
     const added = new Set<string>();
     for (const o of [...objects.values()]) {
-      if (affected.has(o.id) || o.type === "Decision" && (o.status !== "confirmed" || !old.has(o.id))) continue;
+      if (affected.has(o.id) || o.type === "Skeleton" && o.status !== "active" || o.type === "Decision" && (o.status !== "confirmed" || !old.has(o.id))) continue;
       let hits = o.dependencies.some((d) => ["input", "evidence"].includes(d.relation) && d.paths.some((p) => [...(changed.get(d.object_id) ?? [])].some((q) => p === q || p.startsWith(q + "/") || q.startsWith(p + "/"))));
       if (o.type === "Preference") hits ||= conditionRefs(o.condition).some((id) => changed.has(id));
+      if (o.type === "Constraint" && o.value.kind === "requirement") hits ||= conditionRefs(o.value.condition).some((id) => changed.has(id));
       if (o.type === "Candidate") hits ||= [...o.preference_ids, ...conditionRefs(o.reconsider_when)].some((id) => changed.has(id));
       if (o.type === "Decision") hits ||= [o.subject_id, ...o.basis_ids].some((id) => changed.has(id));
+      if (o.type === "Candidate") hits ||= [...changed.keys()].some((id) => { const r = get(id), p = r.type === "ExternalFact" ? reservationProfile(r) : null; return p && o.subject_ids.includes(p.city_id); });
+      if (o.type === "Skeleton") {
+        hits ||= [...o.cost_fact_ids, ...o.connections.flatMap((c) => c.fact_ids)].some((id) => changed.has(id));
+        hits ||= [...changed.keys()].some((id) => { const r = get(id); return r.type === "Constraint" && applicable(r, o) || r.type === "TripGoal"
+          || r.type === "ExternalFact" && !!reservationProfile(r) || r.type === "Candidate" && r.subject_ids.some((id) => o.stops.some((s) => s.entity_id === id)); });
+        hits ||= [...(changed.get(o.id) ?? [])].some((p) => ["/stops", "/connections", "/cost_fact_ids", "/overrides"].includes(p));
+      }
       if (!hits) continue;
+      if (o.type === "Skeleton") { o.assessment.status = "stale"; o.assessment.unknowns = [...new Set([...o.assessment.unknowns, "inputs_changed"])].sort(); }
       if (o.type === "Candidate" || o.type === "Decision") o.review_state = "stale";
       added.add(o.id);
     }
     if (!added.size) break;
     for (const id of added) { affected.add(id); const paths = changedPaths(old.get(id) ?? {}, get(id)); changed.set(id, paths.size ? paths : new Set([""])); }
   }
-  for (const id of [...affected].sort()) if (get(id).type === "Decision") {
+  for (const id of [...affected].sort()) if (["Skeleton", "Decision"].includes(get(id).type)) {
     const issueId = `issue-dependency-${id}`, existing = objects.get(issueId);
     if (existing) { rule(existing.type === "OpenIssue", "REF_TYPE", issueId); existing.status = "open"; existing.resolution = null; }
     else make(issueId, "OpenIssue", { issue_kind: "dependency", question: "输入变化，需要重新核验或计算", affected_ids: [id], severity: "warning",
@@ -168,7 +234,8 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
 function prepared(beforeValue: unknown, requestValue: unknown, actor: Actor, clock: () => Date, uuid: () => string) {
   const { before, request } = checkedInput(beforeValue, requestValue, actor), now = clock(), proposal = `proposal-${uuid()}`;
   const needs = needsConfirmation(before, request, actor);
-  rule(actor.role !== "tool", "PERMISSION", "工具仅能导入事实或使已有事实被替代／反证");
+  rule(actor.role !== "tool" || request.commands.every((c) => c.op === "ingest_fact" || c.op === "transition" && ["supersede", "contradict"].includes(c.event)
+    && before.objects.some((o) => o.id === c.id && o.type === "ExternalFact")), "PERMISSION", "工具仅能导入事实或使已有事实被替代／反证");
   const after = executeCommands(before, request, needs ? { role: "user", id: "pending-user" } : actor, proposal, now);
   const delta = diff(before, after), proposalDigest = digest({ request, diff: delta, effective: after.effective_skeleton_id });
   return { before, request, now, proposal, needs, after, delta, proposalDigest };
