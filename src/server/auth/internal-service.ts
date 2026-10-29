@@ -14,7 +14,7 @@ export async function issueInternalCapability(secret: string, tripId: string, ac
   return new SignJWT({ trip: tripId, role: actor.role }).setProtectedHeader({ alg: "HS256" }).setIssuer("antu-internal").setAudience("antu-trip-service")
     .setSubject(actor.id).setIssuedAt().setExpirationTime("60s").sign(key(secret));
 }
-export async function openInternalTripService(connection: string, secret: string) {
+function internalHost(secret: string): CommandHost {
   const secretKey = key(secret);
   const authorize: CommandHost["authorize"] = async (tripId, credential) => {
     try {
@@ -24,5 +24,19 @@ export async function openInternalTripService(connection: string, secret: string
       const actor = { role: payload.role, id: payload.sub } as Actor; validateActor(actor); return { tripId, actor };
     } catch { throw new TripStateContractError("PERMISSION", "Internal access denied"); }
   };
-  return openTripCommandService(connection, { authorize, guard: async (tripId, credential) => { await authorize(tripId, credential); } });
+  return { authorize, guard: async (tripId, credential) => { await authorize(tripId, credential); } };
+}
+
+export async function openInternalTripService(connection: string, secret: string) {
+  return openTripCommandService(connection, internalHost(secret));
+}
+/** Network proposal adapter accepts verified Model principals only; System/Tool remain private SDK callers. */
+export async function openModelHttpService(connection: string, secret: string) {
+  const trusted = internalHost(secret);
+  const authorize: CommandHost["authorize"] = async (trip, credential) => {
+    const grant = await trusted.authorize(trip, credential);
+    if (grant.actor.role !== "model") throw new TripStateContractError("PERMISSION", "Model service access required");
+    return grant;
+  };
+  return openTripCommandService(connection, { authorize, guard: async (trip, credential) => { await authorize(trip, credential); } });
 }
