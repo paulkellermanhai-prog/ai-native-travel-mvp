@@ -8,9 +8,9 @@ AI Native Travel Product MVP — Sprint 1 / E01 engineering foundation.
 
 最新 E01 收尾：[CI、新云任务与规格交接验收](docs/E01收尾与E02交接-2026-10-27.md)、[云端可读的版本化规格](specs/README.md)、[E02 最小编码任务](docs/E02最小编码任务.md)。此前的本地读取清单保留为历史检查；当前源码交接以 specs 的 manifest 为准，候选批准状态未改变。
 
-E01 至 E02-04C 已经技术负责人验收；PR #1–#7 已合并。Owner 已确认 Trip State 0.1.0 开发基线；当前切片为 [E02-04D 重算、采用与问题处理](docs/E02-04D验收.md)，完成后停止审核，不自行宣布 E02 PASS。E02-05 的真实认证、HTTP 与完整端到端验收尚未实现；原规格快照保持不变。
+E01 至 E02-04D 已经技术负责人验收；PR #1–#8 已合并。Owner 已确认 Trip State 0.1.0 开发基线；当前为 [E02-05 真实会话、HTTP 与端到端验收](docs/E02-05验收.md)，完成后停止等待最终 E02 Gate Review，不自行宣布 MVP 上线。原规格快照保持不变。
 
-此前验收：[E02-01 契约](docs/E02-01验收.md)、[E02-02 持久化](docs/E02-02验收.md)、[E02-03 七步场景](docs/E02-03验收.md)、[E02-04A 确认机制](docs/E02-04A验收.md)、[E02-04B 生命周期](docs/E02-04B验收.md)、[E02-04C 外部事实](docs/E02-04C验收.md)。内部命令通道要求宿主注入真实授权结果；当前没有生产身份适配器或公开业务写入 HTTP 路由。合成存储写入口仍仅供隔离测试。
+此前验收：[E02-01 契约](docs/E02-01验收.md)、[E02-02 持久化](docs/E02-02验收.md)、[E02-03 七步场景](docs/E02-03验收.md)、[E02-04A 确认机制](docs/E02-04A验收.md)、[E02-04B 生命周期](docs/E02-04B验收.md)、[E02-04C 外部事实](docs/E02-04C验收.md)、[E02-04D 四项命令](docs/E02-04D验收.md)。内部命令通道要求宿主注入真实授权结果；当前五条业务路由均须真实会话和旅行授权；显式 Model 服务另验证短时签名，System/Tool 只走私有通道。合成存储写入口仍仅供隔离测试。
 
 ## Runtime
 
@@ -47,6 +47,12 @@ Prisma contains four infrastructure tables for original Trip State JSONB, append
 
 ## Source boundaries
 
-`src/app/` contains the bootstrap page and health route; `tests/` contains foundation tests. Byte-preserved authoritative PRD and Trip State/DC/NAP snapshots are versioned under specs/ with a SHA-256 manifest. The TypeScript implementation executes all twelve original command operations and complete A–G scenarios. Real host identity integration, business HTTP and full end-to-end acceptance remain E02-05 work. Python runs only as an independent test oracle. The NAP/DC specifications retain their review limits and unresolved issues; their runtime modules are not implemented.
+`src/app/` contains the bootstrap page and health route; `tests/` contains foundation tests. Byte-preserved authoritative PRD and Trip State/DC/NAP snapshots are versioned under specs/ with a SHA-256 manifest. The TypeScript implementation executes all twelve original command operations and complete A–G scenarios. Self-hosted password/session authentication, live trip membership and the five authenticated HTTP routes are implemented; actual local/CI HTTP acceptance is recorded in the E02-05 report. Production deployment and personal identity assurance are not claimed. Python runs only as an independent test oracle. The NAP/DC specifications retain their review limits and unresolved issues; their runtime modules are not implemented.
 
 See `docs/E01-report.md` for actual checks and acceptance status and `docs/cloud-environment.md` for repeatable cloud setup.
+
+## Identity and HTTP
+
+Better Auth 1.7.14 is self-hosted with an independent non-owner AUTH_DATABASE_URL, fixed BETTER_AUTH_URL and private BETTER_AUTH_SECRET. Internal capabilities use a separate INTERNAL_SERVICE_SECRET. Missing configuration fails closed. No public registration, default User, test-token login, trip creation or arbitrary state import exists. See the E02-05 report for least-privilege grants and stdin-only operator commands; real deployment requires an approved HTTPS origin and private production credentials.
+
+After the normal build, `npm run test:http` starts an actual production Next.js process on loopback and runs real HTTP/PostgreSQL acceptance using a private E02_STORAGE_ENV_FILE. It never passes migration credentials or test-config paths to the web process. It uses real credential verification with synthetic accounts; this is not a claim that real Owner accounts or external provider data were verified.

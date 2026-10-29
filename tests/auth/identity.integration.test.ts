@@ -6,6 +6,7 @@ import { openIdentity, authConfiguration, type Identity } from "../../src/server
 import { sessionHost, userActorId } from "../../src/server/auth/authorization";
 import { issueInternalCapability, openInternalTripService } from "../../src/server/auth/internal-service";
 import { openTripCommandService } from "../../src/server/trip-state/internal/persistence";
+import { grantIdentityRuntime } from "../../scripts/grant-identity-runtime.mjs";
 import { requestAt } from "../support/command-fixtures";
 
 const file = process.env.E02_STORAGE_ENV_FILE;
@@ -99,6 +100,8 @@ describe.skipIf(!cfg?.authUrl)("E02-05A real password, database Session and live
     await expect(issueInternalCapability(f.secret, f.tripId, { role: "user", id: "forged-user" })).rejects.toThrow("cannot mint User");
   });
   it("separates authentication permissions from state/history and protects membership and sessions from the trip identity", async () => {
+    await expect(grantIdentityRuntime(owner, new URL(cfg!.runtimeUrl).username, new URL(cfg!.runtimeUrl).username)).rejects.toThrow("must be distinct");
+    await expect(openIdentity({ ...configuration(), AUTH_DATABASE_URL: cfg!.runtimeUrl })).rejects.toThrow("unprivileged non-owner");
     const auth = new Client({ connectionString: cfg!.authUrl }), trip = new Client({ connectionString: cfg!.runtimeUrl }); await auth.connect(); await trip.connect();
     try {
       for (const sql of ['SELECT * FROM "TripStateDocument"', 'UPDATE "TripMembership" SET "tripId"="tripId"', 'DELETE FROM "TripStateHistory"']) await expect(auth.query(sql)).rejects.toMatchObject({ code: "42501" });
@@ -106,6 +109,8 @@ describe.skipIf(!cfg?.authUrl)("E02-05A real password, database Session and live
     } finally { await auth.end(); await trip.end(); }
   });
   it("refuses missing configuration, weak secrets, public HTTP origins and privileged authentication databases", async () => {
+    expect(authConfiguration({ ...configuration(), BETTER_AUTH_URL: "https://antu.example.invalid" }).secureCookies).toBe(true);
+    expect(authConfiguration(configuration()).secureCookies).toBe(false);
     expect(() => authConfiguration({})).toThrow(); expect(() => authConfiguration({ ...configuration(), BETTER_AUTH_SECRET: "weak" })).toThrow();
     expect(() => authConfiguration({ ...configuration(), BETTER_AUTH_URL: "http://public.example.invalid" })).toThrow();
     await expect(openIdentity({ ...configuration(), AUTH_DATABASE_URL: cfg!.migrationUrl })).rejects.toThrow("unprivileged non-owner");

@@ -21,6 +21,7 @@ export async function openIdentity(env: Partial<NodeJS.ProcessEnv> = process.env
   const config = authConfiguration(env), db = new PrismaClient({ adapter: new PrismaPg({ connectionString: config.databaseUrl }) });
   try {
     const [identity] = await db.$queryRaw<Array<{ denied: boolean }>>`SELECT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
+      OR has_table_privilege(current_user,'public."TripStateDocument"','SELECT,INSERT,UPDATE,DELETE')
       OR EXISTS (SELECT 1 FROM pg_class c WHERE c.relname IN ('AuthUser','AuthSession','AuthAccount','AuthRateLimit','TripStateDocument') AND pg_has_role(current_user,c.relowner,'USAGE'))) AS denied
       FROM pg_roles r WHERE r.rolname=current_user`;
     if (!identity || identity.denied) throw new Error("Authentication runtime must be an unprivileged non-owner");

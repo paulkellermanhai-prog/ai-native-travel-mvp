@@ -1,5 +1,6 @@
 // Deployment helper: roles must already exist and be non-owner/non-admin. No role is created here.
 export async function grantIdentityRuntime(client, tripRole, authRole) {
+  if (tripRole === authRole) throw new Error("Trip and authentication runtime roles must be distinct");
   const quote = (value) => `"${value.replaceAll('"', '""')}"`;
   for (const role of [tripRole, authRole]) {
     const { rows } = await client.query(`SELECT r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls
@@ -7,6 +8,9 @@ export async function grantIdentityRuntime(client, tripRole, authRole) {
       FROM pg_roles r WHERE r.rolname=$1`, [role]);
     if (rows.length !== 1 || rows[0].denied) throw new Error("Identity grants require existing unprivileged non-owner roles");
   }
+  const privileges = await client.query(`SELECT has_table_privilege($1,'public."TripStateDocument"','SELECT,INSERT,UPDATE,DELETE')
+    OR has_table_privilege($2,'public."AuthSession"','SELECT,INSERT,UPDATE,DELETE') AS mixed`, [authRole, tripRole]);
+  if (privileges.rows[0].mixed) throw new Error("Runtime roles must not already mix authentication and state permissions");
   await client.query(`GRANT EXECUTE ON FUNCTION public.authorize_trip_session(TEXT,TEXT,TEXT) TO ${quote(tripRole)}`);
   await client.query(`GRANT USAGE ON SCHEMA public TO ${quote(authRole)}`);
   await client.query(`GRANT SELECT,INSERT ON "AuthUser","AuthAccount" TO ${quote(authRole)}`);
