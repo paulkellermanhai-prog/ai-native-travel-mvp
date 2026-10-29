@@ -33,7 +33,10 @@ def board_text(board):
             text += f"\n{label}：{s[key]}。\n"
         text += "\n完成证据：" + ("；".join(f"[{v}]({v if v.startswith('https://') else os.path.relpath(ROOT / v, ROOT / 'docs')})" for v in s["evidence"]) if s["evidence"] else "尚无执行证据，不能登记通过") + "。\n"
         text += "\n阻塞项：" + "；".join(s["blockers"]) + "。\n"
-    return text + "\n## 变更登记\n\n" + board["change_policy"] + "。当前无新增已批准工程变更登记。\n"
+    text += "\n## 变更登记\n\n" + board["change_policy"] + "。\n"
+    for change in board["approved_change_registrations"]:
+        text += f"\n- {change['stage_id']}：{change['description']}；批准依据：{change['approval_evidence']}；新增子任务：{', '.join(change['subtask_ids'])}。\n"
+    return text + ("" if board["approved_change_registrations"] else "\n当前无新增已批准工程变更登记。\n")
 
 def run_reference(files):
     with tempfile.TemporaryDirectory(prefix="antu-e03-00-reference-") as folder:
@@ -115,6 +118,10 @@ for s in board["stages"]:
     assert all(s[k] for k in ["subtasks", "execution_location", "responsibilities", "owner_participation", "blockers"])
     assert s["status"] in ["READY_FOR_GATE_A", "WAITING_GATE_A", "NOT_STARTED", "IN_PROGRESS", "READY_FOR_REVIEW", "ACCEPTED", "BLOCKED"]
     assert s["accepted"] == (s["status"] == "ACCEPTED")
+for change in board["approved_change_registrations"]:
+    stage = next(s for s in board["stages"] if s["id"] == change["stage_id"])
+    assert change["description"] and change["approval_evidence"] and change["subtask_ids"]
+    assert set(change["subtask_ids"]) <= {t["id"] for t in stage["subtasks"]}
 rendered = board_text(board)
 view = ROOT / "docs/E03阶段看板.md"
 if args.write_board:
