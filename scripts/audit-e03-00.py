@@ -107,7 +107,7 @@ assert artifact["90_可运行工程包/context_runtime/api.py"] == by_source[api
 board = load(ROOT / "docs/e03-progress.json")
 assert [(s["id"], s["name"], s["weight_percent"]) for s in board["stages"]] == EXPECTED
 assert sum(s["weight_percent"] for s in board["stages"]) == 100
-assert board["accepted_weight_percent"] == sum(s["weight_percent"] for s in board["stages"] if s["accepted"]) 
+assert board["accepted_weight_percent"] == sum(s["weight_percent"] for s in board["stages"] if s["accepted"])
 assert board["submitted_weight_percent"] == sum(s["weight_percent"] for s in board["stages"] if s["status"] in ["READY_FOR_GATE_A", "READY_FOR_REVIEW"])
 assert board["gate_a"]["status"] in ["PENDING_TECH_LEAD_REVIEW", "APPROVED", "REJECTED"]
 if board["gate_a"]["status"] == "APPROVED":
