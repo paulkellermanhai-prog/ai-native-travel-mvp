@@ -1,0 +1,277 @@
+{
+  "format": "antu-e03-progress/v1",
+  "maintenance_source": "docs/e03-progress.json",
+  "generated_view": "docs/E03阶段看板.md",
+  "candidate_pr": 10,
+  "baseline_status": "PENDING_TECH_LEAD_GATE_A",
+  "accepted_weight_percent": 0,
+  "submitted_weight_percent": 8,
+  "scope": "E03-00 only; no mechanism iteration review or runtime implementation",
+  "stages": [
+    {
+      "id": "E03-00",
+      "name": "基线审核与可迭代性准备",
+      "weight_percent": 8,
+      "status": "READY_FOR_GATE_A",
+      "accepted": false,
+      "subtasks": [
+        {
+          "id": "E03-00-1",
+          "description": "独立核验PR #10的39来源、20 DC合同和TS/NAP引用",
+          "status": "SUBMITTED_FOR_REVIEW"
+        },
+        {
+          "id": "E03-00-2",
+          "description": "补齐完整原参考包清单和可复现实验",
+          "status": "SUBMITTED_FOR_REVIEW"
+        },
+        {
+          "id": "E03-00-3",
+          "description": "交付模块修改边界、E03-01启动条件和固定看板",
+          "status": "SUBMITTED_FOR_REVIEW"
+        },
+        {
+          "id": "E03-00-4",
+          "description": "提交Gate A，不采纳或实现任何机制迭代",
+          "status": "SUBMITTED_FOR_REVIEW"
+        }
+      ],
+      "evidence": [
+        "docs/E03-00基线审核与工程准备.md",
+        "docs/E03-00模块边界与修改窗口.md",
+        "specs/e03-00-reference-2026-10-29/availability.json",
+        "docs/e03-00-audit-evidence.json",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/10"
+      ],
+      "execution_location": "本地授权工作区只读核查；GitHub PR #10与CI",
+      "responsibilities": "执行工程师：核查、交付和证据；技术负责人：Gate A/基线批准",
+      "owner_participation": "现有0.1.0恢复裁决已作为范围输入；当前无需额外产品资料或新裁决",
+      "blockers": [
+        "等待技术负责人Gate A及新工程基线确认；版本治理措辞按原严格规则保留"
+      ]
+    },
+    {
+      "id": "E03-01",
+      "name": "契约与工程底座",
+      "weight_percent": 10,
+      "status": "WAITING_GATE_A",
+      "accepted": false,
+      "subtasks": [
+        {
+          "id": "E03-01-1",
+          "description": "Gate A通过后固化已批准DC机器契约和来源锁",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-01-2",
+          "description": "复用AJV/原始数字解码/错误与安全整数边界",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-01-3",
+          "description": "接入参考Oracle和契约正反例，不实现业务运行逻辑",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "evidence": [],
+      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
+      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "Gate A尚未通过；未授权启动"
+      ]
+    },
+    {
+      "id": "E03-02",
+      "name": "权威状态读取与 Context 组装",
+      "weight_percent": 15,
+      "status": "NOT_STARTED",
+      "accepted": false,
+      "subtasks": [
+        {
+          "id": "E03-02-1",
+          "description": "接入已授权同版状态读取",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-02-2",
+          "description": "移植原只读Context对象选择与引用闭合",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-02-3",
+          "description": "校验保护集合、事实时效、未知与组装失败边界",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "evidence": [],
+      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
+      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+      ]
+    },
+    {
+      "id": "E03-03",
+      "name": "Turn / Task / Focus / 分页",
+      "weight_percent": 13,
+      "status": "NOT_STARTED",
+      "accepted": false,
+      "subtasks": [
+        {
+          "id": "E03-03-1",
+          "description": "接入既有结构化解释输入协议",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-03-2",
+          "description": "实现原任务身份、关联、焦点和进度守卫",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-03-3",
+          "description": "实现分层读取、分页交付清单与时效复验",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "evidence": [],
+      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
+      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+      ]
+    },
+    {
+      "id": "E03-04",
+      "name": "Trip State 写入与确认桥接",
+      "weight_percent": 10,
+      "status": "NOT_STARTED",
+      "accepted": false,
+      "subtasks": [
+        {
+          "id": "E03-04-1",
+          "description": "绑定本轮事件、当前包与精确宿主授权",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-04-2",
+          "description": "复用E02提交/提案/确认/幂等事务",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-04-3",
+          "description": "验证假设分支、完整交付和跨轮拒绝",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "evidence": [],
+      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
+      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+      ]
+    },
+    {
+      "id": "E03-05",
+      "name": "Checkpoint 持久化",
+      "weight_percent": 17,
+      "status": "NOT_STARTED",
+      "accepted": false,
+      "subtasks": [
+        {
+          "id": "E03-05-1",
+          "description": "在原合同内评审生产存储适配设计",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-05-2",
+          "description": "实现owner/trip/workspace隔离、CAS、回执与仅保存重试",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-05-3",
+          "description": "验证原子性、故障、删除、容量和保留边界",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "evidence": [],
+      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
+      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+      ]
+    },
+    {
+      "id": "E03-06",
+      "name": "跨会话恢复",
+      "weight_percent": 14,
+      "status": "NOT_STARTED",
+      "accepted": false,
+      "subtasks": [
+        {
+          "id": "E03-06-1",
+          "description": "移植DC-R01–07原有恢复范围",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-06-2",
+          "description": "重建当前权威依据、标记草稿/比较陈旧和缺失",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-06-3",
+          "description": "轮换授权代次，隔离旧输入/提案/写缓存并验证跨进程恢复",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "evidence": [],
+      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
+      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+      ]
+    },
+    {
+      "id": "E03-07",
+      "name": "HTTP 与完整工程验收",
+      "weight_percent": 13,
+      "status": "NOT_STARTED",
+      "accepted": false,
+      "subtasks": [
+        {
+          "id": "E03-07-1",
+          "description": "评审并实现原正式HTTP适配与真实宿主",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-07-2",
+          "description": "真实HTTP/PG和恢复故障端到端验收",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-07-3",
+          "description": "全阶段回归、需求追踪和技术负责人最终Gate",
+          "status": "NOT_STARTED"
+        }
+      ],
+      "evidence": [],
+      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
+      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+      ]
+    }
+  ],
+  "approved_change_registrations": [],
+  "change_policy": "后续仅将已批准工程变更登记到既有阶段及新增子任务，不自动改变八阶段框架或权重；正式字段/权限/版本变化另行规格审核；不保证所有变更无需改机器契约",
+  "gate_a": {
+    "status": "PENDING_TECH_LEAD_REVIEW",
+    "approval_evidence": null
+  }
+}

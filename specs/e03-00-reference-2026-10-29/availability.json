@@ -1,0 +1,520 @@
+{
+  "format": "antu-e03-00-reference-availability/v1",
+  "status": "REFERENCE_ONLY_GATE_A_PENDING",
+  "candidate_pr": 10,
+  "candidate_head": "db9290d931ac044a0bc64f2aceb2fe81209b093b",
+  "candidate_selection_sha256": "96b610ea25408028afbb2becfc02aaad6bf9f95045ad4eb8634bd42a5f8aac22",
+  "supplemental_sources": [
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/02_场景与验收/04_旅行决策场景与验证用例_V0.1.md",
+      "source_path": "decision-context-v0.1/02_场景与验收/04_旅行决策场景与验证用例_V0.1.md",
+      "sha256": "8f67a85474aed35174ab86daac8f49b316c832ecb9369cfbb9af6bd3a1389f23",
+      "bytes": 27606,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
+      "source_path": "decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
+      "sha256": "0137fe0662413dd9f0216359df9e2ebec841543668b9aec6122f384ebdbf9e60",
+      "bytes": 1267,
+      "role": "historical_reference_run_record"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
+      "sha256": "6682842bc9260b86deed1b02ddbf51ed39418e75c887621c3745072813393fb4",
+      "bytes": 7313,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/__init__.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/__init__.py",
+      "sha256": "ad829be702f5b30422cf476c0e794c70a9ffe195081ffea639ac0215c6d72d14",
+      "bytes": 73,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/api.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/api.py",
+      "sha256": "7a318597eb3499c4512577ed82956b681baac8aa8396a0b1695c06bbcbd2d965",
+      "bytes": 3039,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/checkpoints.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/checkpoints.py",
+      "sha256": "9cbff3b580ea6285e0c35b34d13496adfa7c89ef51499ddf2739f6277c3858fa",
+      "bytes": 9054,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/errors.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/errors.py",
+      "sha256": "3c2bee262f497e77622ca9d7ca92cfd0031d4bc0342e126590c744af2197a0c8",
+      "bytes": 376,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/recovery.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/recovery.py",
+      "sha256": "8b454c573849c5776d65e35caf5d813b40d641f1c594ce01693e79fdb76a52b7",
+      "bytes": 19173,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "sha256": "029a0156dbd132d5c42e4912f59ff05390433eccc0b8906b86241df64f2f09b2",
+      "bytes": 21535,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/dependency.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/dependency.py",
+      "sha256": "610bca5e6a7d166b3c0bd41695f98d5d8b5bfb7b7a42760a648302fffdba47ed",
+      "bytes": 553,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/export_contracts.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/export_contracts.py",
+      "sha256": "d6a5f0d6cf6df4d194c2c9f7e262aca9af758d0806d8ab28d9e2faf40c81f548",
+      "bytes": 4975,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/requirements.txt",
+      "source_path": "decision-context-v0.1/90_可运行工程包/requirements.txt",
+      "sha256": "d993e8c54f162ebcb016db49b6f667fe2359b350f90b6bb561c22b54c03efabd",
+      "bytes": 107,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/run_validation.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/run_validation.py",
+      "sha256": "a1d478dc8baed3602a58282f4550c63794b29e6b60a1085aad8631ad54f79c17",
+      "bytes": 4349,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/tests/test_recovery.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/tests/test_recovery.py",
+      "sha256": "1f20894cb10bb2ba719febd5a5e0fc6867e4f5ba01e8d4a3ceba6d9d1ea6441a",
+      "bytes": 31413,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/tests/test_runtime.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/tests/test_runtime.py",
+      "sha256": "000c827b958fe927ea5a26c720a2e8dc908be94c3197e3fb56ae928c75e000b8",
+      "bytes": 35049,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/update_package_index.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/update_package_index.py",
+      "sha256": "0d7cfbaca06e8eb9a1cd6fe05ee61d9cfcfd46bac8ac52b6a95a4cd8d5f97166",
+      "bytes": 5932,
+      "role": "original_reference_only_not_application"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/validation-output.txt",
+      "source_path": "decision-context-v0.1/90_可运行工程包/validation-output.txt",
+      "sha256": "9ff75b318898380188f9dc6a484a0483a167301277252d22a536a824c5971efe",
+      "bytes": 318,
+      "role": "historical_reference_run_record"
+    },
+    {
+      "path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/validation-results.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/validation-results.json",
+      "sha256": "7bcc027ac749c4f2993edc627a7b17e839de5f7f7d386c3ea397c65a0aaf226e",
+      "bytes": 30478,
+      "role": "historical_reference_run_record"
+    }
+  ],
+  "runtime_directory_files": [
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
+      "sha256": "d7cca5bd04acb717a1590ac642a7e982ba9ae853a174b6b753f6e90e4b5db879",
+      "bytes": 180626,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/README.md",
+      "sha256": "065c7ac1a4b918453a876751da64919821524bde54e41ba908504d0307399d90",
+      "bytes": 5221,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/README.md"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
+      "sha256": "0137fe0662413dd9f0216359df9e2ebec841543668b9aec6122f384ebdbf9e60",
+      "bytes": 1267,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
+      "sha256": "6682842bc9260b86deed1b02ddbf51ed39418e75c887621c3745072813393fb4",
+      "bytes": 7313,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/artifact-manifest.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/__init__.py",
+      "sha256": "ad829be702f5b30422cf476c0e794c70a9ffe195081ffea639ac0215c6d72d14",
+      "bytes": 73,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/__init__.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/api.py",
+      "sha256": "7a318597eb3499c4512577ed82956b681baac8aa8396a0b1695c06bbcbd2d965",
+      "bytes": 3039,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/api.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/checkpoints.py",
+      "sha256": "9cbff3b580ea6285e0c35b34d13496adfa7c89ef51499ddf2739f6277c3858fa",
+      "bytes": 9054,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/checkpoints.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py",
+      "sha256": "4c435a60ecdbd041974628a5c878474ac50203f59e17e22a34cdd979efbaea45",
+      "bytes": 8790,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/errors.py",
+      "sha256": "3c2bee262f497e77622ca9d7ca92cfd0031d4bc0342e126590c744af2197a0c8",
+      "bytes": 376,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/errors.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/recovery.py",
+      "sha256": "8b454c573849c5776d65e35caf5d813b40d641f1c594ce01693e79fdb76a52b7",
+      "bytes": 19173,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/recovery.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "sha256": "029a0156dbd132d5c42e4912f59ff05390433eccc0b8906b86241df64f2f09b2",
+      "bytes": 21535,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/dependency.py",
+      "sha256": "610bca5e6a7d166b3c0bd41695f98d5d8b5bfb7b7a42760a648302fffdba47ed",
+      "bytes": 553,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/dependency.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/examples/exploration.json",
+      "sha256": "478334ef8152123c965cbc3de09710ce87078ccdc3e113cebe69f3a7d79d0989",
+      "bytes": 12606,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/examples/exploration.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/examples/recovery.json",
+      "sha256": "86fb5b89991efc6eccc70794f7c4d7e19ed14fe1bf18b0dea75f871fac55ace7",
+      "bytes": 17109,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/examples/recovery.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/export_contracts.py",
+      "sha256": "d6a5f0d6cf6df4d194c2c9f7e262aca9af758d0806d8ab28d9e2faf40c81f548",
+      "bytes": 4975,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/export_contracts.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/requirements.txt",
+      "sha256": "d993e8c54f162ebcb016db49b6f667fe2359b350f90b6bb561c22b54c03efabd",
+      "bytes": 107,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/requirements.txt"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/run_validation.py",
+      "sha256": "a1d478dc8baed3602a58282f4550c63794b29e6b60a1085aad8631ad54f79c17",
+      "bytes": 4349,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/run_validation.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "sha256": "0e85d8685cdf3469e8cfc9bdc49757667e4d0e7d5fc79d19fb76586f31cd410d",
+      "bytes": 15629,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "sha256": "f5195f66bb6d3fa9a551f5db17029d35c6f4d3d7325be65d026bebd62aae7374",
+      "bytes": 15615,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/change.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "sha256": "12e910bb83585a394f0d920c43b05764bac60bcf9a5cd5ff8529ad58bd982178",
+      "bytes": 15134,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "sha256": "6deb5cc36133b88ae72fcc6b27fa6ce4f40b7f14b4d7be773a9a8b8acd1b2a6b",
+      "bytes": 15622,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "sha256": "9959600ce7423af7f1ddd6ab05725aa5a5c23d4382ae1b7f91fe38f7f1057638",
+      "bytes": 15548,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/error.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "sha256": "631363f1819aa6a10f82d78bf902c3abf13688d603b7037951b2b4357e06a8b6",
+      "bytes": 15936,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "sha256": "f0a0b5ef77f924f142afc6a8ec431ba082e7e7e78014609b5c7f81c189a9c60e",
+      "bytes": 18014,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "sha256": "bc84b931043dd0f5117d4231a68b72eec885bcc3b3dc2f5e2d7d8b3de05a9cd7",
+      "bytes": 15615,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "sha256": "74fbc7b11e76932bd862088113d5381e13eccc37f39787c3f52ebb958b94d0ea",
+      "bytes": 16940,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/page.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "sha256": "b36ab40bd549c2e46ef403ac8c77d7a5b623c1fa4ea78d6c5ce817a91f1b6f69",
+      "bytes": 15334,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "sha256": "6b576e3fbade034718ff561d3dc34234f4d71a6a4e6b2598f60e7c83092bdd57",
+      "bytes": 15658,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "sha256": "61bded692ace23bc8d7fc3757c188bb74a46b6ced2dfdd099fd04dec13d4dffb",
+      "bytes": 16338,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "sha256": "879ec80ce28aafd244a9f6278ec44b43171533d7868d350a56754460eb643b83",
+      "bytes": 15277,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "sha256": "73dddce802a48663ae5499be22221067381fa2ac25e343c25bae6ee3290b59d7",
+      "bytes": 15537,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "sha256": "2ea44ea46dcf15e9df47eab4a79cca36928080ec0eca3695d673706f3a6e4bfa",
+      "bytes": 18677,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "sha256": "c5a1bde0bd3da0e4157151129e4583ad31ade4703d38fdbf2ca62e7ae116d8f0",
+      "bytes": 15279,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "sha256": "34fa983b5d5b252395a9ace6e3c5fd9cf80ac2580982c505f32ea4af51e988fb",
+      "bytes": 16122,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "sha256": "19cc387dae4d0193add3c01e7013df19311d2a75ea4f9ba9c46b19111bc9badf",
+      "bytes": 15916,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "sha256": "66567c9b60f4e5b66396fb6a55a3eec5d168a310faea0aca217203d2f11b7a71",
+      "bytes": 15281,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "sha256": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9",
+      "bytes": 16137,
+      "repository_path": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/tests/test_recovery.py",
+      "sha256": "1f20894cb10bb2ba719febd5a5e0fc6867e4f5ba01e8d4a3ceba6d9d1ea6441a",
+      "bytes": 31413,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/tests/test_recovery.py",
+      "test_methods": [
+        "test_DC_R01_open_turn_auto_saves_and_fresh_instance_recovers_identity",
+        "test_DC_R01_actual_new_process_restores_view_draft_and_tasks",
+        "test_DC_R02_revision_change_rebuilds_and_marks_stale_draft",
+        "test_DC_R02_expiry_without_state_change_rebuilds_fact_limits",
+        "test_DC_R03_structured_proposal_recovers_but_never_applies",
+        "test_DC_R04_withdrawal_after_save_does_not_restore_adoption",
+        "test_DC_R05_two_instances_cannot_last_writer_win",
+        "test_DC_R05_two_concurrent_writers_exactly_one_acknowledged",
+        "test_DC_R05_other_account_and_revoked_access_cannot_read",
+        "test_DC_R06_before_commit_failure_has_no_ack_or_partial_turn",
+        "test_DC_R06_after_commit_lost_ack_exact_retry_returns_one_revision",
+        "test_DC_R06_killed_process_before_commit_preserves_previous_checkpoint",
+        "test_DC_R06_killed_process_after_commit_preserves_new_checkpoint",
+        "test_DC_R07_dismissed_and_paused_state_survive_without_auto_reopen",
+        "test_DC_R07_current_reopened_issue_overrides_saved_dismissal",
+        "test_recovered_turn_cannot_submit_or_confirm_old_operations",
+        "test_old_event_and_other_runtime_grant_cannot_be_replayed",
+        "test_same_process_restore_rotates_authorization_generation",
+        "test_related_exploration_comparison_and_adoption_tasks_survive_focus_switch",
+        "test_exported_recovery_example_validates_current_machine_contracts",
+        "test_resume_next_input_auto_loads_task_identity",
+        "test_delete_scrubs_payload_and_old_save_cannot_resurrect",
+        "test_checkpoint_version_and_digest_tampering_are_rejected",
+        "test_unsupported_database_version_is_not_downgraded",
+        "test_explicit_retention_expiry_does_not_pretend_recovery",
+        "test_forged_owner_or_actor_in_scene_request_is_rejected",
+        "test_snapshot_does_not_contain_business_values_or_grants",
+        "test_scene_save_status_and_retry_are_explicit",
+        "test_missing_target_is_preserved_as_history_not_fabricated",
+        "test_authoritative_state_cannot_be_older_than_checkpoint",
+        "test_all_checkpoint_endpoints_and_absent_backend",
+        "test_business_commit_checkpoint_failure_is_reported_separately",
+        "test_result_status_automatically_saved_without_another_user_confirmation",
+        "test_delete_lost_ack_can_be_retried_without_resurrection",
+        "test_same_save_key_different_draft_is_rejected",
+        "test_old_success_ack_is_not_reported_as_latest_after_new_save",
+        "test_runtime_01_current_contract_accepts_recovery_fields",
+        "test_incompatible_payload_format_is_not_guessed",
+        "test_oversize_checkpoint_is_not_truncated_or_acknowledged",
+        "test_wrong_workspace_cannot_be_implicitly_switched",
+        "test_saved_view_versions_are_preserved_and_flagged_when_changed",
+        "test_database_file_permissions_are_private_on_tested_platform",
+        "test_DC_R05_actual_processes_use_shared_cas_not_python_locks"
+      ]
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/tests/test_runtime.py",
+      "sha256": "000c827b958fe927ea5a26c720a2e8dc908be94c3197e3fb56ae928c75e000b8",
+      "bytes": 35049,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/tests/test_runtime.py",
+      "test_methods": [
+        "test_contracts_are_valid_and_exported",
+        "test_delivered_example_follows_each_contract",
+        "test_exploration_without_goal_or_decision_is_legal",
+        "test_DC_A01_exploration_preference_update_reaches_next_context",
+        "test_DC_A02_multiple_questions_share_protection_not_identity",
+        "test_DC_A03_dismissed_is_retained_without_repeated_reminder_eligibility",
+        "test_DC_A04_pending_input_is_not_effective_then_rebuild_after_apply",
+        "test_DC_A05_expiry_without_revision_rejects_old_packet",
+        "test_foreign_trip_and_principal_are_denied",
+        "test_unrecognized_fields_and_forged_actor_rejected",
+        "test_source_quote_is_exact_but_semantics_are_not_claimed_validated",
+        "test_missing_targets_never_silently_substituted",
+        "test_focus_does_not_mark_original_problem_handled",
+        "test_identity_cannot_change_kind_or_branch",
+        "test_pause_and_completion_require_explicit_evidence",
+        "test_focus_cannot_silently_resume_a_paused_problem",
+        "test_process_restart_does_not_promise_precise_task_recovery",
+        "test_event_retry_is_idempotent_and_reuse_is_rejected",
+        "test_invalid_task_batch_does_not_half_register",
+        "test_preference_recall_does_not_depend_on_candidate_link",
+        "test_local_preference_retained_but_not_generalized",
+        "test_unknown_preference_condition_is_not_false",
+        "test_hydration_exact_versions_and_no_read_history",
+        "test_layered_and_limited_preserve_complete_protected_manifest",
+        "test_pages_are_bound_and_do_not_claim_model_comprehension",
+        "test_page_rejects_revision_change_and_new_constraint",
+        "test_snapshot_race_is_retried_before_hydration",
+        "test_snapshot_race_exhaustion_is_explicit",
+        "test_caller_mutation_cannot_change_saved_packet",
+        "test_model_proposal_waits_and_explicit_user_grant_does_not_reconfirm",
+        "test_confirmation_retries_and_submit_retries_return_final_result",
+        "test_stale_confirmation_cannot_apply_after_state_change",
+        "test_grant_cannot_authorize_different_content",
+        "test_hypothetical_cannot_modify_real_constraint",
+        "test_incomplete_body_cannot_authorize_adoption",
+        "test_input_binding_is_checked_before_business_write",
+        "test_failed_fixed_constraint_write_preserves_current_state_and_pending_input",
+        "test_api_access_contract_and_method_errors",
+        "test_expired_grant_is_not_user_authorization",
+        "test_write_idempotency_conflict_does_not_reapply",
+        "test_known_date_inapplicability_is_not_fixed_by_same_revision",
+        "test_unrelated_confirmation_is_not_assumed_applicable",
+        "test_entire_primary_body_respects_utf8_byte_budget",
+        "test_backend_failure_preserves_business_state_and_does_not_claim_success",
+        "test_cross_turn_packet_cannot_be_used_for_change",
+        "test_runtime_response_mutation_is_not_business_truth",
+        "test_DC_M03_candidate_exit_does_not_invent_cause_or_delete_evidence",
+        "test_DC_M04_scenario_keeps_formal_duration",
+        "test_DC_M05_unknown_condition_does_not_accept_candidate",
+        "test_true_reconsideration_is_reintroduced_not_accepted",
+        "test_DC_M06_acceptance_is_not_skeleton_adoption",
+        "test_DC_M07_adoption_keeps_unknowns_and_blocks_known_conflict",
+        "test_DC_M08_duration_change_legally_rechecks_dependencies",
+        "test_DC_M08_fixed_dates_reject_entire_change_not_half_apply",
+        "test_two_runtime_writes_same_version_only_one_applies",
+        "test_DC_M09_and_M10_withdraw_then_resume_does_not_restore_authorization"
+      ]
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/update_package_index.py",
+      "sha256": "0d7cfbaca06e8eb9a1cd6fe05ee61d9cfcfd46bac8ac52b6a95a4cd8d5f97166",
+      "bytes": 5932,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/update_package_index.py"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/validation-output.txt",
+      "sha256": "9ff75b318898380188f9dc6a484a0483a167301277252d22a536a824c5971efe",
+      "bytes": 318,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/validation-output.txt"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/validation-results.json",
+      "sha256": "7bcc027ac749c4f2993edc627a7b17e839de5f7f7d386c3ea397c65a0aaf226e",
+      "bytes": 30478,
+      "repository_path": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/validation-results.json"
+    }
+  ],
+  "runtime_directory_complete": true,
+  "candidate_39_is_complete_runtime_package": false,
+  "source_documents": [
+    {
+      "source_path": "AI Native旅行产品｜PRD V0.1.md",
+      "exists": true,
+      "sha256": "3cb1ed7e3f4522ac4ef0e46960ab801d5a7f5c93e5528c83c2e72933767ed62d",
+      "historical_sha256": "3cb1ed7e3f4522ac4ef0e46960ab801d5a7f5c93e5528c83c2e72933767ed62d",
+      "matches_historical": true,
+      "review": "hash and availability only; no mechanism iteration content review"
+    },
+    {
+      "source_path": "AI Native旅行产品｜项目思考总纲 V2.md",
+      "exists": true,
+      "sha256": "a9c777103f6b146f3473187755dac355c04b0368e04d78489b32535b15af7995",
+      "historical_sha256": "a9c777103f6b146f3473187755dac355c04b0368e04d78489b32535b15af7995",
+      "matches_historical": true,
+      "review": "hash and availability only; no mechanism iteration content review"
+    }
+  ],
+  "dependency": "Immutable Trip State 0.1.0 reference under specs/baseline-2026-10-27; no replacement implementation",
+  "non_claims": [
+    "new TypeScript DC implementation",
+    "production authentication or HTTP for the Python reference",
+    "P01 or other mechanism iteration approval",
+    "early legacy compatibility"
+  ],
+  "locked_handoff_packaging_limit": "Original all-package runner also discovers inherited Trip State distribution/document tests; E02 locked handoff excludes package_bundle/build/final_dictionary. Reference-only test entry runs the original 56+43 DC tests separately; existing packaging limits remain recorded, not counted as pass."
+}

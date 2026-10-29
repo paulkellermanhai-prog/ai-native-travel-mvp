@@ -68,6 +68,17 @@ jobs:
           npm run contracts:check
       - name: Verify proposed DC 0.1 calibration offline
         run: '"$TRIP_STATE_PYTHON" scripts/check-dc-calibration.py'
+      - name: Audit E03-00 baseline and original reference availability
+        env:
+          E03_00_EVIDENCE_PATH: ${{ runner.temp }}/e03-00-reference-audit.json
+        run: '"$TRIP_STATE_PYTHON" scripts/audit-e03-00.py --run-reference'
+      - name: Preserve E03-00 original reference audit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e03-00-reference-audit
+          path: ${{ runner.temp }}/e03-00-reference-audit.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Validate Prisma schema
         run: npm run db:validate
       - name: Generate Prisma client
