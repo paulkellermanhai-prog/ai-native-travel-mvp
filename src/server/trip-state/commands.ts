@@ -5,7 +5,8 @@ import { parseContract, TripStateContractError } from "./contracts";
 import { digest } from "./command-json";
 import { validateStateSemantics, rule, instantMicros, reservationProfile } from "./semantics";
 import { incrementCounter, safeCounter } from "./numbers";
-import { conditionValue, conditionReferences as conditionRefs, applicable, reservationOverlapsTrip } from "./conditions";
+import { assess } from "./assessment";
+import { conditionValue, conditionReferences as conditionRefs, applicable, factUsable, reservationOverlapsTrip } from "./conditions";
 import type { State, TripStateContracts } from "./contracts.generated";
 
 export type Actor = Readonly<{ role: "user" | "model" | "system" | "tool"; id: string }>;
@@ -83,7 +84,7 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
   const state = structuredClone(before), objects = new Map(state.objects.map((o) => [o.id, o]));
   const stamp = stampTime(now);
   const source = { actor: actor.role, actor_id: actor.id, reference: request.input.reference, text: request.input.text, at: stamp };
-  const unsupported = (message: string): never => { throw new TripStateContractError("E02_SLICE_UNSUPPORTED", message); };
+  const recalculations = new Set<string>(), adoptions: Array<Extract<TripStateContracts["command"], { op: "adopt_skeleton" }>> = [];
   function get(id: string): ObjectRecord { const o = objects.get(id); rule(o, "DANGLING_REF", `引用不存在: ${id}`); return o; }
   function make(id: string, kind: ObjectRecord["type"], data: object, scope = { kind: "trip", ids: [] } as ObjectRecord["scope"], dependencies: ObjectRecord["dependencies"] = []) {
     rule(!objects.has(id), "DUPLICATE_ID", id);
@@ -151,6 +152,17 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
         o.exclusion_reason = request.reason;
       }
       o.source = structuredClone(source);
+    } else if (cmd.op === "recalculate") {
+      const o = get(cmd.id); rule(o.type === "Skeleton", "REF_TYPE", cmd.id);
+      rule(o.status === "active", "IMMUTABLE_HISTORY", "历史版本不可重算覆盖；创建新暂定版本");
+      rule(["system", "user"].includes(actor.role), "PERMISSION", "计算由确定性程序执行");
+      recalculations.add(o.id);
+    } else if (cmd.op === "adopt_skeleton") {
+      rule(actor.role === "user", "PERMISSION", "采用骨架须用户确认");
+      const o = get(cmd.id); rule(o.type === "Skeleton", "REF_TYPE", cmd.id);
+      rule(o.purpose === "plan" && o.status === "active", "SCENARIO_ADOPTION", "假设、归档或替代版本不能直接采用");
+      rule(state.effective_skeleton_id !== o.id, "ALREADY_ADOPTED", "已经是当前骨架");
+      recalculations.add(o.id); adoptions.push(cmd);
     } else if (cmd.op === "decide_candidate") {
       rule(actor.role === "user", "PERMISSION", "用户决定必须经确认");
       const o = get(cmd.id); rule(o.type === "Candidate", "REF_TYPE", cmd.id);
@@ -197,7 +209,35 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
     } else if (cmd.op === "check_freshness") {
       rule(actor.role === "system", "PERMISSION", "时效维护由系统执行");
       for (const o of objects.values()) if (o.type === "ExternalFact" && instantMicros(o.expires_at) <= BigInt(now.getTime()) * 1000n) o.freshness = "stale";
-    } else unsupported("Calculation/adoption and issue-resolution commands require E02-04D");
+    } else if (cmd.op === "resolve_issue" || cmd.op === "dismiss_issue") {
+      const o = get(cmd.id); rule(o.type === "OpenIssue", "REF_TYPE", cmd.id);
+      transition(o, cmd.op === "resolve_issue" ? "resolve" : "dismiss");
+      if (cmd.op === "resolve_issue") {
+        rule(cmd.evidence_ids.length, "RESOLUTION_EVIDENCE", "解决问题必须提供证据");
+        for (const id of cmd.evidence_ids) {
+          const evidence = get(id);
+          rule(["ExternalFact", "Constraint", "Decision", "Skeleton"].includes(evidence.type), "RESOLUTION_EVIDENCE", "证据类型不能解决问题");
+          if (evidence.type === "ExternalFact") rule(factUsable(evidence, now), "RESOLUTION_EVIDENCE", "解决依据不可过期或未知");
+          const allowed = new Set(o.affected_ids);
+          for (const affected of o.affected_ids) {
+            const subject = get(affected);
+            for (const d of subject.dependencies) allowed.add(d.object_id);
+            if (subject.type === "Skeleton") for (const ref of [...subject.cost_fact_ids, ...subject.connections.flatMap((c) => c.fact_ids)]) allowed.add(ref);
+          }
+          rule(allowed.has(id), "RESOLUTION_EVIDENCE", "证据必须与问题对象或其依赖关联");
+        }
+        for (const id of o.affected_ids) {
+          const item = get(id);
+          if (item.type === "ExternalFact") rule(factUsable(item, now), "ISSUE_STILL_BLOCKED", "原事实仍未核验");
+          if (item.type === "Constraint") rule(item.status === "active", "ISSUE_STILL_BLOCKED", "条件尚未生效");
+          if (item.type === "Decision") rule(item.status === "confirmed" && item.review_state === "current", "ISSUE_STILL_BLOCKED", "决定依据仍待检查");
+          if (item.type === "Candidate") rule(item.review_state === "current", "ISSUE_STILL_BLOCKED", "候选仍待重新判断");
+          if (item.type === "Skeleton") rule(assess(item, objects, now).status === "verified", "ISSUE_STILL_BLOCKED", "受影响骨架仍有未知或冲突");
+        }
+        o.evidence_ids = structuredClone(cmd.evidence_ids);
+      }
+      o.resolution = cmd.reason;
+    }
   }
   // An existing confirmed commitment cannot disappear without one fresh, same-receipt successor.
   for (const previous of before.objects) {
@@ -216,43 +256,84 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
     else if (["date_specific", "purchasable"].includes(fact.verification) && fact.valid_for.start <= fact.query.date && fact.query.date <= fact.valid_for.end) fact.applicability = "applicable";
   }
   // Original field-sensitive propagation, including implicit links; no calculations or observation-value writes.
-  const changed = new Map(state.objects.filter((o) => !same(old.get(o.id), o)).map((o) => [o.id, changedPaths(old.get(o.id) ?? {}, o)]));
-  const affected = new Set<string>();
-  while (true) {
-    const added = new Set<string>();
-    for (const o of [...objects.values()]) {
-      if (affected.has(o.id) || o.type === "Skeleton" && o.status !== "active" || o.type === "Decision" && (o.status !== "confirmed" || !old.has(o.id))) continue;
-      let hits = o.dependencies.some((d) => ["input", "evidence"].includes(d.relation) && d.paths.some((p) => [...(changed.get(d.object_id) ?? [])].some((q) => p === q || p.startsWith(q + "/") || q.startsWith(p + "/"))));
-      if (o.type === "Preference") hits ||= conditionRefs(o.condition).some((id) => changed.has(id));
-      if (o.type === "Constraint" && o.value.kind === "requirement") hits ||= conditionRefs(o.value.condition).some((id) => changed.has(id));
-      if (o.type === "Candidate") hits ||= [...o.preference_ids, ...conditionRefs(o.reconsider_when)].some((id) => changed.has(id));
-      if (o.type === "Decision") hits ||= [o.subject_id, ...o.basis_ids].some((id) => changed.has(id));
-      if (o.type === "Candidate") hits ||= [...changed.keys()].some((id) => { const r = get(id), p = r.type === "ExternalFact" ? reservationProfile(r) : null; return p && o.subject_ids.includes(p.city_id); });
-      if (o.type === "Skeleton") {
-        hits ||= [...o.cost_fact_ids, ...o.connections.flatMap((c) => c.fact_ids)].some((id) => changed.has(id));
-        hits ||= [...changed.keys()].some((id) => { const r = get(id); return r.type === "Constraint" && applicable(r, o) || r.type === "TripGoal"
-          || r.type === "ExternalFact" && !!reservationProfile(r) || r.type === "Candidate" && r.subject_ids.some((id) => o.stops.some((s) => s.entity_id === id)); });
-        hits ||= [...(changed.get(o.id) ?? [])].some((p) => ["/stops", "/connections", "/cost_fact_ids", "/overrides"].includes(p));
+  function propagate(recomputed = new Set<string>()) {
+    const changed = new Map(state.objects.filter((o) => !same(old.get(o.id), o)).map((o) => [o.id, changedPaths(old.get(o.id) ?? {}, o)]));
+    const affected = new Set<string>();
+    while (true) {
+      const added = new Set<string>();
+      for (const o of [...objects.values()]) {
+        if (affected.has(o.id) || recomputed.has(o.id) || o.type === "Skeleton" && o.status !== "active" || o.type === "Decision" && (o.status !== "confirmed" || !old.has(o.id))) continue;
+        let hits = o.dependencies.some((d) => ["input", "evidence"].includes(d.relation) && d.paths.some((p) => [...(changed.get(d.object_id) ?? [])].some((q) => p === q || p.startsWith(q + "/") || q.startsWith(p + "/"))));
+        if (o.type === "Preference") hits ||= conditionRefs(o.condition).some((id) => changed.has(id));
+        if (o.type === "Constraint" && o.value.kind === "requirement") hits ||= conditionRefs(o.value.condition).some((id) => changed.has(id));
+        if (o.type === "Candidate") hits ||= [...o.preference_ids, ...conditionRefs(o.reconsider_when)].some((id) => changed.has(id));
+        if (o.type === "Decision") hits ||= [o.subject_id, ...o.basis_ids].some((id) => changed.has(id));
+        if (o.type === "Candidate") hits ||= [...changed.keys()].some((id) => { const r = get(id), p = r.type === "ExternalFact" ? reservationProfile(r) : null; return p && o.subject_ids.includes(p.city_id); });
+        if (o.type === "Skeleton") {
+          hits ||= [...o.cost_fact_ids, ...o.connections.flatMap((c) => c.fact_ids)].some((id) => changed.has(id));
+          hits ||= [...changed.keys()].some((id) => { const r = get(id); return r.type === "Constraint" && applicable(r, o) || r.type === "TripGoal"
+            || r.type === "ExternalFact" && !!reservationProfile(r) || r.type === "Candidate" && r.subject_ids.some((id) => o.stops.some((s) => s.entity_id === id)); });
+          hits ||= [...(changed.get(o.id) ?? [])].some((p) => ["/stops", "/connections", "/cost_fact_ids", "/overrides"].includes(p));
+        }
+        if (!hits) continue;
+        if (o.type === "Skeleton") { o.assessment.status = "stale"; o.assessment.unknowns = [...new Set([...o.assessment.unknowns, "inputs_changed"])].sort(); }
+        if (o.type === "Candidate" || o.type === "Decision") o.review_state = "stale";
+        added.add(o.id);
       }
-      if (!hits) continue;
-      if (o.type === "Skeleton") { o.assessment.status = "stale"; o.assessment.unknowns = [...new Set([...o.assessment.unknowns, "inputs_changed"])].sort(); }
-      if (o.type === "Candidate" || o.type === "Decision") o.review_state = "stale";
-      added.add(o.id);
+      if (!added.size) break;
+      for (const id of added) { affected.add(id); const paths = changedPaths(old.get(id) ?? {}, get(id)); changed.set(id, paths.size ? paths : new Set([""])); }
     }
-    if (!added.size) break;
-    for (const id of added) { affected.add(id); const paths = changedPaths(old.get(id) ?? {}, get(id)); changed.set(id, paths.size ? paths : new Set([""])); }
+    for (const id of [...affected].sort()) if (["Skeleton", "Decision"].includes(get(id).type)) {
+      const issueId = `issue-dependency-${id}`, existing = objects.get(issueId);
+      if (existing) { rule(existing.type === "OpenIssue", "REF_TYPE", issueId); existing.status = "open"; existing.resolution = null; }
+      else make(issueId, "OpenIssue", { issue_kind: "dependency", question: "输入变化，需要重新核验或计算", affected_ids: [id], severity: "warning",
+        required_inputs: ["fresh_dependencies"], candidate_actions: ["verify", "calculate", "confirm"], owner: "system", resolution: null, evidence_ids: [] });
+    }
   }
-  for (const id of [...affected].sort()) if (["Skeleton", "Decision"].includes(get(id).type)) {
-    const issueId = `issue-dependency-${id}`, existing = objects.get(issueId);
-    if (existing) { rule(existing.type === "OpenIssue", "REF_TYPE", issueId); existing.status = "open"; existing.resolution = null; }
-    else make(issueId, "OpenIssue", { issue_kind: "dependency", question: "输入变化，需要重新核验或计算", affected_ids: [id], severity: "warning",
-      required_inputs: ["fresh_dependencies"], candidate_actions: ["verify", "calculate", "confirm"], owner: "system", resolution: null, evidence_ids: [] });
+  propagate();
+  for (const id of recalculations) {
+    const o = get(id); rule(o.type === "Skeleton", "REF_TYPE", id);
+    o.assessment = assess(o, objects, now);
+    const dependencies = new Set(o.dependencies.map((d) => d.object_id));
+    const required = [...objects.values()].filter((c) => c.type === "Constraint" && c.status === "active" && applicable(c, o)).map((c) => c.id);
+    required.push(...o.cost_fact_ids, ...o.connections.flatMap((c) => c.fact_ids));
+    for (const ref of [...new Set(required)].filter((r) => !dependencies.has(r)).sort()) {
+      const source = get(ref);
+      o.dependencies.push({ object_id: ref, version: source.version, paths: source.type === "Constraint" ? ["/status", "/value"] : ["/status", "/value", "/freshness", "/applicability", "/expires_at"], relation: "input" });
+    }
+    for (const d of o.dependencies) d.version = get(d.object_id).version;
+  }
+  // Time alone may change computed output. Propagate it without invalidating freshly computed skeletons.
+  if (recalculations.size) propagate(recalculations);
+  rule(adoptions.length <= 1, "MULTIPLE_ADOPTIONS", "一笔提交只能采用一个骨架");
+  for (const cmd of adoptions) {
+    const o = get(cmd.id); rule(o.type === "Skeleton", "REF_TYPE", cmd.id);
+    const cities = new Set(o.stops.map((s) => s.entity_id));
+    for (const choice of state.objects) if (choice.type === "Decision" && choice.status === "confirmed" && choice.decision_kind === "candidate_choice") {
+      const candidate = get(choice.subject_id); rule(candidate.type === "Candidate", "REF_TYPE", choice.subject_id);
+      if (candidate.candidate_kind === "city") {
+        const included = candidate.subject_ids.every((id) => cities.has(id));
+        rule(!(choice.value === "accept" && !included || choice.value === "reject" && included), "CONFIRMED_CANDIDATE", "新骨架与明确候选决定冲突，须在同笔提交中明确撤销该决定");
+      }
+    }
+    rule(o.assessment.status !== "blocked", "HARD_CONFLICT", "已知硬约束冲突阻止新骨架生效");
+    rule(!o.assessment.unknowns.length || cmd.acknowledge_unknowns, "UNKNOWN_ACK", "必须承认已展示待核验项");
+    const previous = state.objects.filter((d) => d.type === "Decision" && d.status === "confirmed" && d.decision_kind === "adopt_skeleton");
+    for (const d of previous) transition(d, "supersede", "system");
+    if (state.effective_skeleton_id) transition(get(state.effective_skeleton_id), "supersede", "system");
+    const decision = make(`decision-${proposal}`, "Decision", { subject_id: o.id, subject_version: o.version, decision_kind: "adopt_skeleton", value: "accept",
+      confirmation_scope: structuredClone(cmd.confirmation_scope), basis_ids: o.dependencies.map((d) => d.object_id), acknowledged_unknowns: structuredClone(o.assessment.unknowns),
+      confirmed_by: actor.id, confirmed_at: stamp, supersedes: previous.at(-1)?.id ?? null, review_state: "current" });
+    transition(decision, "confirm"); state.effective_skeleton_id = o.id;
   }
   for (const o of state.objects) {
     const previous = old.get(o.id);
     if (previous && !same(previous, o)) { o.version = incrementCounter(previous.version, "object version"); o.updated_at = stamp; }
   }
-  for (const o of state.objects) if (o.type === "Decision" && !old.has(o.id)) o.subject_version = get(o.subject_id).version;
+  for (const o of state.objects) {
+    if (o.type === "Decision" && !old.has(o.id)) o.subject_version = get(o.subject_id).version;
+    if (recalculations.has(o.id)) for (const d of o.dependencies) d.version = get(d.object_id).version;
+  }
   const delta = diff(before, state);
   if (delta.length || before.effective_skeleton_id !== state.effective_skeleton_id) state.revision = incrementCounter(before.revision, "revision");
   validateStateSemantics(state);
