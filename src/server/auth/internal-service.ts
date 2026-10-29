@@ -7,7 +7,7 @@ function key(secret: string) {
   if (Buffer.byteLength(secret) < 32) throw new Error("Configure a separate INTERNAL_SERVICE_SECRET of at least 32 bytes");
   return new TextEncoder().encode(secret);
 }
-/** Trusted server/operator code only. No HTTP route accepts or issues this capability. */
+/** Trusted server/operator issuance only. HTTP accepts verified Model capabilities; System/Tool stay private. */
 export async function issueInternalCapability(secret: string, tripId: string, actor: Actor) {
   validateActor(actor);
   if (!["model", "system", "tool"].includes(actor.role)) throw new Error("Internal principals cannot mint User sessions");
