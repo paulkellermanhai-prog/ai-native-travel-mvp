@@ -1,3 +1,4 @@
+import { runtimeRoleSafetySql } from "../../database/runtime-role-safety.mjs";
 import { isDeepStrictEqual } from "node:util";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient, Prisma } from "../../../generated/prisma/client";
@@ -57,23 +58,32 @@ function requireSyntheticEnvironment() {
   requireStorage(process.env.NODE_ENV === "test", "STORAGE_WRITE_DISABLED", "Generic snapshot/batch writes are restricted to isolated synthetic tests");
 }
 
+async function checkTripRuntime(client: PrismaClient) {
+  const [identity] = await client.$queryRawUnsafe<Array<{ denied: boolean }>>(runtimeRoleSafetySql, null, "trip");
+  requireStorage(!!identity && !identity.denied, "STORAGE_IDENTITY", "Trip runtime must be unprivileged, non-owner and isolated from identity table and column permissions");
+}
+
 // Read-only storage API. The host must authorize trip access before calling it.
 export function openTripStateReader(connectionString: string) {
   const client = createClient(connectionString);
   return {
     async state(tripId: string) {
+      await checkTripRuntime(client);
       const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${tripId}`;
       return row ? storageState(row.snapshot) : null;
     },
     async history(tripId: string) {
+      await checkTripRuntime(client);
       const rows = await client.$queryRaw<Array<{ intent: string; change: string }>>`SELECT "intent"::text AS "intent", "change"::text AS "change" FROM "TripStateHistory" WHERE "tripId" = ${tripId} ORDER BY "sequence"`;
       return storageHistory(rows);
     },
     async idempotency(tripId: string, key: Omit<RequestKey, "requestDigest">) {
+      await checkTripRuntime(client);
       const [row] = await client.$queryRaw<Array<{ requestDigest: string; request: string; response: string }>>`SELECT "requestDigest", "request"::text AS "request", "response"::text AS "response" FROM "TripStateIdempotency" WHERE "tripId" = ${tripId} AND "actorId" = ${key.actorId} AND "operationDomain" = ${key.operationDomain} AND "key" = ${key.key}`;
       return row ? { requestDigest: row.requestDigest, request: decodeCommandJson(row.request), response: storageResponse(row.response) } : null;
     },
     async pending(tripId: string, proposalId: string) {
+      await checkTripRuntime(client);
       // Consistent snapshot: the proposal basis and aggregate revision are read in one statement.
       const rows = await client.$queryRaw<Array<{ payload: Prisma.JsonValue; basisRevision: bigint; revision: bigint; expiresAt: Date; now: Date }>>`
         SELECT p."payload", p."basisRevision", d."revision", p."expiresAt", clock_timestamp() AS "now"
@@ -229,13 +239,9 @@ export async function openSyntheticStorageHarness(connectionString: string, faul
   requireSyntheticEnvironment();
   const client = createClient(connectionString);
   try {
-    const [identity] = await client.$queryRaw<Array<{ database: string; privileged: boolean; owns: boolean }>>`
-      SELECT current_database() AS "database",
-        (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls) AS "privileged",
-        EXISTS (SELECT 1 FROM pg_class c WHERE c.relname IN ('TripStateDocument','TripStateHistory','TripStateProposal','TripStateIdempotency')
-          AND pg_has_role(current_user, c.relowner, 'USAGE')) AS "owns"
-      FROM pg_roles r WHERE r.rolname = current_user`;
-    requireStorage(/^antu_e02_test_[a-z0-9_]+$/.test(identity.database) && !identity.privileged && !identity.owns,
+    await checkTripRuntime(client);
+    const [identity] = await client.$queryRaw<Array<{ database: string }>>`SELECT current_database() AS database`;
+    requireStorage(/^antu_e02_test_[a-z0-9_]+$/.test(identity.database),
       "STORAGE_IDENTITY", "Synthetic writes require an isolated test database and a non-owner, unprivileged runtime role");
   } catch (error) { await client.$disconnect(); throw error; }
 
@@ -269,12 +275,7 @@ export async function openTripCommandService(connectionString: string, host: Com
   rule(host && typeof host.authorize === "function", "ACTOR", "A trusted host authorization integration is required");
   const client = createClient(connectionString);
   try {
-    const [identity] = await client.$queryRaw<Array<{ privileged: boolean; owns: boolean }>>`
-      SELECT (r.rolsuper OR r.rolcreatedb OR r.rolcreaterole OR r.rolreplication OR r.rolbypassrls) AS "privileged",
-        EXISTS (SELECT 1 FROM pg_class c WHERE c.relname IN ('TripStateDocument','TripStateHistory','TripStateProposal','TripStateIdempotency')
-          AND pg_has_role(current_user, c.relowner, 'USAGE')) AS "owns"
-      FROM pg_roles r WHERE r.rolname = current_user`;
-    requireStorage(!identity.privileged && !identity.owns, "STORAGE_IDENTITY", "Command runtime must not own database objects or hold administrative privileges");
+    await checkTripRuntime(client);
   } catch (error) { await client.$disconnect(); throw error; }
   async function authorize(tripId: string, credential: unknown): Promise<Actor> {
     const grant = await host.authorize(tripId, credential);
