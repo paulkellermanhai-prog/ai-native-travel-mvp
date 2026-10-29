@@ -130,7 +130,23 @@ jobs:
             ${{ runner.temp }}/e02-04d-postgres.jsonl
           if-no-files-found: error
           retention-days: 14
+      - name: Original Python semantic and reservation regression
+        working-directory: specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包
+        env:
+          PYTHONDONTWRITEBYTECODE: "1"
+        run: '"$TRIP_STATE_PYTHON" -m unittest tests.test_tripstate tests.test_global_consistency tests.test_reservation_profile'
       - name: Check database connectivity
         run: npm run db:check
       - name: Production build
         run: npm run build
+      - name: Actual Next.js HTTP and PostgreSQL acceptance
+        env:
+          E02_HTTP_EVIDENCE_PATH: ${{ runner.temp }}/e02-05-http.json
+        run: npm run test:http
+      - name: Preserve actual authenticated HTTP execution
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e02-05-authenticated-http
+          path: ${{ runner.temp }}/e02-05-http.json
+          if-no-files-found: error
+          retention-days: 14
