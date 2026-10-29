@@ -94,13 +94,14 @@ async function appendHistory(tx: Prisma.TransactionClient, tripId: string, inten
   await tx.tripStateHistory.create({ data: { tripId, sequence: (last?.sequence ?? 0n) + 1n, intentId: intent.id, changeRecordId: change.id, intent: json(intent), change: json(change) } });
 }
 
-async function confirmPrepared(client: PrismaClient, tripId: string, proposalId: string, value: unknown, actor: Actor, host: CommandHost) {
+async function confirmPrepared(client: PrismaClient, tripId: string, proposalId: string, value: unknown, actor: Actor, host: CommandHost, guard?: (tx: Prisma.TransactionClient) => Promise<void>) {
   rule(actor.role === "user", "PERMISSION", "只有经鉴权用户可确认");
   const request = parseContract("confirm-request", value); safeCounter(request.expected_revision, "expected_revision");
   const requestDigest = digest({ proposal_id: proposalId, request });
   return client.$transaction(async (tx) => {
     const [document] = await tx.$queryRaw<Array<{ revision: bigint; snapshot: string }>>`SELECT "revision", "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId"=${tripId} FOR UPDATE`;
     requireStorage(!!document, "STORAGE_TRIP_NOT_FOUND", "Aggregate does not exist");
+    await guard?.(tx);
     const before = storageState(document.snapshot);
     requireStorage(BigInt(before.revision) === document.revision, "STORAGE_INTEGRITY", "Stored revision and JSONB disagree");
     const [cached] = await tx.$queryRaw<Array<{ requestDigest: string; request: string; response: string }>>`SELECT "requestDigest", "request"::text AS "request", "response"::text AS "response" FROM "TripStateIdempotency" WHERE "tripId"=${tripId} AND "actorId"=${actor.id} AND "operationDomain"='confirmation' AND "key"=${request.idempotency_key}`;
@@ -132,7 +133,7 @@ async function confirmPrepared(client: PrismaClient, tripId: string, proposalId:
 }
 
 async function commitPrepared(client: PrismaClient, envelope: {
-  tripId: string; request: Request; key: RequestKey; materialize: (current: State) => SyntheticStorageBatch;
+  tripId: string; request: Request; key: RequestKey; materialize: (current: State) => SyntheticStorageBatch; guard?: (tx: Prisma.TransactionClient) => Promise<void>;
 }, fault?: (point: StorageCheckpoint) => void | Promise<void>) {
     const request = parseContract(envelope.key.operationDomain === "confirmation" ? "confirm-request" : "change-request", envelope.request);
     requireStorage(request.idempotency_key === envelope.key.key && !!envelope.key.requestDigest, "STORAGE_INTEGRITY", "Request identity mismatch");
@@ -142,6 +143,7 @@ async function commitPrepared(client: PrismaClient, envelope: {
         SELECT "revision", "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${envelope.tripId} FOR UPDATE`;
       const current = rows[0];
       requireStorage(!!current, "STORAGE_TRIP_NOT_FOUND", "Aggregate does not exist");
+      await envelope.guard?.(tx);
       const identity = { tripId: envelope.tripId, actorId: envelope.key.actorId, operationDomain: envelope.key.operationDomain, key: envelope.key.key };
       const [previous] = await tx.$queryRaw<Array<{ requestDigest: string; request: string; response: string }>>`SELECT "requestDigest", "request"::text AS "request", "response"::text AS "response" FROM "TripStateIdempotency" WHERE "tripId" = ${identity.tripId} AND "actorId" = ${identity.actorId} AND "operationDomain" = ${identity.operationDomain} AND "key" = ${identity.key}`;
       // Replay precedes the revision check, as in the original Store. Compare body too, even for a claimed digest collision.
@@ -256,6 +258,8 @@ export type HostGrant = Readonly<{ tripId: string; actor: Actor }>;
 export type CommandHost = {
   // A server-installed authentication + trip-authorization integration. Never take this callback from request data.
   authorize: (tripId: string, credential: unknown) => HostGrant | Promise<HostGrant>;
+  // Optional for existing trusted internal hosts; installed mandatorily by the real session host.
+  guard?: (tripId: string, credential: unknown, tx: Prisma.TransactionClient) => Promise<void>;
   clock?: () => Date;
   uuid?: () => string;
 };
@@ -278,6 +282,10 @@ export async function openTripCommandService(connectionString: string, host: Com
     validateActor(grant.actor);
     return Object.freeze({ ...grant.actor });
   }
+  async function read<T>(tripId: string, credential: unknown, query: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
+    if (!host.guard) return query(client);
+    return client.$transaction(async (tx) => { await host.guard!(tripId, credential, tx); return query(tx); });
+  }
   return {
     async createTrip(tripId: string, credential: unknown) {
       const actor = await authorize(tripId, credential);
@@ -289,16 +297,18 @@ export async function openTripCommandService(connectionString: string, host: Com
     async preview(tripId: string, input: unknown, credential: unknown) {
       const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
       const actor = await authorize(tripId, credential);
-      const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId"=${tripId}`;
+      return read(tripId, credential, async (tx) => {
+      const [row] = await tx.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId"=${tripId}`;
       requireStorage(!!row, "STORAGE_TRIP_NOT_FOUND", "Aggregate does not exist");
       const before = storageState(row.snapshot);
       try { return previewCommand(before, captured, actor, host.clock, host.uuid); }
       catch (error) { if (error instanceof TripStateContractError) return failureResponse(before, error); throw error; }
+      });
     },
     async confirm(tripId: string, proposalId: string, input: unknown, credential: unknown) {
       const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
       const actor = await authorize(tripId, credential);
-      try { return await confirmPrepared(client, tripId, proposalId, captured, actor, host); }
+      try { return await confirmPrepared(client, tripId, proposalId, captured, actor, host, host.guard ? (tx) => host.guard!(tripId, credential, tx) : undefined); }
       catch (error) {
         const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId"=${tripId}`;
         requireStorage(!!row, "STORAGE_TRIP_NOT_FOUND", "Aggregate does not exist");
@@ -317,7 +327,7 @@ export async function openTripCommandService(connectionString: string, host: Com
         const request: CommandRequest = parseContract("change-request", captured);
         safeCounter(request.expected_revision, "expected_revision");
         const key = { actorId: actor.id, operationDomain: actor.role, key: request.idempotency_key, requestDigest: digest(request) };
-        const result = await commitPrepared(client, { tripId, request, key, materialize: (current) => planCommand(current, request, actor, host.clock, host.uuid) });
+        const result = await commitPrepared(client, { tripId, request, key, materialize: (current) => planCommand(current, request, actor, host.clock, host.uuid), guard: host.guard ? (tx) => host.guard!(tripId, credential, tx) : undefined });
         return result.response;
       } catch (error) {
         if (error instanceof TripStateContractError || error instanceof StorageError) {
@@ -329,13 +339,17 @@ export async function openTripCommandService(connectionString: string, host: Com
     },
     async state(tripId: string, credential: unknown) {
       await authorize(tripId, credential);
-      const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${tripId}`;
+      return read(tripId, credential, async (tx) => {
+      const [row] = await tx.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${tripId}`;
       return row ? validateStateSemantics(storageState(row.snapshot)) : null;
+      });
     },
     async history(tripId: string, credential: unknown) {
       await authorize(tripId, credential);
-      const rows = await client.$queryRaw<Array<{ intent: string; change: string }>>`SELECT "intent"::text AS "intent", "change"::text AS "change" FROM "TripStateHistory" WHERE "tripId" = ${tripId} ORDER BY "sequence"`;
+      return read(tripId, credential, async (tx) => {
+      const rows = await tx.$queryRaw<Array<{ intent: string; change: string }>>`SELECT "intent"::text AS "intent", "change"::text AS "change" FROM "TripStateHistory" WHERE "tripId" = ${tripId} ORDER BY "sequence"`;
       return storageHistory(rows);
+      });
     },
     close: () => client.$disconnect(),
   };

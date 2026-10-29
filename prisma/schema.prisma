@@ -15,6 +15,7 @@ model TripStateDocument {
   history   TripStateHistory[]
   proposals TripStateProposal[]
   requests  TripStateIdempotency[]
+  memberships TripMembership[]
 }
 
 model TripStateHistory {
@@ -55,4 +56,71 @@ model TripStateIdempotency {
   document        TripStateDocument @relation(fields: [tripId], references: [tripId], onDelete: Restrict)
 
   @@id([tripId, actorId, operationDomain, key])
+}
+
+// Better Auth infrastructure. These are identities and access bindings, not Trip State business objects.
+model AuthUser {
+  id            String @id
+  name          String
+  email         String @unique
+  emailVerified Boolean @default(false)
+  image         String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime @default(now()) @db.Timestamptz(6)
+  sessions      AuthSession[]
+  accounts      AuthAccount[]
+  trips         TripMembership[]
+}
+model AuthSession {
+  id        String @id
+  token     String @unique
+  userId    String
+  expiresAt DateTime @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt DateTime @default(now()) @db.Timestamptz(6)
+  ipAddress String?
+  userAgent String?
+  user      AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+}
+model AuthAccount {
+  id                    String @id
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(6)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(6)
+  scope                 String?
+  password              String?
+  createdAt             DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt             DateTime @default(now()) @db.Timestamptz(6)
+  user                  AuthUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@index([userId])
+  @@unique([providerId, accountId])
+}
+model AuthVerification {
+  id         String @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(6)
+  createdAt  DateTime @default(now()) @db.Timestamptz(6)
+  updatedAt  DateTime @default(now()) @db.Timestamptz(6)
+  @@index([identifier])
+}
+model AuthRateLimit {
+  id          String @id
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+}
+model TripMembership {
+  tripId    String
+  userId    String
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+  user      AuthUser @relation(fields: [userId], references: [id], onDelete: Restrict)
+  document TripStateDocument @relation(fields: [tripId], references: [tripId], onDelete: Restrict)
+  @@id([tripId, userId])
 }

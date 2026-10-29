@@ -22,14 +22,19 @@
     "specs:verify": "node scripts/specs.mjs verify",
     "contracts:generate": "node scripts/trip-state-contracts.mjs",
     "contracts:check": "node scripts/trip-state-contracts.mjs --check",
-    "check": "npm run specs:verify && npm run contracts:check && npm run db:validate && npm run db:generate && npm run typecheck && npm run lint && npm test && npm run build"
+    "check": "npm run specs:verify && npm run contracts:check && npm run db:validate && npm run db:generate && npm run typecheck && npm run lint && npm test && npm run build",
+    "auth:admin": "tsx scripts/auth-admin.ts",
+    "auth:grant-runtime": "node scripts/grant-identity-runtime.mjs"
   },
   "dependencies": {
+    "@better-auth/prisma-adapter": "1.7.14",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
+    "better-auth": "1.7.14",
     "dotenv": "^17.2.3",
+    "jose": "6.2.13",
     "next": "16.4.3",
     "pg": "^8.16.3",
     "react": "19.3.1",
@@ -44,6 +49,7 @@
     "eslint-config-next": "16.4.3",
     "json-schema-to-typescript": "16.0.0",
     "prisma": "7.10.1",
+    "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "5.0.5"
   }
