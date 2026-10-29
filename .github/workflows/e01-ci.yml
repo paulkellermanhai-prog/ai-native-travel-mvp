@@ -66,6 +66,8 @@ jobs:
           npm ls --all
           npm run specs:verify
           npm run contracts:check
+      - name: Verify proposed DC 0.1 calibration offline
+        run: '"$TRIP_STATE_PYTHON" scripts/check-dc-calibration.py'
       - name: Validate Prisma schema
         run: npm run db:validate
       - name: Generate Prisma client
