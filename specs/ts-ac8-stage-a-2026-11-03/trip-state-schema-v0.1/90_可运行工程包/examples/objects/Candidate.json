@@ -1,0 +1,37 @@
+{
+  "id": "candidate-luxor",
+  "type": "Candidate",
+  "trip_id": "trip-egypt-test",
+  "version": 3,
+  "status": "reintroduced",
+  "scope": {
+    "kind": "trip",
+    "ids": []
+  },
+  "source": {
+    "actor": "user",
+    "actor_id": "user-demo",
+    "reference": "synthetic-input",
+    "text": "条件性排除卢克索，保留偏好证据",
+    "at": "2030-01-01T00:00:00Z"
+  },
+  "dependencies": [],
+  "updated_at": "2030-01-01T00:00:00Z",
+  "subject_ids": [
+    "luxor"
+  ],
+  "candidate_kind": "city",
+  "inclusion_reason": "文化兴趣",
+  "exclusion_reason": "条件性排除卢克索，保留偏好证据",
+  "reconsider_when": {
+    "op": "gte",
+    "object_id": "constraint-nights",
+    "path": "/value/maximum_nights",
+    "value": 4
+  },
+  "preference_ids": [
+    "pref-culture"
+  ],
+  "issue_ids": [],
+  "review_state": "current"
+}

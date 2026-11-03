@@ -65,6 +65,7 @@ jobs:
         run: |
           npm ls --all
           npm run specs:verify
+          npm run specs:ac8
           npm run contracts:check
       - name: Validate Prisma schema
         run: npm run db:validate
@@ -135,6 +136,11 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: '"$TRIP_STATE_PYTHON" -m unittest tests.test_tripstate tests.test_global_consistency tests.test_reservation_profile'
+      - name: Approved stage A package Python reference regression
+        run: |
+          cp -R specs/ts-ac8-stage-a-2026-11-03/trip-state-schema-v0.1 "$RUNNER_TEMP/ts-ac8"
+          cd "$RUNNER_TEMP/ts-ac8/90_可运行工程包"
+          "$TRIP_STATE_PYTHON" run_validation.py
       - name: Check database connectivity
         run: npm run db:check
       - name: Production build

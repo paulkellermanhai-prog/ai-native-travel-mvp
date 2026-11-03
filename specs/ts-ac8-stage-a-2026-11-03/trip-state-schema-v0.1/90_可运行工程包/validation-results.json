@@ -1,0 +1,540 @@
+{
+  "schema_version": "0.1.0",
+  "executed_at_utc": "2026-11-03T13:57:54.733058+00:00",
+  "python": "3.13.5",
+  "platform": "macOS-26.0-arm64-arm-64bit-Mach-O",
+  "dependencies": {
+    "jsonschema": "4.23.0",
+    "attrs": "26.1.0",
+    "jsonschema-specifications": "2025.9.1",
+    "referencing": "0.37.0",
+    "rpds-py": "2026.9.1"
+  },
+  "dependency_lock_matches": true,
+  "test_cases_run": 126,
+  "passed": 126,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "duration_seconds": 6.89,
+  "successful": true,
+  "tests": [
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_all_seven_scenarios_reexecute_to_saved_trace",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_all_state_examples_pass_structure_and_semantics",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_all_top_level_object_fields_have_semantic_notes",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_all_twelve_object_record_examples",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_delivered_json_schemas_equal_declaration_source",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_every_reference_has_an_offline_target",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_final_dictionary_and_transition_matrix_equal_generator",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_generated_dictionaries_and_transition_documents_are_exact",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_markdown_local_links_resolve",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_multiturn_saved_snapshots_and_independent_reexecution",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_negative_examples_fail_for_documented_reason",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_saved_api_examples_match_request_and_response_contracts",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_traceability_test_references_exist",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_artifacts.DeliveredArtifactTests.test_transition_json_equal_declaration_source",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_condition_dependencies_propagate_without_rewriting_preference",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_entity_and_skeleton_lineage_cannot_cycle",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_every_declared_lifecycle_edge_and_actor_gate",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_excluded_candidate_cannot_skip_reconsider_via_retain",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_imported_confirmation_requires_complete_scope",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_nested_dependency_paths_are_validated",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_preference_supersession_has_traceable_successor",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_recalculation_propagates_time_change_without_revoking_choice",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_replacement_only_transitions_reject_standalone_command",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_scenario_overrides_preserve_kind_and_unique_authority",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_system_cannot_silently_invalidate_user_constraint",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_tool_fact_contradiction_obeys_declared_transition",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_traveler_count_cannot_be_silently_treated_as_satisfied",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_typed_entity_and_fact_relationships",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_unknown_condition_fact_never_becomes_verified",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_global_consistency.GlobalConsistencyTests.test_unknown_stay_is_not_zero_and_can_be_explicitly_acknowledged",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_package.PackageNavigationTests.test_bundle_has_no_environment_or_compiled_files",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_package.PackageNavigationTests.test_reader_and_machine_entries_resolve",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_reservation_profile.ReservationProfileTests.test_changed_trip_dates_preserve_receipt_without_forcing_old_city",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_reservation_profile.ReservationProfileTests.test_committed_city_blocks_conflicting_adoption_and_candidate_rejection",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_reservation_profile.ReservationProfileTests.test_expired_receipt_does_not_silently_release_commitment",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_reservation_profile.ReservationProfileTests.test_profile_rejects_missing_receipt_and_duplicate_active_versions",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_reservation_profile.ReservationProfileTests.test_receipt_cannot_be_dropped_without_successor_evidence",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_reservation_profile.ReservationProfileTests.test_receipt_profile_has_no_new_business_object_and_does_not_verify_calendar",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_reservation_profile.ReservationProfileTests.test_verified_cancellation_releases_city_without_erasing_history",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.CalculationTests.test_condition_three_values",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.CalculationTests.test_conflicting_schedules_and_bad_times",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.CalculationTests.test_costs_grouped_by_currency_and_people",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.CalculationTests.test_duplicate_cost_item_not_double_counted",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.CalculationTests.test_expired_fact_condition_unknown",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.CalculationTests.test_explicit_no_service_blocks",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.CalculationTests.test_partial_empty_timeout_error_are_distinct_unknowns",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.CalculationTests.test_time_and_nights_arithmetic",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.CalculationTests.test_unknown_requirement_does_not_become_false_or_true",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_all_schemas_are_valid_2020_12",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_budget_range_and_hardness",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_calculation_cycles_rejected_association_cycles_allowed",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_cross_trip_reference",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_dangling_reference",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_duplicate_id",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_exact_ten_business_objects_two_system_records",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_failure_cannot_be_verified_or_no_service",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_future_dependency_version",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_invalid_date_and_unknown_not_zero",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_minimal_and_full_state",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_no_arbitrary_patch_or_actor_field",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_single_current_goal_authority",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_skeleton_adjacency_and_current_authority",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_transition_table_covers_each_object",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_unknown_fields_rejected",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.ContractTests.test_wrong_reference_type",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H01_inferred_cannot_overwrite_explicit",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H01_interest_does_not_confirm_candidate",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H01_user_can_correct_preference_with_history",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H02_confirmation_does_not_upgrade_facts",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H02_tool_failure_keeps_unknown",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H02_user_cannot_forge_fact_verification",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H03_budget_intent_and_hard_ceiling_are_distinct",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H03_fixed_constraint_cannot_be_changed_even_by_user",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H03_model_cannot_relax_limit",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H04_atomic_failure_no_partial_create",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H04_explicit_date_correction_preserves_others_and_marks_dependencies",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H04_new_preference_preserves_unrelated_values",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H05_exclusion_preserves_shared_preferences_evidence_entities",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H05_local_scope_stays_local_across_exclusion",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H05_reconsider_needs_real_condition_trigger",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H06_continuous_tentative_edits_do_not_replace_effective",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H06_effective_skeleton_is_not_mutable_in_place",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H06_scenario_cannot_be_adopted",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H07_dependency_paths_do_not_invalidate_unread_fields",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H07_fact_expiry_propagates_not_deletes",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H07_multilevel_dependency_propagates",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H08_context_contains_hard_constraints_and_new_constraints",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H08_context_expires_without_any_write",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H08_context_reads_expired_facts_without_claiming_verified",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H08_tampered_context_constraint_omission_rejected",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H09_confirmation_time_expiry",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H09_confirmed_candidate_cannot_be_silently_excluded",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H09_incomplete_scope_or_wrong_digest_rejected",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H09_model_proposal_reject_then_confirm",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H09_old_confirmation_after_update_is_conflict",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H10_dismiss_does_not_resolve_fact_or_feasibility",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H10_unknown_ack_required_before_adoption",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_H10_unknown_cost_never_total_affordability",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_P03_one_input_can_locally_correct_two_expressions",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_P04_S03_three_likes_remain_scoped_weak_evidence",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_P05_S04_incomplete_budget_cannot_become_authoritative_constraint",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_adoption_cannot_override_explicit_rejected_city",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_api_contract_read_write_preview_context_history",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_automatic_conditional_exclusion_requires_explicit_applicable_true_tradeoff",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_candidate_reject_cannot_contradict_current_skeleton",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_confirmation_failure_is_retryable_and_atomic",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_contested_transport_cannot_be_adopted_through_single_reference",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_declared_cost_conflict_blocks_only_reliant_skeleton",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_failure_before_commit_rolls_back_state_history_and_key",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_idempotent_retry_and_content_collision",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_issue_resolution_rejects_remaining_unknown",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_known_fact_issue_can_resolve_with_related_evidence",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_later_input_change_keeps_superseded_history_immutable",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_newly_confirmed_candidate_has_current_basis",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_nonmatching_or_expired_transport_does_not_block_adoption",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_only_original_confirmer_can_withdraw_confirmed_decision",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_orphan_confirmed_adoption_cannot_pass_validation",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_preview_does_not_write",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_provider_omitted_fields_cannot_upgrade_schedule",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_rejecting_withdrawal_proposal_preserves_existing_rejection_right",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_replacing_skeleton_is_one_atomic_authority_change",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_revoke_does_not_restore_stale_historical_plan",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_scoped_constraint_preserved_and_unsupported_calculation_is_unknown",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_system_can_invalidate_fixed_evidence_constraint_without_relaxing_it",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_two_concurrent_writers_only_one_commits",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_tripstate.MaintenanceTests.test_unrelated_evidence_does_not_close_issue",
+      "outcome": "passed"
+    }
+  ],
+  "not_tested": [
+    "真实 LLM 状态抽取、否定/范围理解及模型准确率",
+    "P03 理解纠错/真实变化分类、P04 真实展示机会与个性化、P05 澄清内容及模糊预算跨会话消费",
+    "P01/P15/P16/P19 候选行动覆盖、V/C/E、累计负担、介入时机及行动效果",
+    "真实交通、费用、开放条件、许可、库存和可购买性",
+    "真实住宿预订／取消回执可信度、入住日期与骨架夜数的完整对齐、订单交易与支付",
+    "生产身份认证、旅行访问控制及真实供应商信任链",
+    "生产数据库事务、跨进程并发、宕机与断电恢复",
+    "后台定时器、真实 HTTP 部署、网络端到端及 UI 交互",
+    "完整路线优化、换乘安全裕量、疲劳、个体/局部细粒度约束计算",
+    "全程成本、汇率转换、真实用户效果与性能基准",
+    "所有状态转换组合的穷举覆盖与代码行覆盖率"
+  ]
+}

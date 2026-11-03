@@ -1,0 +1,744 @@
+[
+  {
+    "object_type": "TripGoal",
+    "from_state": "draft",
+    "event": "activate",
+    "to_state": "active",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "目标范围明确",
+    "effect": "传播输入变化",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "TripGoal",
+    "from_state": "revised",
+    "event": "activate",
+    "to_state": "active",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "目标范围明确",
+    "effect": "传播输入变化",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "TripGoal",
+    "from_state": "active",
+    "event": "revise",
+    "to_state": "revised",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "明确修正",
+    "effect": "保留历史并传播",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "TripGoal",
+    "from_state": "draft",
+    "event": "close",
+    "to_state": "closed",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "明确结束",
+    "effect": "保留历史",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "TripGoal",
+    "from_state": "active",
+    "event": "close",
+    "to_state": "closed",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "明确结束",
+    "effect": "保留历史",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "TripGoal",
+    "from_state": "revised",
+    "event": "close",
+    "to_state": "closed",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "明确结束",
+    "effect": "保留历史",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Preference",
+    "from_state": "active",
+    "event": "supersede",
+    "to_state": "superseded",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "仅用户明确替代／撤回；推断偏好可另行修正字段",
+    "guard": "明确替代；同笔最终状态存在无环的后继 Preference association /status",
+    "effect": "传播输入变化",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Preference",
+    "from_state": "active",
+    "event": "withdraw",
+    "to_state": "withdrawn",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "仅用户明确替代／撤回；推断偏好可另行修正字段",
+    "guard": "明确撤回",
+    "effect": "保留证据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Constraint",
+    "from_state": "proposed",
+    "event": "activate",
+    "to_state": "active",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "硬约束不得缺关键值",
+    "effect": "影响范围重新校验",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Constraint",
+    "from_state": "active",
+    "event": "relax",
+    "to_state": "relaxed",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "override_policy=user",
+    "effect": "不改写原值",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Constraint",
+    "from_state": "active",
+    "event": "invalidate",
+    "to_state": "invalidated",
+    "actors": [
+      "user",
+      "system"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "用户约束须确认；固定约束仅系统凭被反证／替代证据纠错",
+    "effect": "影响范围重新校验",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Constraint",
+    "from_state": "proposed",
+    "event": "invalidate",
+    "to_state": "invalidated",
+    "actors": [
+      "user",
+      "system"
+    ],
+    "confirmation": "用户明确指令；非用户提案待确认（仅 fixed 的有依据系统失效例外）",
+    "guard": "用户约束须确认；固定约束仅系统凭被反证／替代证据纠错",
+    "effect": "影响范围重新校验",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "DestinationEntity",
+    "from_state": "known",
+    "event": "retire",
+    "to_state": "retired",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "知识目录维护",
+    "effect": "不删除引用",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "DestinationEntity",
+    "from_state": "retired",
+    "event": "restore",
+    "to_state": "known",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "知识目录维护",
+    "effect": "恢复目录可见性",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "exploring",
+    "event": "retain",
+    "to_state": "retained",
+    "actors": [
+      "user",
+      "model",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "不意味着确认",
+    "effect": "仅候选判断",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "reintroduced",
+    "event": "retain",
+    "to_state": "retained",
+    "actors": [
+      "user",
+      "model",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "不意味着确认",
+    "effect": "仅候选判断",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "exploring",
+    "event": "exclude_conditionally",
+    "to_state": "conditionally_excluded",
+    "actors": [
+      "user",
+      "model",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "排除理由明确且不覆盖确认决定",
+    "effect": "保留偏好与证据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "retained",
+    "event": "exclude_conditionally",
+    "to_state": "conditionally_excluded",
+    "actors": [
+      "user",
+      "model",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "排除理由明确且不覆盖确认决定",
+    "effect": "保留偏好与证据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "reintroduced",
+    "event": "exclude_conditionally",
+    "to_state": "conditionally_excluded",
+    "actors": [
+      "user",
+      "model",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "排除理由明确且不覆盖确认决定",
+    "effect": "保留偏好与证据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "exploring",
+    "event": "exclude",
+    "to_state": "excluded",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "不覆盖确认决定",
+    "effect": "保留偏好与证据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "retained",
+    "event": "exclude",
+    "to_state": "excluded",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "不覆盖确认决定",
+    "effect": "保留偏好与证据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "reintroduced",
+    "event": "exclude",
+    "to_state": "excluded",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "不覆盖确认决定",
+    "effect": "保留偏好与证据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "conditionally_excluded",
+    "event": "exclude",
+    "to_state": "excluded",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "不覆盖确认决定",
+    "effect": "保留偏好与证据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "excluded",
+    "event": "reconsider",
+    "to_state": "reintroduced",
+    "actors": [
+      "user",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "触发引用存在且条件成立",
+    "effect": "不自动成为已选",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Candidate",
+    "from_state": "conditionally_excluded",
+    "event": "reconsider",
+    "to_state": "reintroduced",
+    "actors": [
+      "user",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "触发引用存在且条件成立",
+    "effect": "不自动成为已选",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "ExternalFact",
+    "from_state": "active",
+    "event": "supersede",
+    "to_state": "superseded",
+    "actors": [
+      "tool",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "证据可追溯",
+    "effect": "依赖失效",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "ExternalFact",
+    "from_state": "active",
+    "event": "contradict",
+    "to_state": "contradicted",
+    "actors": [
+      "tool",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "反证有来源",
+    "effect": "依赖失效",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Skeleton",
+    "from_state": "active",
+    "event": "supersede",
+    "to_state": "superseded",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "仅由已授权的采用／选择命令原子触发，不开放单独替代",
+    "guard": "采用另一版本且原版本不再当前",
+    "effect": "保留旧骨架",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Skeleton",
+    "from_state": "active",
+    "event": "archive",
+    "to_state": "archived",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "不是当前有效骨架",
+    "effect": "保留旧版本",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Skeleton",
+    "from_state": "superseded",
+    "event": "archive",
+    "to_state": "archived",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "不是当前有效骨架",
+    "effect": "保留旧版本",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Decision",
+    "from_state": "proposed",
+    "event": "request_confirmation",
+    "to_state": "pending_confirmation",
+    "actors": [
+      "user",
+      "model",
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "具体范围明确",
+    "effect": "不应用选择",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Decision",
+    "from_state": "proposed",
+    "event": "confirm",
+    "to_state": "confirmed",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "专用确认命令；版本、范围、权限与约束通过",
+    "effect": "原子应用选择",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Decision",
+    "from_state": "pending_confirmation",
+    "event": "confirm",
+    "to_state": "confirmed",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "专用确认命令；版本、范围、权限与约束通过",
+    "effect": "原子应用选择",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Decision",
+    "from_state": "confirmed",
+    "event": "supersede",
+    "to_state": "revised",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "仅由已授权的采用／选择命令原子触发，不开放单独替代",
+    "guard": "新决定替代同范围旧决定",
+    "effect": "保留历史",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Decision",
+    "from_state": "proposed",
+    "event": "revoke",
+    "to_state": "revoked",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "专用撤销命令",
+    "effect": "必要时清空当前采用引用",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Decision",
+    "from_state": "pending_confirmation",
+    "event": "revoke",
+    "to_state": "revoked",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "专用撤销命令",
+    "effect": "必要时清空当前采用引用",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "Decision",
+    "from_state": "confirmed",
+    "event": "revoke",
+    "to_state": "revoked",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "专用撤销命令；实际 User 必须匹配 confirmed_by",
+    "effect": "必要时清空当前采用引用",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "open",
+    "event": "make_actionable",
+    "to_state": "actionable",
+    "actors": [
+      "system",
+      "user"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "至少有可尝试的候选动作",
+    "effect": "不等于缺口已补齐或解决",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "waiting",
+    "event": "make_actionable",
+    "to_state": "actionable",
+    "actors": [
+      "system",
+      "user"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "至少有可尝试的候选动作",
+    "effect": "不等于缺口已补齐或解决",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "open",
+    "event": "wait",
+    "to_state": "waiting",
+    "actors": [
+      "system",
+      "user"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "等待输入或工具",
+    "effect": "保持未知",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "actionable",
+    "event": "wait",
+    "to_state": "waiting",
+    "actors": [
+      "system",
+      "user"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "等待输入或工具",
+    "effect": "保持未知",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "open",
+    "event": "resolve",
+    "to_state": "resolved",
+    "actors": [
+      "system",
+      "user"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "证据有效且原阻塞已消除",
+    "effect": "保留解决依据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "actionable",
+    "event": "resolve",
+    "to_state": "resolved",
+    "actors": [
+      "system",
+      "user"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "证据有效且原阻塞已消除",
+    "effect": "保留解决依据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "waiting",
+    "event": "resolve",
+    "to_state": "resolved",
+    "actors": [
+      "system",
+      "user"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "证据有效且原阻塞已消除",
+    "effect": "保留解决依据",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "open",
+    "event": "dismiss",
+    "to_state": "dismissed",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "理由非空",
+    "effect": "不改变事实或可行性",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "actionable",
+    "event": "dismiss",
+    "to_state": "dismissed",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "理由非空",
+    "effect": "不改变事实或可行性",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "waiting",
+    "event": "dismiss",
+    "to_state": "dismissed",
+    "actors": [
+      "user"
+    ],
+    "confirmation": "用户明确授权；模型提案须先确认",
+    "guard": "理由非空",
+    "effect": "不改变事实或可行性",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "resolved",
+    "event": "reopen",
+    "to_state": "open",
+    "actors": [
+      "system",
+      "user"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "问题再次出现",
+    "effect": "恢复可见问题",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "OpenIssue",
+    "from_state": "dismissed",
+    "event": "reopen",
+    "to_state": "open",
+    "actors": [
+      "system",
+      "user"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "问题再次出现",
+    "effect": "恢复可见问题",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "DecisionContext",
+    "from_state": "assembled",
+    "event": "activate",
+    "to_state": "active",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "版本与时效检查通过",
+    "effect": "只读投影",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "DecisionContext",
+    "from_state": "assembled",
+    "event": "invalidate",
+    "to_state": "stale",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "旅行版本变化或时间过期",
+    "effect": "禁止用于新提交",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "DecisionContext",
+    "from_state": "active",
+    "event": "invalidate",
+    "to_state": "stale",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "旅行版本变化或时间过期",
+    "effect": "禁止用于新提交",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "DecisionContext",
+    "from_state": "assembled",
+    "event": "release",
+    "to_state": "released",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "任务结束",
+    "effect": "可重建",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "DecisionContext",
+    "from_state": "active",
+    "event": "release",
+    "to_state": "released",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "任务结束",
+    "effect": "可重建",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  },
+  {
+    "object_type": "DecisionContext",
+    "from_state": "stale",
+    "event": "release",
+    "to_state": "released",
+    "actors": [
+      "system"
+    ],
+    "confirmation": "不增加用户确认；仍执行权限与证据守卫",
+    "guard": "任务结束",
+    "effect": "可重建",
+    "failure": "拒绝整笔业务提交；原状态保持，返回规则错误"
+  }
+]

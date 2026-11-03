@@ -16,6 +16,29 @@ export function factUsable(fact: ExternalFact, now: Date, window: { start: strin
     && (!window || window.start <= fact.query.date && fact.query.date <= window.end)
     && ["date_specific", "purchasable"].includes(fact.verification);
 }
+export function conflictingFactIds(objects: Objects, now: Date, window: { start: string; end: string } | null = null): Set<string> {
+  const usable = [...objects.values()].filter((o): o is ExternalFact => o.type === "ExternalFact" && factUsable(o, now, window));
+  const groups = new Map<string, { yes: string[]; no: string[] }>();
+  for (const fact of usable) {
+    const value = fact.value;
+    if (value?.kind !== "transport" || value.service_exists === null) continue;
+    const scope = fact.scope;
+    const key = JSON.stringify([fact.query.date, value.from_id, value.to_id,
+      fact.query.parameters.map((p) => JSON.stringify([p.name, p.value])).sort(), scope.kind, [...scope.ids].sort(),
+      scope.kind === "date" ? scope.start : null, scope.kind === "date" ? scope.end : null]);
+    const group = groups.get(key) ?? { yes: [], no: [] };
+    (value.service_exists ? group.yes : group.no).push(fact.id); groups.set(key, group);
+  }
+  const contested = new Set<string>();
+  for (const group of groups.values()) if (group.yes.length && group.no.length)
+    for (const id of [...group.yes, ...group.no]) contested.add(id);
+  const usableIds = new Set(usable.map((f) => f.id));
+  for (const issue of objects.values()) if (issue.type === "OpenIssue" && issue.issue_kind === "conflict" && issue.status !== "resolved") {
+    const related = issue.affected_ids.filter((id) => usableIds.has(id));
+    if (related.length > 1) for (const id of related) contested.add(id);
+  }
+  return contested;
+}
 function pointer(value: unknown, path: string): unknown {
   for (const part of path.replace(/^\/+|\/+$/g, "").split("/")) {
     if (Array.isArray(value)) {
@@ -37,17 +60,17 @@ function pointer(value: unknown, path: string): unknown {
 }
 
 /** Original three-valued rules.condition_value: never coerce unknown, booleans or text to numeric truth. */
-export function conditionValue(condition: Condition, objects: Objects, now: Date): boolean | null {
+export function conditionValue(condition: Condition, objects: Objects, now: Date, contested?: ReadonlySet<string>): boolean | null {
   if (condition.op === "always") return true;
-  if (condition.op === "not") { const value = conditionValue(condition.arg, objects, now); return value === null ? null : !value; }
+  if (condition.op === "not") { const value = conditionValue(condition.arg, objects, now, contested); return value === null ? null : !value; }
   if ("args" in condition) {
-    const values = condition.args.map((c) => conditionValue(c, objects, now));
+    const values = condition.args.map((c) => conditionValue(c, objects, now, contested));
     const decisive = condition.op === "any";
     return values.includes(decisive) ? decisive : values.includes(null) ? null : !decisive;
   }
   const object = objects.get(condition.object_id);
   if (!object || ["superseded", "withdrawn", "invalidated", "relaxed", "contradicted"].includes(object.status)
-    || object.type === "ExternalFact" && !factUsable(object, now)) return null;
+    || object.type === "ExternalFact" && (!factUsable(object, now) || (contested ?? conflictingFactIds(objects, now)).has(object.id))) return null;
   const left = pointer(object, condition.path), right = condition.value;
   if (left === null || right === null || typeof left === "object" || typeof left !== typeof right) return null;
   if (typeof left === "number" && typeof right === "number") {

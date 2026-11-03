@@ -1,0 +1,85 @@
+{
+  "id": "context-00000000000000000000000000000012",
+  "type": "DecisionContext",
+  "trip_id": "trip-egypt-test",
+  "task_id": "task-compare",
+  "status": "active",
+  "state_revision": 4,
+  "assembled_at": "2030-01-01T00:00:00Z",
+  "expires_at": "2030-01-01T00:05:00Z",
+  "selected_object_ids": [
+    "cairo",
+    "constraint-budget",
+    "constraint-dates",
+    "constraint-nights",
+    "cost-transport",
+    "decision-proposal-0000000000000000000000000000000f",
+    "fact-cairo-luxor",
+    "issue-cost",
+    "issue-dependency-skeleton-a",
+    "luxor",
+    "skeleton-a"
+  ],
+  "must_include_constraints": [
+    "constraint-dates",
+    "constraint-nights"
+  ],
+  "active_decisions": [
+    "decision-proposal-0000000000000000000000000000000f"
+  ],
+  "open_issues": [
+    "issue-cost",
+    "issue-dependency-skeleton-a"
+  ],
+  "relevant_facts": [
+    "cost-transport",
+    "fact-cairo-luxor"
+  ],
+  "assembled_from_versions": [
+    {
+      "id": "cairo",
+      "version": 1
+    },
+    {
+      "id": "constraint-budget",
+      "version": 1
+    },
+    {
+      "id": "constraint-dates",
+      "version": 1
+    },
+    {
+      "id": "constraint-nights",
+      "version": 1
+    },
+    {
+      "id": "cost-transport",
+      "version": 1
+    },
+    {
+      "id": "decision-proposal-0000000000000000000000000000000f",
+      "version": 1
+    },
+    {
+      "id": "fact-cairo-luxor",
+      "version": 1
+    },
+    {
+      "id": "issue-cost",
+      "version": 1
+    },
+    {
+      "id": "issue-dependency-skeleton-a",
+      "version": 1
+    },
+    {
+      "id": "luxor",
+      "version": 1
+    },
+    {
+      "id": "skeleton-a",
+      "version": 3
+    }
+  ],
+  "stale_fact_ids": []
+}
