@@ -1,6 +1,6 @@
 # ANTU｜Trip State 八项机制阶段 B 工程同步与验收
 
-状态：**候选，待最新 PR head 的 GitHub CI、PostgreSQL/HTTP 结果和技术负责人 Gate Review**。本文件只记录阶段 B 的 Trip State 工程工作；不宣称八项产品机制的端到端体验完成。
+状态：**阶段 B 工程候选已通过实际 PostgreSQL/HTTP CI；待技术负责人 Gate Review**。本文件只记录阶段 B 的 Trip State 工程工作；不宣称八项产品机制的端到端体验完成。PR 最新 head 的状态以 GitHub Checks 为准。
 
 ## 1. 来源与批准
 
@@ -35,10 +35,20 @@
 
 已执行（独立工作树，Node 24.22.1、npm 11.19.1）：`npm ci`、`npm run specs:verify`（155/155）、`npm run specs:ac8`（108 摘要、20 Schema、7/31 轨迹）、`npm run contracts:check`（20）、`npm run db:validate`、`npm run db:generate`、`npm run typecheck`、`npm run lint`、`npm run build`，均成功。锁定 Python 环境原 E02 102/102、阶段 A 126/126 均成功。新 TypeScript 专项 9/9；本地完整 Vitest 为 **617 通过、209 因未配置隔离 PostgreSQL 而跳过、0 失败**，不能作为完整阶段 B Gate 通过证据。`npm ci` 提示 16 项 moderate 依赖公告，未改锁文件或进行与 TS 同步无关的强制升级；须随 CI/安全复核记录。
 
-待最新 PR head 的 GitHub CI 证明：隔离 PostgreSQL 17 下无跳过的全量 Vitest、原 Python 102、阶段 A Python 126、真实 Next.js HTTP（含新增 X01/P05）、Prisma/Typecheck/Lint/Build 和来源检查。CI 未通过时本报告不得改为 PASS。HTTP 测试使用实际账号 Cookie、旅行成员授权、数据库变化和错误响应，不以 Service 直调代替。
+独立 [PR #11](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/11) 的代码提交 `04d2d29d74e41507946f8481eb8c296017d4f529` 已在 [E01 CI #28](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/41656763890) 完整通过（PostgreSQL 17）。来源：原 E02 155 个锁定文件，阶段 A 14 个来源摘要记录、108 个 canonical 摘要、20 Schema 与 E02 同字节、A–G 7 场景 31 步不变；合同 20。Prisma validate/generate、隔离数据库迁移、Typecheck、Lint、生产 Build、数据库连通性均通过。全量 Vitest **24 文件，826 通过、0 失败、0 跳过**（含新增 9 项单测和 3 项 PostgreSQL 集成测试）；原 E02 Python **102/102**，阶段 A Python **126/126**；真实 Next.js HTTP **21 通过、0 失败、0 跳过**，其中新增 P05 预算拒绝与 X01 双账号/Model 提案/重连验收。CI 留存 E02 Scenario A、确认生命周期、BCG、ExternalFact、DEF/Issue 和 HTTP 原始证据 artifact（14 天）。
+
+[CI #27](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/41655744187) 首次执行为 Vitest 824 通过、2 失败：新增数据库测试复用了夹具固定幂等键，命中了原有 `IDEMPOTENCY_CONFLICT`。已仅修正测试请求键并在 #28 全量重跑通过；未削弱幂等校验或修改正式来源。HTTP 测试使用实际账号 Cookie、旅行成员授权、数据库变化和错误响应，不以 Service 直调代替。最终 PR head 若有后续提交，须以该 head 的新 CI 通过为准。
 
 ## 5. Gate 与后续模块
 
 八项机制中属于 TS 的结构化状态写入、权限和事实消费部分以本 PR 的 CI 为最终工程验收依据。P03 理解分类、P04 真实曝光与个性化、P05 澄清和模糊预算跨会话证据、P01/P15/P16/P19 的行动价值、累计负担、时机与效果，仍由 E03 DC、E04 NAP、E05 UX/运行记录/Evals 以及 Grounding/Action Execution 分别验收。本 PR 不修改这些模块正式原包，不自行批准 E03 Gate，不合并。
 
 技术负责人最终 Gate Review 前仍须核对 PR 最新 SHA、CI 全部结论、数据库/HTTP 实际执行数量、未跳过情况、20 合同一致性和本表每项残留差异。
+
+## 6. 技术交接与产品负责人结论
+
+实际变更文件分为：业务逻辑 `src/server/trip-state/{commands,conditions,assessment}.ts`；专项与回归 `tests/trip-state/{ac8.test,ac8.integration.test,facts.test}.ts`、`tests/http/http.e2e.ts`、`tests/support/{command-oracle.py,command-fixtures.ts}`；来源固定与 CI `specs/ts-ac8-stage-a-2026-11-03/`、`scripts/verify-ts-ac8-source.mjs`、`package.json`、`.github/workflows/e01-ci.yml`；本记录。数据库结构、20 份 TS Schema、生成合同类型、HTTP 路由均无改动，故保持 TS `0.1.0` 的结构契约；权限和事实消费存在明确的收紧行为。原 E02 的 814 项 Vitest 及 102 项 Python 回归由本轮全量测试继续覆盖。
+
+产品侧可按以下边界验收：GitHub 实际新增的是 X01 撤销主体校验、C12 争议事实消费阻断及传播；P03/P04/P05 复用原有对象、命令、确认与历史能力，只增加专项测试。八项机制中确属 TS 的已批准规则已完成工程承接并通过真实运行测试；尚未完成的是 P03/P05 的语义与跨会话原话证据、P04 的真实曝光和个性化效果，以及 P01/P15/P16/P19 的 DC/NAP 行动价值、累计负担、时机选择与 UX/Evals 效果。DC 后续应只读同版 TS，面对权限拒绝、争议事实未知及旧决定 stale 重建上下文；NAP 不可把被阻断的事实当作可执行依据；UX/运行记录负责模糊预算原话与曝光反馈的持续证据。上述后续责任不是本 PR 的 TS Gate 失败，也未在本 PR 假冒完成。
+
+截至 CI #28，阶段 B 已具备提交技术负责人最终验收的工程证据；**这不等于技术负责人已批准 Gate**。PR #11 保持未合并，E03 PR #10 未修改，未自行启动 E03-01/NAP/UX 开发。
