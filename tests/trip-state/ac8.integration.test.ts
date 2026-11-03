@@ -83,9 +83,9 @@ describe.skipIf(!config)("stage B actual PostgreSQL AC8 boundaries", () => {
     expect(current.objects.find((o) => o.type === "Decision" && o.status === "confirmed")).toBeTruthy();
     const replacement = createFrom(object(current, "skeleton-a", "Skeleton"), "contested-replacement");
     const before = await fingerprint(f.tripId);
-    expect(await f.service.submit(f.tripId, change(current, [replacement, adopt("contested-replacement")]), f.tokens.user)).toMatchObject({ outcome: "rejected", errors: [{ code: "HARD_CONFLICT" }] });
+    expect(await f.service.submit(f.tripId, change(current, [replacement, adopt("contested-replacement")], "ac8-contested-adopt"), f.tokens.user)).toMatchObject({ outcome: "rejected", errors: [{ code: "HARD_CONFLICT" }] });
     expect(await fingerprint(f.tripId)).toBe(before);
-    expect(await f.service.submit(f.tripId, change(current, [{ op: "transition", id: opposite.id, event: "contradict" }]), f.tokens.tool)).toMatchObject({ outcome: "applied" });
+    expect(await f.service.submit(f.tripId, change(current, [{ op: "transition", id: opposite.id, event: "contradict" }], "ac8-fact-contradict"), f.tokens.tool)).toMatchObject({ outcome: "applied" });
   });
 
   it("P03 two-object correction commits one history entry; P05 incomplete budget fails without a write", async () => {
@@ -97,7 +97,7 @@ describe.skipIf(!config)("stage B actual PostgreSQL AC8 boundaries", () => {
     const correction = change(before, [
       { op: "revise", object_type: "Preference", id: "pref-culture", changes: { expression: "文化仍喜欢，但本轮不优先" } },
       { op: "revise", object_type: "Preference", id: "pref-transfer", changes: { expression: "阿斯旺仍想去", evidence_refs: ["synthetic-old", "synthetic-correction"] } },
-    ]);
+    ], "ac8-correction");
     expect(await f.service.submit(f.tripId, correction, f.tokens.user)).toMatchObject({ outcome: "applied" });
     const after = (await f.service.state(f.tripId, f.tokens.user))!, history = await f.service.history(f.tripId, f.tokens.user);
     expect(history.changes.at(-1)!.diff.map((d) => d.id)).toEqual(expect.arrayContaining(["pref-culture", "pref-transfer"]));
@@ -107,7 +107,7 @@ describe.skipIf(!config)("stage B actual PostgreSQL AC8 boundaries", () => {
     budget.data.value = { kind: "budget", mode: "intent", minimum_minor: null, maximum_minor: 2000000, currency: null as never,
       people: null as never, categories: [] };
     const stored = await fingerprint(f.tripId);
-    expect(await f.service.submit(f.tripId, change(after, [budget]), f.tokens.user)).toMatchObject({ outcome: "rejected", errors: [{ code: "SCHEMA" }] });
+    expect(await f.service.submit(f.tripId, change(after, [budget], "ac8-budget"), f.tokens.user)).toMatchObject({ outcome: "rejected", errors: [{ code: "SCHEMA" }] });
     expect(await fingerprint(f.tripId)).toBe(stored);
   });
 });
