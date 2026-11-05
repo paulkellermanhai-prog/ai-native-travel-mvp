@@ -1,0 +1,603 @@
+{
+  "disclaimer": "合成示例；生成过程真实保存/重开 SQLite，测试另覆盖独立进程",
+  "open_turn": {
+    "runtime_contract_version": "0.1.0",
+    "trip_id": "trip-egypt-test",
+    "expected_revision": 0,
+    "event": {
+      "event_id": "example-event",
+      "entry": "dialogue",
+      "text": "我还不懂两个城市的差别",
+      "reference": "SYNTHETIC_ONLY",
+      "received_at": "2030-01-01T00:00:00Z"
+    },
+    "tasks": [
+      {
+        "task_key": "example-explore",
+        "question": "我还不懂两个城市的差别",
+        "kind": "explore",
+        "target_ids": [
+          "candidate-luxor",
+          "candidate-aswan"
+        ],
+        "branch": "actual",
+        "relation": "new",
+        "related_task_keys": [],
+        "certainty": "ambiguous",
+        "evidence": [
+          {
+            "start": 0,
+            "end": 11,
+            "quote": "我还不懂两个城市的差别"
+          }
+        ],
+        "progress": "open",
+        "progress_evidence": null
+      }
+    ],
+    "focus_keys": [
+      "example-explore"
+    ]
+  },
+  "turn": {
+    "runtime_contract_version": "0.1.0",
+    "runtime_id": "runtime-f1866f87a6b54d4b909c381cc4754113",
+    "turn_id": "turn-0f91a0fc10ef4cd5a967016c2d19d84c",
+    "revision": 0,
+    "tasks": [
+      {
+        "task_key": "example-explore",
+        "question": "我还不懂两个城市的差别",
+        "kind": "explore",
+        "target_ids": [
+          "candidate-luxor",
+          "candidate-aswan"
+        ],
+        "branch": "actual",
+        "relation": "new",
+        "related_task_keys": [],
+        "certainty": "ambiguous",
+        "evidence": [
+          {
+            "start": 0,
+            "end": 11,
+            "quote": "我还不懂两个城市的差别"
+          }
+        ],
+        "progress": "open",
+        "progress_evidence": null
+      }
+    ],
+    "focus_keys": [
+      "example-explore"
+    ],
+    "checkpoint_ack": {
+      "workspace_key": "workspace",
+      "checkpoint_revision": 1,
+      "saved_at": "2030-01-01T00:00:00Z",
+      "expires_at": null,
+      "payload_digest": "7fe3a23b9ee4625ef4eb6ea2ffe38fb520d9f1d1d057f2c571485bc5da36adbd",
+      "durable": true,
+      "deleted": false
+    }
+  },
+  "scene_save": {
+    "runtime_contract_version": "0.1.0",
+    "workspace_key": "workspace",
+    "expected_checkpoint_revision": 1,
+    "idempotency_key": "example-scene",
+    "focus_keys": [
+      "example-explore"
+    ],
+    "view": {
+      "entry": "comparison",
+      "comparison_refs": [
+        {
+          "id": "skeleton-a",
+          "version": 1
+        }
+      ],
+      "selected_id": "skeleton-a",
+      "expanded_task_keys": [
+        "example-explore"
+      ]
+    },
+    "drafts": [
+      {
+        "draft_id": "six-night-draft",
+        "draft_kind": "hypothetical",
+        "base_revision": 0,
+        "target_ids": [
+          "constraint-nights"
+        ],
+        "text": "如果六晚呢",
+        "source_reference": "SYNTHETIC-DRAFT",
+        "proposal": null
+      }
+    ]
+  },
+  "scene_ack": {
+    "runtime_contract_version": "0.1.0",
+    "ack": {
+      "workspace_key": "workspace",
+      "checkpoint_revision": 2,
+      "saved_at": "2030-01-01T00:00:00Z",
+      "expires_at": null,
+      "payload_digest": "7e6da5d1166aba0f8ddffbf14a6d817db40712d434376388f9917610f596cd37",
+      "durable": true,
+      "deleted": false
+    }
+  },
+  "scene_restore": {
+    "runtime_contract_version": "0.1.0",
+    "workspace_key": "workspace",
+    "body_budget_bytes": 2000
+  },
+  "scene_restored": {
+    "runtime_contract_version": "0.1.0",
+    "runtime_id": "runtime-825a317954d54d8e80c496b15e348bc1",
+    "workspace_key": "workspace",
+    "checkpoint_revision": 2,
+    "saved_state_revision": 0,
+    "current_state_revision": 0,
+    "saved_at": "2030-01-01T00:00:00Z",
+    "view": {
+      "comparison_refs": [
+        {
+          "id": "skeleton-a",
+          "version": 1
+        }
+      ],
+      "entry": "comparison",
+      "expanded_task_keys": [
+        "example-explore"
+      ],
+      "selected_id": "skeleton-a"
+    },
+    "drafts": [
+      {
+        "base_revision": 0,
+        "draft_id": "six-night-draft",
+        "draft_kind": "hypothetical",
+        "proposal": null,
+        "source_reference": "SYNTHETIC-DRAFT",
+        "target_ids": [
+          "constraint-nights"
+        ],
+        "text": "如果六晚呢"
+      }
+    ],
+    "focus_keys": [
+      "example-explore"
+    ],
+    "restored_turns": [
+      {
+        "task_key": "example-explore",
+        "turn_id": "turn-ce9c311c941b48d8956b30e5fcff3603"
+      }
+    ],
+    "packets": [
+      {
+        "runtime_contract_version": "0.1.0",
+        "packet_id": "packet-9fa893885e8b48d4b7c692d97fea52a6",
+        "turn_id": "turn-ce9c311c941b48d8956b30e5fcff3603",
+        "task": {
+          "branch": "actual",
+          "certainty": "ambiguous",
+          "evidence": [
+            {
+              "end": 11,
+              "quote": "我还不懂两个城市的差别",
+              "start": 0
+            }
+          ],
+          "kind": "explore",
+          "progress": "open",
+          "progress_evidence": null,
+          "question": "我还不懂两个城市的差别",
+          "related_task_keys": [],
+          "relation": "new",
+          "target_ids": [
+            "candidate-luxor",
+            "candidate-aswan"
+          ],
+          "task_key": "example-explore"
+        },
+        "context": {
+          "id": "context-f19b0cddcabe45abae118761892963a1",
+          "type": "DecisionContext",
+          "trip_id": "trip-egypt-test",
+          "task_id": "example-explore",
+          "status": "active",
+          "state_revision": 0,
+          "assembled_at": "2030-01-01T00:00:00Z",
+          "expires_at": "2030-01-01T00:05:00Z",
+          "selected_object_ids": [
+            "aswan",
+            "cairo",
+            "candidate-aswan",
+            "candidate-luxor",
+            "constraint-budget",
+            "constraint-dates",
+            "constraint-nights",
+            "cost-transport",
+            "egypt",
+            "fact-cairo-luxor",
+            "goal",
+            "issue-cost",
+            "luxor",
+            "pref-culture",
+            "skeleton-a"
+          ],
+          "must_include_constraints": [
+            "constraint-dates",
+            "constraint-nights"
+          ],
+          "active_decisions": [],
+          "open_issues": [
+            "issue-cost"
+          ],
+          "relevant_facts": [
+            "cost-transport",
+            "fact-cairo-luxor"
+          ],
+          "assembled_from_versions": [
+            {
+              "id": "aswan",
+              "version": 1
+            },
+            {
+              "id": "cairo",
+              "version": 1
+            },
+            {
+              "id": "candidate-aswan",
+              "version": 1
+            },
+            {
+              "id": "candidate-luxor",
+              "version": 1
+            },
+            {
+              "id": "constraint-budget",
+              "version": 1
+            },
+            {
+              "id": "constraint-dates",
+              "version": 1
+            },
+            {
+              "id": "constraint-nights",
+              "version": 1
+            },
+            {
+              "id": "cost-transport",
+              "version": 1
+            },
+            {
+              "id": "egypt",
+              "version": 1
+            },
+            {
+              "id": "fact-cairo-luxor",
+              "version": 1
+            },
+            {
+              "id": "goal",
+              "version": 1
+            },
+            {
+              "id": "issue-cost",
+              "version": 1
+            },
+            {
+              "id": "luxor",
+              "version": 1
+            },
+            {
+              "id": "pref-culture",
+              "version": 1
+            },
+            {
+              "id": "skeleton-a",
+              "version": 1
+            }
+          ],
+          "stale_fact_ids": []
+        },
+        "pending_input": {
+          "event": {
+            "entry": "dialogue",
+            "event_id": "example-event",
+            "received_at": "2030-01-01T00:00:00Z",
+            "reference": "SYNTHETIC_ONLY",
+            "text": "我还不懂两个城市的差别"
+          },
+          "base_revision": 0,
+          "processing_status": "unprocessed",
+          "proposal_id": null,
+          "result_revision": 0,
+          "errors": []
+        },
+        "objects": [
+          {
+            "id": "candidate-aswan",
+            "type": "Candidate",
+            "trip_id": "trip-egypt-test",
+            "version": 1,
+            "status": "retained",
+            "scope": {
+              "kind": "trip",
+              "ids": []
+            },
+            "source": {
+              "actor": "user",
+              "actor_id": "user-demo",
+              "reference": "synthetic-input",
+              "text": "测试材料，不代表真实用户或现实交通",
+              "at": "2030-01-01T00:00:00Z"
+            },
+            "dependencies": [],
+            "updated_at": "2030-01-01T00:00:00Z",
+            "subject_ids": [
+              "aswan"
+            ],
+            "candidate_kind": "city",
+            "inclusion_reason": "文化兴趣",
+            "exclusion_reason": null,
+            "reconsider_when": {
+              "op": "gte",
+              "object_id": "constraint-nights",
+              "path": "/value/maximum_nights",
+              "value": 4
+            },
+            "preference_ids": [
+              "pref-culture"
+            ],
+            "issue_ids": [],
+            "review_state": "current"
+          },
+          {
+            "id": "candidate-luxor",
+            "type": "Candidate",
+            "trip_id": "trip-egypt-test",
+            "version": 1,
+            "status": "retained",
+            "scope": {
+              "kind": "trip",
+              "ids": []
+            },
+            "source": {
+              "actor": "user",
+              "actor_id": "user-demo",
+              "reference": "synthetic-input",
+              "text": "测试材料，不代表真实用户或现实交通",
+              "at": "2030-01-01T00:00:00Z"
+            },
+            "dependencies": [],
+            "updated_at": "2030-01-01T00:00:00Z",
+            "subject_ids": [
+              "luxor"
+            ],
+            "candidate_kind": "city",
+            "inclusion_reason": "文化兴趣",
+            "exclusion_reason": null,
+            "reconsider_when": {
+              "op": "gte",
+              "object_id": "constraint-nights",
+              "path": "/value/maximum_nights",
+              "value": 4
+            },
+            "preference_ids": [
+              "pref-culture"
+            ],
+            "issue_ids": [],
+            "review_state": "current"
+          },
+          {
+            "id": "aswan",
+            "type": "DestinationEntity",
+            "trip_id": "trip-egypt-test",
+            "version": 1,
+            "status": "known",
+            "scope": {
+              "kind": "trip",
+              "ids": []
+            },
+            "source": {
+              "actor": "user",
+              "actor_id": "user-demo",
+              "reference": "synthetic-input",
+              "text": "测试材料，不代表真实用户或现实交通",
+              "at": "2030-01-01T00:00:00Z"
+            },
+            "dependencies": [],
+            "updated_at": "2030-01-01T00:00:00Z",
+            "entity_kind": "city",
+            "name": "阿斯旺",
+            "parent_id": "egypt",
+            "geo_identity": null,
+            "knowledge_refs": [
+              "synthetic-catalog"
+            ],
+            "coverage": "partial"
+          }
+        ],
+        "deferred_ids": [
+          "cairo",
+          "constraint-budget",
+          "constraint-dates",
+          "constraint-nights",
+          "cost-transport",
+          "egypt",
+          "fact-cairo-luxor",
+          "goal",
+          "issue-cost",
+          "luxor",
+          "pref-culture",
+          "skeleton-a"
+        ],
+        "coverage": "layered",
+        "evidence_checked_at": "2030-01-01T00:00:00Z",
+        "snapshot_digest": "670e5fef5a7fa431e456c67040dc8acd10abacb6294aa6e7be198659c6da30dd",
+        "annotations": [
+          {
+            "id": "aswan",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "cairo",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "candidate-aswan",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "candidate-luxor",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "constraint-budget",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "constraint-dates",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "constraint-nights",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "cost-transport",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "egypt",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "fact-cairo-luxor",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "goal",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "issue-cost",
+            "retained": true,
+            "applicability": "unknown",
+            "restriction": "decision_limit",
+            "presentation": "limitation_if_used",
+            "reason_codes": [
+              "issue_unresolved"
+            ],
+            "evidence_ids": []
+          },
+          {
+            "id": "luxor",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "pref-culture",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "none",
+            "presentation": "policy_judgment",
+            "reason_codes": [],
+            "evidence_ids": []
+          },
+          {
+            "id": "skeleton-a",
+            "retained": true,
+            "applicability": "applicable",
+            "restriction": "decision_limit",
+            "presentation": "limitation_if_used",
+            "reason_codes": [
+              "assessment_incomplete"
+            ],
+            "evidence_ids": []
+          }
+        ],
+        "support": "information_only",
+        "warnings": [
+          "partial_hydration_no_trip_feasibility_claim",
+          "manifest_not_a_model_prompt",
+          "restored_input_read_only_repreview_required"
+        ]
+      }
+    ],
+    "warnings": [
+      "restored_scene_not_old_authorization",
+      "drafts_read_only_no_automatic_submission"
+    ],
+    "stale_draft_ids": [],
+    "missing_target_ids": [],
+    "stale_comparison_ids": [],
+    "deferred_issue_ids": [],
+    "reopened_issue_ids": [],
+    "recovery_requires_new_authorization": true
+  }
+}

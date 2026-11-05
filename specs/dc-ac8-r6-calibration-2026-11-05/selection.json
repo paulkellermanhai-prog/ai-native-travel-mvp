@@ -1,0 +1,526 @@
+{
+  "format": "antu-dc-ac8-r6-source-selection/v1",
+  "status": "PROPOSED_PENDING_TECH_LEAD_GATE_A",
+  "dc_runtime_contract_version": "0.1.0",
+  "checkpoint_payload_format_version": 1,
+  "host_evidence_contract": "host-interaction-evidence/v1 (engineering candidate; not DC Schema)",
+  "source_capture_date": "2026-11-05",
+  "parent_pr": 10,
+  "parent_pr_head": "c15da4a7377c74537525bb1e37c0b375644e7862",
+  "main_head_at_capture": "6ae8b2b66513c51ff209ce7147e8c6ff7376a39b",
+  "ts_pr": 11,
+  "ts_pr_head": "0078bb542fd4ac81343a602d5f0fe4e62a42620c",
+  "ts_pr_merged_at_capture": false,
+  "previous_selection_sha256": "96b610ea25408028afbb2becfc02aaad6bf9f95045ad4eb8634bd42a5f8aac22",
+  "dc_package_manifest_sha256": "d79cd8da740c9ecac7cf3f18cae8a3f1160d20801e715e594eea354e5324dcb4",
+  "files": [
+    {
+      "path": "sources/decision-context-v0.1/00_从这里开始.md",
+      "source_path": "decision-context-v0.1/00_从这里开始.md",
+      "sha256": "01cda6bafa34e8afdad746592c765435c22825d632dbafbde0e8230c9be4eb67",
+      "bytes": 6531
+    },
+    {
+      "path": "sources/decision-context-v0.1/01_产品机制/01_决策上下文机制设计_V0.1.md",
+      "source_path": "decision-context-v0.1/01_产品机制/01_决策上下文机制设计_V0.1.md",
+      "sha256": "bc621dd2697cfcae077fc098855deaaeecea57802b4fb926947e3a2ef818bad9",
+      "bytes": 27746
+    },
+    {
+      "path": "sources/decision-context-v0.1/01_产品机制/02_旅行决策类型体系_V0.1.md",
+      "source_path": "decision-context-v0.1/01_产品机制/02_旅行决策类型体系_V0.1.md",
+      "sha256": "3abb7d4387154895f0b40d1ff7b981967101e4726b2b8cebb55d35bbf76d7b25",
+      "bytes": 12558
+    },
+    {
+      "path": "sources/decision-context-v0.1/01_产品机制/03_决策单元与上下文边界_V0.1.md",
+      "source_path": "decision-context-v0.1/01_产品机制/03_决策单元与上下文边界_V0.1.md",
+      "sha256": "24a6209d57fe31140e1f85a75ba0ab7469a3b277cbe6193c3f1ba2cda706a37a",
+      "bytes": 14071
+    },
+    {
+      "path": "sources/decision-context-v0.1/02_场景与验收/04_旅行决策场景与验证用例_V0.1.md",
+      "source_path": "decision-context-v0.1/02_场景与验收/04_旅行决策场景与验证用例_V0.1.md",
+      "sha256": "30592fe1865e7c19baa3e699dc887713520a09dd4ea99e18d0e8cbc407b6dab0",
+      "bytes": 30216
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/05_设计结论待确认问题与工程交接.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/05_设计结论待确认问题与工程交接.md",
+      "sha256": "58c9f621aa2ca50ef52ec6a7e9505d0c906b39514ba2feda580d2b4c87099d37",
+      "bytes": 22061
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/06_来源基线与设计追溯矩阵.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/06_来源基线与设计追溯矩阵.md",
+      "sha256": "46c602f370dd2efb36f38119123cd9d45f08f6664573411b5d30698818a1996a",
+      "bytes": 22951
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/07_本轮审核落实记录.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/07_本轮审核落实记录.md",
+      "sha256": "2509d3b2bedde723a6f32791b5c9dca7298df8f0759e035a3c4ac3e3894bad6a",
+      "bytes": 5493
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/08_完整机制设计收敛与交付计划.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/08_完整机制设计收敛与交付计划.md",
+      "sha256": "32597a42eff59310ece11af11e8e68e47a2e06137e4f968796ba6c0c616a731f",
+      "bytes": 6203
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/09_工程收口结论与待审核项.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/09_工程收口结论与待审核项.md",
+      "sha256": "6c58e66eaddfee785d4358da2a16aabf4b945d81b369eeb2bfaf3fa75b19a746",
+      "bytes": 5362
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/10_首版跨会话恢复范围决策.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/10_首版跨会话恢复范围决策.md",
+      "sha256": "825d03aa51dcea5c88054459182c2bd90e25169f3ef8acd4cb8fedaea2b3dc7e",
+      "bytes": 4874
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/11_跨会话恢复工程收口报告.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/11_跨会话恢复工程收口报告.md",
+      "sha256": "12ae582c0e08174a4f5b62ce575288ce87679f8b26b18bab62a3edbd0aaf3ee7",
+      "bytes": 4213
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/12_DC-AC8机制融合追踪与规格变更.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/12_DC-AC8机制融合追踪与规格变更.md",
+      "sha256": "7fdb21bb68c23572b447e26c370b9fbe4aaac88473cca6b73b834661507c6b5d",
+      "bytes": 13006
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/13_DC八项机制融合｜E03工程能力增量与实施映射.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/13_DC八项机制融合｜E03工程能力增量与实施映射.md",
+      "sha256": "c3a64ac5fbdc02b66f3b3febf08652c033387d758a00fdd65dc5430150bcc0e7",
+      "bytes": 10912
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/14_DC-AC8验证记录与跨模块交接.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/14_DC-AC8验证记录与跨模块交接.md",
+      "sha256": "623db5a8924e83afc82a10179ef3a2527e424f505ad335c337e29bab59b517ad",
+      "bytes": 10191
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/15_DC-AC8协议裁决与宿主证据接口交接.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/15_DC-AC8协议裁决与宿主证据接口交接.md",
+      "sha256": "cfabc9cbcbe5a22224e7dbf941e694595aca9e10b4b5698f6ea2e29ff14ab4fa",
+      "bytes": 7494
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/16_E11宿主交互证据数据契约与验收轨迹.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/16_E11宿主交互证据数据契约与验收轨迹.md",
+      "sha256": "123bf0a279cb8431e8df5978cca51fd8f055d12982483d4c5ec0db9d6f876e9d",
+      "bytes": 10895
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "source_path": "decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "sha256": "061640ad2dd818b37b84040de26a29082d30262c521975ce6111d25cec66e614",
+      "bytes": 12422
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "source_path": "decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "sha256": "3ea1acfea9528b179e9adfaca049cfa46c0a75ac84982ccb79ef08a99ef497f3",
+      "bytes": 10516
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "source_path": "decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "sha256": "cab4ad45e838fce37f9ba3251f99dad3e8f9d8a5df606f090161a052ab8cb51c",
+      "bytes": 9902
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
+      "source_path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
+      "sha256": "4e8fa9a64286db1ac609c13d5505d3d5b803135e9f38cb24fd37130f9d5ce113",
+      "bytes": 7247
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "source_path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "sha256": "9a39da51546d3946d30d52f04d4bbb0c3a8fdaed6fd4ca48e8ed4beab8400be8",
+      "bytes": 15537
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
+      "source_path": "decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
+      "sha256": "d7cca5bd04acb717a1590ac642a7e982ba9ae853a174b6b753f6e90e4b5db879",
+      "bytes": 180626
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/README.md",
+      "source_path": "decision-context-v0.1/90_可运行工程包/README.md",
+      "sha256": "0a5bd9acfeedc9605cc8ff85c51c980ad3691177e7688fd790e3024d635334a0",
+      "bytes": 5771
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
+      "source_path": "decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
+      "sha256": "28612d9e0175110b1cf4a69c7ee69981ea643c69ebf07374efd6a18fd41dac70",
+      "bytes": 1770
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
+      "sha256": "d79cd8da740c9ecac7cf3f18cae8a3f1160d20801e715e594eea354e5324dcb4",
+      "bytes": 8188
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/check_cross_package_refs.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/check_cross_package_refs.py",
+      "sha256": "85e960b7f7e837b7e7e6e7b0e4a087a80cfeace15de40a6d4dc2a47f84f77748",
+      "bytes": 1340
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/context_runtime/__init__.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/__init__.py",
+      "sha256": "ad829be702f5b30422cf476c0e794c70a9ffe195081ffea639ac0215c6d72d14",
+      "bytes": 73
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/context_runtime/api.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/api.py",
+      "sha256": "7a318597eb3499c4512577ed82956b681baac8aa8396a0b1695c06bbcbd2d965",
+      "bytes": 3039
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/context_runtime/checkpoints.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/checkpoints.py",
+      "sha256": "9cbff3b580ea6285e0c35b34d13496adfa7c89ef51499ddf2739f6277c3858fa",
+      "bytes": 9054
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py",
+      "sha256": "4c435a60ecdbd041974628a5c878474ac50203f59e17e22a34cdd979efbaea45",
+      "bytes": 8790
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/context_runtime/errors.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/errors.py",
+      "sha256": "3c2bee262f497e77622ca9d7ca92cfd0031d4bc0342e126590c744af2197a0c8",
+      "bytes": 376
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/context_runtime/recovery.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/recovery.py",
+      "sha256": "8b454c573849c5776d65e35caf5d813b40d641f1c594ce01693e79fdb76a52b7",
+      "bytes": 19173
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "sha256": "12cefe8393194b427c27f13349dfb1a84b189d326f6a25a285b33ca8452b6e01",
+      "bytes": 21654
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/dependency.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/dependency.py",
+      "sha256": "610bca5e6a7d166b3c0bd41695f98d5d8b5bfb7b7a42760a648302fffdba47ed",
+      "bytes": 553
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/examples/exploration.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/examples/exploration.json",
+      "sha256": "478334ef8152123c965cbc3de09710ce87078ccdc3e113cebe69f3a7d79d0989",
+      "bytes": 12606
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/examples/recovery.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/examples/recovery.json",
+      "sha256": "86fb5b89991efc6eccc70794f7c4d7e19ed14fe1bf18b0dea75f871fac55ace7",
+      "bytes": 17109
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/export_contracts.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/export_contracts.py",
+      "sha256": "d6a5f0d6cf6df4d194c2c9f7e262aca9af758d0806d8ab28d9e2faf40c81f548",
+      "bytes": 4975
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/requirements.txt",
+      "source_path": "decision-context-v0.1/90_可运行工程包/requirements.txt",
+      "sha256": "d993e8c54f162ebcb016db49b6f667fe2359b350f90b6bb561c22b54c03efabd",
+      "bytes": 107
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/run_validation.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/run_validation.py",
+      "sha256": "de6048f9c223f22845259a60271f224c9fc3e6f03c05064dc598fdb6ff13d1be",
+      "bytes": 4866
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "sha256": "0e85d8685cdf3469e8cfc9bdc49757667e4d0e7d5fc79d19fb76586f31cd410d",
+      "bytes": 15629
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "sha256": "f5195f66bb6d3fa9a551f5db17029d35c6f4d3d7325be65d026bebd62aae7374",
+      "bytes": 15615
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "sha256": "12e910bb83585a394f0d920c43b05764bac60bcf9a5cd5ff8529ad58bd982178",
+      "bytes": 15134
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "sha256": "6deb5cc36133b88ae72fcc6b27fa6ce4f40b7f14b4d7be773a9a8b8acd1b2a6b",
+      "bytes": 15622
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "sha256": "9959600ce7423af7f1ddd6ab05725aa5a5c23d4382ae1b7f91fe38f7f1057638",
+      "bytes": 15548
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "sha256": "631363f1819aa6a10f82d78bf902c3abf13688d603b7037951b2b4357e06a8b6",
+      "bytes": 15936
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "sha256": "f0a0b5ef77f924f142afc6a8ec431ba082e7e7e78014609b5c7f81c189a9c60e",
+      "bytes": 18014
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "sha256": "bc84b931043dd0f5117d4231a68b72eec885bcc3b3dc2f5e2d7d8b3de05a9cd7",
+      "bytes": 15615
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "sha256": "74fbc7b11e76932bd862088113d5381e13eccc37f39787c3f52ebb958b94d0ea",
+      "bytes": 16940
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "sha256": "b36ab40bd549c2e46ef403ac8c77d7a5b623c1fa4ea78d6c5ce817a91f1b6f69",
+      "bytes": 15334
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "sha256": "6b576e3fbade034718ff561d3dc34234f4d71a6a4e6b2598f60e7c83092bdd57",
+      "bytes": 15658
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "sha256": "61bded692ace23bc8d7fc3757c188bb74a46b6ced2dfdd099fd04dec13d4dffb",
+      "bytes": 16338
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "sha256": "879ec80ce28aafd244a9f6278ec44b43171533d7868d350a56754460eb643b83",
+      "bytes": 15277
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "sha256": "73dddce802a48663ae5499be22221067381fa2ac25e343c25bae6ee3290b59d7",
+      "bytes": 15537
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "sha256": "2ea44ea46dcf15e9df47eab4a79cca36928080ec0eca3695d673706f3a6e4bfa",
+      "bytes": 18677
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "sha256": "c5a1bde0bd3da0e4157151129e4583ad31ade4703d38fdbf2ca62e7ae116d8f0",
+      "bytes": 15279
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "sha256": "34fa983b5d5b252395a9ace6e3c5fd9cf80ac2580982c505f32ea4af51e988fb",
+      "bytes": 16122
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "sha256": "19cc387dae4d0193add3c01e7013df19311d2a75ea4f9ba9c46b19111bc9badf",
+      "bytes": 15916
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "sha256": "66567c9b60f4e5b66396fb6a55a3eec5d168a310faea0aca217203d2f11b7a71",
+      "bytes": 15281
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "sha256": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9",
+      "bytes": 16137
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/tests/test_recovery.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/tests/test_recovery.py",
+      "sha256": "0c0001da3e16af2f8736b0fa9d43ab555d5929854e256d9fc031510281e2928b",
+      "bytes": 34931
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/tests/test_runtime.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/tests/test_runtime.py",
+      "sha256": "7c8f39e0eeb61e90fbaaf2df1f0d388f8038d9d90b68c8b54e41e4c9c9ecc2ed",
+      "bytes": 37974
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/update_package_index.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/update_package_index.py",
+      "sha256": "05e2d5aead6ac6524f61e772b32c7b9fdf47da18a55f286e2d593557b697b30a",
+      "bytes": 7447
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/validation-output.txt",
+      "source_path": "decision-context-v0.1/90_可运行工程包/validation-output.txt",
+      "sha256": "56322d1a6ab60a8591e5a6e790fc66b723bed1f69c507fa4f2b64bb60a380597",
+      "bytes": 332
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/validation-results.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/validation-results.json",
+      "sha256": "bcaadac74d0d8186bbc9ed8d1e360954162a8827ad0a1f7811b95ddff83370e8",
+      "bytes": 32532
+    },
+    {
+      "path": "sources/decision-context-v0.1/package-index.json",
+      "source_path": "decision-context-v0.1/package-index.json",
+      "sha256": "d876821398789f2923a314f106f77e925fb7604c7a3bc4fb2d83ee506704d4f1",
+      "bytes": 24698
+    }
+  ],
+  "previous_selection_mismatches": [
+    {
+      "source_path": "decision-context-v0.1/00_从这里开始.md",
+      "previous_sha256": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026",
+      "current_sha256": "01cda6bafa34e8afdad746592c765435c22825d632dbafbde0e8230c9be4eb67"
+    },
+    {
+      "source_path": "decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "previous_sha256": "a3a41431e1b1027474326198912d60434f7d79758aa6d0f32359cb4a33791d2f",
+      "current_sha256": "061640ad2dd818b37b84040de26a29082d30262c521975ce6111d25cec66e614"
+    },
+    {
+      "source_path": "decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "previous_sha256": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a",
+      "current_sha256": "3ea1acfea9528b179e9adfaca049cfa46c0a75ac84982ccb79ef08a99ef497f3"
+    },
+    {
+      "source_path": "decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "previous_sha256": "e58d328e0b5bde8c37069f5d196c2cdfc91ed79e80372efd79b58a3f41957522",
+      "current_sha256": "cab4ad45e838fce37f9ba3251f99dad3e8f9d8a5df606f090161a052ab8cb51c"
+    },
+    {
+      "source_path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
+      "previous_sha256": "78792ffdc71bf9fc338a625be9a6a59687ed0260d2ca43e35e02ea56c957134a",
+      "current_sha256": "4e8fa9a64286db1ac609c13d5505d3d5b803135e9f38cb24fd37130f9d5ce113"
+    },
+    {
+      "source_path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "previous_sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
+      "current_sha256": "9a39da51546d3946d30d52f04d4bbb0c3a8fdaed6fd4ca48e8ed4beab8400be8"
+    },
+    {
+      "source_path": "decision-context-v0.1/90_可运行工程包/README.md",
+      "previous_sha256": "065c7ac1a4b918453a876751da64919821524bde54e41ba908504d0307399d90",
+      "current_sha256": "0a5bd9acfeedc9605cc8ff85c51c980ad3691177e7688fd790e3024d635334a0"
+    },
+    {
+      "source_path": "decision-context-v0.1/package-index.json",
+      "previous_sha256": "c1b784f07d12e72493fe1cf7bab51d0b1802acac1bb7f6339419a363b2665f94",
+      "current_sha256": "d876821398789f2923a314f106f77e925fb7604c7a3bc4fb2d83ee506704d4f1"
+    }
+  ],
+  "nap_source_mismatches": [
+    {
+      "source_path": "../trip-state-schema-v0.1/02_业务状态规则/SPECIFICATION.md",
+      "recorded_sha256": "9516ecd29b93e56b3aa2458c62a8228da98f7374233c20f4c1a6009abd00f152",
+      "current_sha256": "6097c8e6f0db49fffe6e733e92a6b4789980b8ef7d3111161854c14f7a2c5a39"
+    },
+    {
+      "source_path": "../trip-state-schema-v0.1/02_业务状态规则/AUTHORITY_FINAL.md",
+      "recorded_sha256": "84ffda0b03e5055c0a39a3683dae68fe93ec60feebbb06a5011349917366283d",
+      "current_sha256": "8761a41545c7b1de5fee12b97ca4cc7fcdb42d5a9a11dae8b3f34a87cfdfaa10"
+    },
+    {
+      "source_path": "../trip-state-schema-v0.1/02_业务状态规则/STATE_TRANSITIONS_FINAL.md",
+      "recorded_sha256": "f5292d4c251e08937e0692ea79641c4bb0f5f7d27dff4888a44a3d29714a702b",
+      "current_sha256": "974b03d533c22345b5c19cf81e78b55e372c14ec12f065f6a49da068237c47de"
+    },
+    {
+      "source_path": "../trip-state-schema-v0.1/02_业务状态规则/PROPAGATION_FINAL.md",
+      "recorded_sha256": "0dd69fe4e0094de1c7b3e48a9d6d24709e05e830caf530e76445d572019eb11a",
+      "current_sha256": "adb8eb4b6afd46a2cfd0d523893cbcaff7bb50a224739d16b2dafc859239f073"
+    },
+    {
+      "source_path": "../trip-state-schema-v0.1/02_业务状态规则/INVARIANTS_FINAL.md",
+      "recorded_sha256": "f1f12447f06bef094a07a68d6af8c6111c8ac61d9646034cb7f987ff0f0e0c90",
+      "current_sha256": "37f35c3c9f8871dd5a50b75f93557f1772c21aa00b31e50f8184ee9209aa643a"
+    },
+    {
+      "source_path": "../decision-context-v0.1/00_从这里开始.md",
+      "recorded_sha256": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026",
+      "current_sha256": "01cda6bafa34e8afdad746592c765435c22825d632dbafbde0e8230c9be4eb67"
+    },
+    {
+      "source_path": "../decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "recorded_sha256": "a3a41431e1b1027474326198912d60434f7d79758aa6d0f32359cb4a33791d2f",
+      "current_sha256": "061640ad2dd818b37b84040de26a29082d30262c521975ce6111d25cec66e614"
+    },
+    {
+      "source_path": "../decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "recorded_sha256": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a",
+      "current_sha256": "3ea1acfea9528b179e9adfaca049cfa46c0a75ac84982ccb79ef08a99ef497f3"
+    },
+    {
+      "source_path": "../decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "recorded_sha256": "e58d328e0b5bde8c37069f5d196c2cdfc91ed79e80372efd79b58a3f41957522",
+      "current_sha256": "cab4ad45e838fce37f9ba3251f99dad3e8f9d8a5df606f090161a052ab8cb51c"
+    },
+    {
+      "source_path": "../decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "recorded_sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
+      "current_sha256": "9a39da51546d3946d30d52f04d4bbb0c3a8fdaed6fd4ca48e8ed4beab8400be8"
+    },
+    {
+      "source_path": "../decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "recorded_sha256": "029a0156dbd132d5c42e4912f59ff05390433eccc0b8906b86241df64f2f09b2",
+      "current_sha256": "12cefe8393194b427c27f13349dfb1a84b189d326f6a25a285b33ca8452b6e01"
+    },
+    {
+      "source_path": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/contracts.py",
+      "recorded_sha256": "2ba4b92efa2f7767b97b3a666da191a70c5a8ed71f24ef49fae7d0776b8f1821",
+      "current_sha256": "5f84a5fe2fb2a5ff94b8e16d01ecd6f16be0e627c97e083501a095d1ddb0960a"
+    },
+    {
+      "source_path": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/engine.py",
+      "recorded_sha256": "7c9d80611a0b08b06842967446bc7c8ff9f54ee2e13210d7fa978d210700c777",
+      "current_sha256": "00d7693bdae138e11b1acee7c8dd9c69806fb19d1f47502aaaf13603d0633dac"
+    }
+  ],
+  "privacy_retention_decision": "DC-AC8-PRIVACY-01 pending Owner",
+  "gate_a_approval_evidence": null,
+  "runtime_implementation_authorized": false
+}
