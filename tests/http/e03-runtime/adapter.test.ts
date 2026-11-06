@@ -4,15 +4,29 @@ import { once } from "node:events";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createRuntimeHandler } from "../../../src/server/decision-context/http-adapter/handler";
 import { RuntimeHttpFault } from "../../../src/server/decision-context/http-core/response";
+import { submitChange, confirmChange, type TransactionalBridgeHost } from "../../../src/server/decision-context/write-bridge/orchestrator";
+import type { DecisionContextContracts } from "../../../src/server/decision-context/contracts";
+import { digest } from "../../../src/server/trip-state/command-json";
+import { scenario } from "../../support/command-fixtures";
 
 // Real local socket and contract adapter only. The host is synthetic, not Session/PG.
 const fixtures = JSON.parse(fs.readFileSync("tests/decision-context/fixtures/r6-contracts.json", "utf8")) as Array<{schema: string; value: unknown}>;
 const fixture = (name: string) => structuredClone(fixtures.find(row => row.schema === name)!.value);
-let origin = "", calls = 0, server: http.Server;
+let origin = "", calls = 0, bridgeEntries = 0, server: http.Server;
 describe("E03-07 socket adapter with synthetic host", () => {
   beforeAll(async () => {
     const handler = createRuntimeHandler({ get origin() { return origin; }, async authorize(trip, headers) {
-      if (trip !== "trip-egypt-test" || headers.get("cookie") !== "test-session=ok") throw new RuntimeHttpFault("ACCESS_DENIED");
+      const cookie = headers.get("cookie");
+      if (trip !== "trip-egypt-test" || !["test-session=ok", "test-session=bridge"].includes(cookie ?? "")) throw new RuntimeHttpFault("ACCESS_DENIED");
+      if (cookie === "test-session=bridge") {
+        const packet = fixture("packet") as DecisionContextContracts["packet"], body = fixture("change") as DecisionContextContracts["change"];
+        const confirmation = fixture("confirm") as DecisionContextContracts["confirm"];
+        const host: TransactionalBridgeHost = {
+          change: async (_body, action) => action({ packet, turn: { turnId: packet.turn_id, event: packet.pending_input.event, recovered: false }, deliveredIds: [], principalId: "synthetic", now: "2030-01-01T00:00:00Z", replay: { bodyDigest: digest(body), response: scenario.steps[0].response } }, async () => { throw new Error("must not submit"); }),
+          confirm: async (_body, action) => action({ turnId: confirmation.turn_id, proposalId: "proposal-other", recovered: false }, async () => { throw new Error("must not confirm"); }),
+        };
+        return { changes: async (value: unknown) => { bridgeEntries++; return submitChange(host, value); }, confirm: async (value: unknown) => { bridgeEntries++; return confirmChange(host, value); } };
+      }
       return { turns: async () => { calls++; return fixture("turn"); } };
     } });
     server = http.createServer(async (req, res) => {
@@ -53,5 +67,17 @@ describe("E03-07 socket adapter with synthetic host", () => {
     expect((await call("/runtime/trips/trip-egypt-test/unknown", "{}", {})).status).toBe(404);
     expect((await call(route, "", {}, "GET")).status).toBe(405);
     expect(calls).toBe(before);
+  });
+  it("preserves actual bridge error and raw numeric rejection across a real socket", async () => {
+    const body = fixture("change") as DecisionContextContracts["change"], start = bridgeEntries;
+    const changed = { ...body, request: { ...body.request, reason: "changed" } }, cookie = { cookie: "test-session=bridge" };
+    const response = await call("/runtime/trips/trip-egypt-test/changes", JSON.stringify(changed), cookie);
+    expect(response.status).toBe(409); expect(await response.json()).toMatchObject({ code: "IDEMPOTENCY_CONFLICT", retryable: false });
+    const confirm = await call("/runtime/trips/trip-egypt-test/confirm", JSON.stringify(fixture("confirm")), cookie);
+    expect(confirm.status).toBe(422); expect(await confirm.json()).toMatchObject({ code: "PROPOSAL_BINDING", retryable: false });
+    const raw = JSON.stringify(body).replace('"expected_revision":0', '"expected_revision":0.00000000000000001');
+    const invalid = await call("/runtime/trips/trip-egypt-test/changes", raw, cookie);
+    expect(invalid.status).toBe(422); expect(await invalid.json()).toMatchObject({ code: "CONTRACT_INVALID", retryable: false });
+    expect(bridgeEntries - start).toBe(2);
   });
 });

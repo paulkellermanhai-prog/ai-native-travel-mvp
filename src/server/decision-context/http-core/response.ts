@@ -1,6 +1,7 @@
 import { parseDCContract } from "../contracts";
 import { json } from "../../http/security";
 import { parseContract, type TripStateContracts } from "../../trip-state/contracts";
+import { BridgeRuleError } from "../write-bridge/rules";
 
 const statuses: Readonly<Record<string, number>> = {
   ACCESS_DENIED: 403, NOT_FOUND: 404, CHECKPOINT_NOT_FOUND: 404, METHOD_NOT_ALLOWED: 405,
@@ -19,12 +20,21 @@ const statuses: Readonly<Record<string, number>> = {
 export class RuntimeHttpFault extends Error {
   constructor(readonly code: string, readonly retryable = false) { super("Runtime operation failed"); this.name = "RuntimeHttpFault"; }
 }
+// R6: revision drift allows a fresh read/reassembly, never automatic replay of
+// a consequential write. Other bridge refusals require corrected input or proof.
+const bridgeRetryable: Readonly<Record<string, boolean>> = {
+  RESTORED_INPUT_READ_ONLY: false, TURN_MISMATCH: false, REVISION_CHANGED: true,
+  INPUT_BINDING: false, HYPOTHETICAL_WRITE: false, INCOMPLETE_DELIVERY: false,
+  WRITE_GRANT: false, PROPOSAL_BINDING: false, IDEMPOTENCY_CONFLICT: false,
+};
 export function runtimeError(error: unknown): Response {
-  const known = error instanceof RuntimeHttpFault && Object.hasOwn(statuses, error.code);
+  const bridge = error instanceof BridgeRuleError && Object.hasOwn(bridgeRetryable, error.code);
+  const known = bridge || error instanceof RuntimeHttpFault && Object.hasOwn(statuses, error.code);
   const code = known ? error.code : "INTERNAL_FAILURE";
   const status = statuses[code];
   const message = status === 403 ? "Access denied" : status >= 500 ? "Runtime unavailable" : "Runtime request rejected";
-  const value = parseDCContract("error", { runtime_contract_version: "0.1.0", code, message, retryable: known && error.retryable });
+  const retryable = bridge ? bridgeRetryable[error.code] : error instanceof RuntimeHttpFault && known && error.retryable;
+  const value = parseDCContract("error", { runtime_contract_version: "0.1.0", code, message, retryable });
   return json(value, status, status === 405 ? { Allow: "POST" } : {});
 }
 export function businessResponse(value: unknown): Response {
