@@ -37,10 +37,14 @@ type RecordRow = { disposition: string; out_event_id: string | null; out_sequenc
 type DeleteRow = { disposition: string; deletion_revision: bigint | null; accepted_at: Date | null; cleanup_pending: boolean | null; event_highwater: bigint | null };
 type EventRow = { allowed: boolean; out_entry: "dialogue" | "map" | "timeline" | "comparison" | null; out_body: string | null; out_received_at: Date | null; out_retention_revision: bigint | null; out_valid_for_ms:bigint|null };
 type TaskSnapshotRow = { ok:boolean; out_retention_revision:bigint|null; out_highwater:bigint|null; out_association_revision:bigint|null; out_unlinked_count:bigint|null; out_sources:unknown };
+type UnlinkRow = { disposition:"denied"|"conflict"|"replayed"|"unlinked"; out_association_revision:bigint|null; out_retention_revision:bigint|null };
 type InterpretedTask = DecisionContextContracts["open-turn"]["tasks"][number];
 export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordInput["entry"];text:string;reference:string;received_at:string};state:ReturnType<typeof parseStateReferences>;
   runtime_focus:{tasks:InterpretedTask[];focus_keys:string[];complete:boolean};mint_task_key:(ordinal:number)=>Promise<string>})=>Promise<{tasks:unknown;focus_keys:unknown}>;
 const identityInput = z.strictObject({ expected_revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), tasks: z.unknown(), focus_keys: z.unknown() });
+const unlinkInput = z.strictObject({action:z.literal("unlink"),task_key:z.string().regex(/^task-[0-9a-f]{32}$/),event_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),
+  source_turn_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),expected_association_revision:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER-1),
+  idempotency_key:z.string().min(1).max(256)});
 export class TurnIdentityError extends Error {
   constructor(readonly code: "EVENT_REUSE" | "REVISION_CHANGED" | "TARGET_NOT_FOUND") { super(`Turn identity: ${code}`); this.name = "TurnIdentityError"; }
 }
@@ -481,6 +485,40 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         tasks:proposed.tasks,focus_keys:proposed.focus_keys,checkpoint_ack:null});
     },
     /** Internal bounded historical source page; never a new instruction or write grant. */
+    /** Explicit trusted-host correction only. Model text cannot call this path. */
+    async unlinkTaskSourceCandidate(ticket:object,credential:Headers,raw:unknown) {
+      let copy:unknown;try{copy=structuredClone(raw);}catch{return unavailable();}
+      const parsed=unlinkInput.safeParse(copy);if(!parsed.success)return unavailable();
+      const command=parsed.data,{scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>{
+        const taskToken=taskIndex(scope,command.task_key),task=scope.tasks.get(taskToken);
+        const turn=[...scope.turns.values()].find(item=>item.result.turn_id===command.source_turn_id);
+        const eventToken=task?.sources.get(command.event_id);
+        if(!task||!turn?.sources.has(command.event_id)||!eventToken)return deny();
+        const operation=createHmac("sha256",keySecret).update("association-correction\0")
+          .update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,command.idempotency_key])).digest("hex");
+        const result=await db.$transaction(async tx=>{
+          await tx.$queryRaw`SELECT 1 FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+          try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+          return tx.$queryRaw<UnlinkRow[]>`SELECT * FROM public.host_evidence_unlink_task_source_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},
+            ${scope.workspaceKey},${scope.capability},${command.task_key},${taskToken},${command.event_id},${eventToken},
+            ${command.source_turn_id},${BigInt(command.expected_association_revision)},${operation})`;
+        }).then(rows=>rows[0]);
+        if(!result||result.disposition==="denied")return deny();
+        if(result.disposition==="conflict")throw new EvidenceBoundaryError("ASSOCIATION_CONFLICT");
+        const revision=counter(result.out_retention_revision),associationRevision=counter(result.out_association_revision);
+        if(revision>scope.deletionRevision){
+          invalidatePackets(scope);clearTurnLeases(scope);scope.leaseKey=randomBytes(32);
+          scope.runtimeId=`runtime-${randomUUID().replaceAll("-","")}`;
+          for(const memory of scope.tasks.values())memory.incomplete=true;
+          for(const eventId of scope.turns.keys())scope.invalidTurns.add(eventId);
+          scope.pendingSaves.clear();scope.pendingSaveSticky=true;
+          scope.deletionRevision=revision;
+        }
+        return {action:"unlink" as const,task_key:command.task_key,event_id:command.event_id,
+          association_revision:associationRevision,retention_revision:revision,replayed:result.disposition==="replayed"};
+      });
+    },
     async readTaskEvidenceCandidate(ticket:object,credential:Headers,taskKey:string,raw:unknown):Promise<EvidencePage> {
       let input:unknown;try{input=structuredClone(raw);}catch{return unavailable();}
       const request=z.strictObject({page_size:z.number().int().min(1).max(PAGE_LIMIT),from:z.iso.datetime({offset:true}),

@@ -291,6 +291,8 @@ BEGIN
   SELECT action INTO v_action FROM public."HostEvidenceAssociationLog"
     WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND task_token=p_task_token AND event_id=p_event
     ORDER BY association_revision DESC LIMIT 1;
+  -- A normal registration cannot revive an explicitly retracted source.
+  IF v_action IN ('unlink','supersede') THEN RETURN FALSE; END IF;
   IF v_action IS DISTINCT FROM 'link' THEN
     UPDATE public."HostEvidenceAssociationHead" SET revision=revision+1
       WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND task_token=p_task_token;
@@ -366,6 +368,82 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
+
+-- A trusted host can retract one effective Task/source link. A correction is
+-- append-only; the original event remains available for other Tasks. Advance
+-- the workspace barrier and remove saved scene text in the same transaction so
+-- an already assembled Turn/Packet/Checkpoint cannot outlive the correction.
+CREATE FUNCTION public.host_evidence_unlink_task_source_candidate(
+  p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,
+  p_task_key TEXT,p_task_token TEXT,p_event TEXT,p_event_token TEXT,p_turn_id TEXT,
+  p_expected BIGINT,p_operation TEXT
+) RETURNS TABLE(disposition TEXT,out_association_revision BIGINT,out_retention_revision BIGINT)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+DECLARE v_revision BIGINT; v_digest TEXT; v_action TEXT; v_last_turn TEXT; v_prior public."HostEvidenceAssociationLog"%ROWTYPE;
+BEGIN
+  IF p_task_key !~ '^task-[0-9a-f]{32}$' OR p_task_token !~ '^[0-9a-f]{64}$' OR
+     p_turn_id !~ '^[A-Za-z][A-Za-z0-9_-]{0,95}$' OR p_operation !~ '^[0-9a-f]{64}$' OR
+     p_expected < 0 OR p_expected >= 9007199254740991 OR
+     public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::BIGINT; RETURN;
+  END IF;
+  SELECT w.retention_revision INTO v_revision FROM public."HostEvidenceWorkspace" w
+    WHERE w.owner_id=p_owner AND w.trip_id=p_trip AND w.workspace_key=p_workspace
+      AND w.session_ref=p_session AND w.capability_token=p_capability FOR UPDATE;
+  IF NOT FOUND OR public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE OR NOT EXISTS (
+    SELECT 1 FROM public."HostEvidenceTaskKey" WHERE owner_id=p_owner AND trip_id=p_trip
+      AND workspace_key=p_workspace AND task_key=p_task_key) THEN
+    RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::BIGINT; RETURN;
+  END IF;
+  v_digest:=encode(sha256(convert_to(p_capability||p_task_key,'UTF8')),'hex');
+  SELECT h.revision,h.task_key_digest INTO v_revision,v_digest FROM public."HostEvidenceAssociationHead" h
+    WHERE h.owner_id=p_owner AND h.trip_id=p_trip AND h.workspace_key=p_workspace
+      AND h.task_token=p_task_token FOR UPDATE;
+  IF NOT FOUND OR v_digest IS DISTINCT FROM encode(sha256(convert_to(p_capability||p_task_key,'UTF8')),'hex') THEN
+    RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::BIGINT; RETURN;
+  END IF;
+  SELECT * INTO v_prior FROM public."HostEvidenceAssociationLog" l WHERE l.owner_id=p_owner AND l.trip_id=p_trip
+    AND l.workspace_key=p_workspace AND l.task_token=p_task_token AND l.operation_token=p_operation;
+  IF FOUND THEN
+    IF v_prior.event_id=p_event AND v_prior.action='unlink' AND v_prior.source_turn_id=p_turn_id AND
+       v_prior.expected_association_revision=p_expected AND public.authorize_trip_session(p_session,p_owner,p_trip) IS TRUE THEN
+      RETURN QUERY SELECT 'replayed'::TEXT,v_prior.association_revision,w.retention_revision
+        FROM public."HostEvidenceWorkspace" w WHERE w.owner_id=p_owner AND w.trip_id=p_trip AND w.workspace_key=p_workspace;
+    ELSE RETURN QUERY SELECT 'conflict'::TEXT,NULL::BIGINT,NULL::BIGINT; END IF;
+    RETURN;
+  END IF;
+  IF v_revision IS DISTINCT FROM p_expected THEN
+    RETURN QUERY SELECT 'conflict'::TEXT,NULL::BIGINT,NULL::BIGINT; RETURN;
+  END IF;
+  SELECT l.action,l.source_turn_id INTO v_action,v_last_turn FROM public."HostEvidenceAssociationLog" l
+    WHERE l.owner_id=p_owner AND l.trip_id=p_trip AND l.workspace_key=p_workspace AND l.task_token=p_task_token
+      AND l.event_id=p_event ORDER BY l.association_revision DESC LIMIT 1;
+  IF v_action IS DISTINCT FROM 'link' OR v_last_turn IS DISTINCT FROM p_turn_id OR NOT EXISTS (
+    SELECT 1 FROM public."HostEvidenceTaskSource" b WHERE b.owner_id=p_owner AND b.trip_id=p_trip
+      AND b.workspace_key=p_workspace AND b.task_token=p_task_token AND b.event_id=p_event AND b.event_token=p_event_token)
+    OR NOT EXISTS (SELECT 1 FROM public.host_evidence_for_turn_candidate(p_session,p_owner,p_trip,p_workspace,
+      p_capability,p_event,p_event_token,TRUE) f WHERE f.allowed) THEN
+    RETURN QUERY SELECT 'conflict'::TEXT,NULL::BIGINT,NULL::BIGINT; RETURN;
+  END IF;
+  UPDATE public."HostEvidenceAssociationHead" h SET revision=revision+1 WHERE h.owner_id=p_owner AND h.trip_id=p_trip
+    AND h.workspace_key=p_workspace AND h.task_token=p_task_token;
+  INSERT INTO public."HostEvidenceAssociationLog"(link_id,owner_id,trip_id,workspace_key,task_token,task_key_digest,event_id,
+    action,association_revision,expected_association_revision,source_turn_id,operation_token)
+    VALUES('link_'||replace(gen_random_uuid()::text,'-',''),p_owner,p_trip,p_workspace,p_task_token,v_digest,p_event,
+      'unlink',v_revision+1,v_revision,p_turn_id,p_operation);
+  DELETE FROM public."HostEvidenceTaskSource" b WHERE b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace
+    AND b.task_token=p_task_token AND b.event_id=p_event;
+  DELETE FROM public."HostEvidenceScene" s WHERE s.owner_id=p_owner AND s.trip_id=p_trip AND s.workspace_key=p_workspace;
+  UPDATE public."HostEvidenceWorkspace" w SET retention_revision=retention_revision+1
+    WHERE w.owner_id=p_owner AND w.trip_id=p_trip AND w.workspace_key=p_workspace
+    RETURNING w.retention_revision INTO v_revision;
+  IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
+    RAISE EXCEPTION 'association authorization expired' USING ERRCODE='42501';
+  END IF;
+  RETURN QUERY SELECT 'unlinked'::TEXT,p_expected+1,v_revision;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_evidence_unlink_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT) FROM PUBLIC;
 
 -- Serializes deletion with writes in the same workspace. A committed marker
 -- always precedes physical cleanup; repeat requests do not advance revision.
