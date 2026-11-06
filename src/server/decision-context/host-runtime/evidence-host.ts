@@ -57,8 +57,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     const [evidenceRole] = await db.$queryRaw<Array<{ denied: boolean }>>`
       WITH principals AS (SELECT oid FROM pg_roles WHERE pg_has_role(current_user,oid,'USAGE') OR pg_has_role(current_user,oid,'SET')),
       evidence_tables AS (SELECT c.oid,c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-        WHERE n.nspname='public' AND c.relname IN ('HostEvidenceWorkspace','HostEvidenceEvent','HostEvidenceCleanup','HostEvidenceTripLifecycle','HostEvidenceTaskSource','HostEvidenceScene','HostEvidenceTaskKey') AND c.relkind='r')
-      SELECT (SELECT count(*) FROM evidence_tables) <> 7 OR EXISTS (
+        WHERE n.nspname='public' AND c.relname IN ('HostEvidenceWorkspace','HostEvidenceEvent','HostEvidenceCleanup','HostEvidenceTripLifecycle','HostEvidenceTaskSource','HostEvidenceScene','HostEvidenceTaskKey','HostEvidenceSceneEventWitness') AND c.relkind='r')
+      SELECT (SELECT count(*) FROM evidence_tables) <> 8 OR EXISTS (
         SELECT 1 FROM evidence_tables c CROSS JOIN principals p WHERE c.relowner=p.oid
           OR has_table_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
           OR has_any_column_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')) OR EXISTS (

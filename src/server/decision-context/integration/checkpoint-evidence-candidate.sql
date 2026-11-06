@@ -2,6 +2,15 @@
 -- candidates, in an isolated test DB. No production migration or grants.
 -- This is deliberately restricted to unprocessed, source-bound tasks; it is
 -- not a scene-restored implementation and never proves backup cleanup.
+-- A witness records only an event actually embedded in a verified saved scene.
+-- It does not attest that task, model, TS, draft or historic inputs are complete.
+-- Its scene reference is changed/removed atomically with the scene companion.
+CREATE TABLE public."HostEvidenceSceneEventWitness" (
+  scene_ref TEXT NOT NULL REFERENCES public."HostEvidenceScene"(scene_ref) ON UPDATE CASCADE ON DELETE CASCADE,
+  event_id TEXT NOT NULL REFERENCES public."HostEvidenceEvent"(event_id),
+  PRIMARY KEY(scene_ref,event_id)
+);
+REVOKE ALL ON public."HostEvidenceSceneEventWitness" FROM PUBLIC;
 -- Read the current deletion revision privately, then lock/recheck it through
 -- the existing bound Session/workspace/lifecycle guard. No revision leaks.
 CREATE FUNCTION public.host_checkpoint_scope_candidate(
@@ -177,6 +186,12 @@ BEGIN
         RAISE EXCEPTION 'checkpoint companion mismatch' USING ERRCODE='23514';
       END IF;
     END IF;
+    -- sources_valid has locked and checked each exact embedded event against
+    -- the bound Session, workspace, source token, content and retention.
+    -- This is only a positive witness, never a complete-input assertion.
+    DELETE FROM public."HostEvidenceSceneEventWitness" WHERE scene_ref=v_ref;
+    INSERT INTO public."HostEvidenceSceneEventWitness"(scene_ref,event_id)
+      SELECT DISTINCT v_ref,item->'event'->>'event_id' FROM jsonb_array_elements(p_payload->'tasks') AS x(item);
   END IF;
   IF public.host_checkpoint_sources_valid_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,p_payload) IS DISTINCT FROM TRUE THEN
     RAISE EXCEPTION 'checkpoint source expired during save' USING ERRCODE='42501';

@@ -62,7 +62,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     if (created) {
       await owner.query('DROP FUNCTION public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,BOOLEAN), public.host_checkpoint_view_valid_candidate(TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
       await owner.query('DROP FUNCTION public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
-      await owner.query('DROP TABLE public."HostEvidenceScene", public."HostEvidenceTaskKey", public."HostEvidenceTaskSource", public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
+      await owner.query('DROP TABLE public."HostEvidenceSceneEventWitness", public."HostEvidenceScene", public."HostEvidenceTaskKey", public."HostEvidenceTaskSource", public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
     }
     await owner?.end();
   }, 30000);
@@ -281,6 +281,15 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(await save(ea.workspace_key,ca,forgedText,"forged-text")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
     expect(await host.saveCheckpoint(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
     expect(await host.saveCheckpoint(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
+    const witness=await owner.query<{event_id:string}>(`SELECT w.event_id FROM public."HostEvidenceSceneEventWitness" w JOIN public."HostEvidenceScene" s ON s.scene_ref=w.scene_ref WHERE s.owner_id=$1 AND s.trip_id=$2 AND s.workspace_key=$3`,[a.user.id,trip,ea.workspace_key]);
+    expect(witness.rows).toEqual([{event_id:ea.event_id}]);
+    // The other event may still have contributed to question: omission from
+    // the positive witness is not evidence of independence.
+    expect(witness.rows.some(row=>row.event_id===priorUnrelated.event_id)).toBe(false);
+    await expect(runtime.query('SELECT * FROM public."HostEvidenceSceneEventWitness"')).rejects.toThrow();
+    await owner.query(`GRANT SELECT ON public."HostEvidenceSceneEventWitness" TO "${config!.runtimeRole}"`);
+    try { await expect(openEvidenceHost(env)).rejects.toThrow("without checkpoint access"); }
+    finally { await owner.query(`REVOKE SELECT ON public."HostEvidenceSceneEventWitness" FROM "${config!.runtimeRole}"`); }
     expect(await host.inspectCheckpoint(wa,a.headers)).toMatchObject({revision:1});
     // An event not declared in TaskSource is still a possible source. Its
     // expiry closes the whole candidate, even while the selected event is live.
@@ -473,7 +482,56 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(heads.rows).toEqual([{revision:"1",payload:null,payload_digest:null,deleted:true}]);
     expect((await owner.query('SELECT 1 FROM e03_checkpoint.receipts WHERE owner_id=$1 AND trip_id=$2 AND workspace=$3',[`user-${a.user.id}`,trip,ea.workspace_key])).rowCount).toBe(0);
     expect((await owner.query('SELECT 1 FROM public."HostEvidenceScene" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,ea.workspace_key])).rowCount).toBe(0);
+    expect((await owner.query('SELECT 1 FROM public."HostEvidenceSceneEventWitness" WHERE event_id=$1',[ea.event_id])).rowCount).toBe(0);
     expect((await owner.query('SELECT 1 FROM public."HostEvidenceTaskSource" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3 AND event_id=$4',[a.user.id,trip,ea.workspace_key,ea.event_id])).rowCount).toBe(0);
+  },30000);
+  it("atomically records verified scene events and serializes their removal with deletion", async () => {
+    const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers);
+    const key=await host.mintTaskKey(ticket,a.headers,"witness-key");
+    const unlisted=await host.record(ticket,a.headers,{entry:"dialogue",text:"unlisted event",idempotency_key:`unlisted_${randomUUID()}`});
+    const event=await host.record(ticket,a.headers,{entry:"dialogue",text:"visible event",idempotency_key:`witness_${randomUUID()}`});
+    const task={task_key:key,question:"visible",kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:7,quote:"visible"}],progress:"open",progress_evidence:null};
+    await host.registerTaskIdentity(ticket,a.headers,event,{expected_revision:0,tasks:[task],focus_keys:[key]});
+    const cap=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rows[0].capability_token;
+    const received=(await owner.query<{received_at:Date}>('SELECT received_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[event.event_id])).rows[0].received_at.toISOString();
+    const payload=validateCheckpoint({checkpoint_format_version:1,trip_id:trip,captured_state_revision:0,captured_object_versions:[],
+      tasks:[{task,event:{event_id:event.event_id,entry:"dialogue",text:"visible event",reference:`host-interaction:${event.event_id}`,received_at:received},base_revision:0,processing_status:"unprocessed",result_revision:0,errors:[]}],
+      focus_keys:[key],view:{entry:"dialogue",comparison_refs:[],selected_id:null,expanded_task_keys:[]},drafts:[],deferred_issue_ids:[]},trip,0);
+    const save=async (expected=0,operation="witness-save") => (await runtime.query<{value:Record<string,unknown>}>('SELECT public.host_checkpoint_save_candidate($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,NULL) AS value',
+      [a.session.session.id,a.user.id,trip,event.workspace_key,cap,expected,operation,digest({expected_revision:expected,payload,deleted:false}),JSON.stringify(payload),checkpointDigest(payload),new Date().toISOString()])).rows[0].value;
+    const witnesses=async()=> (await owner.query('SELECT event_id FROM public."HostEvidenceSceneEventWitness" WHERE event_id=$1',[event.event_id])).rows;
+    await runtime.query('BEGIN');
+    try {
+      expect(await save()).toHaveProperty("ack");
+      expect(await witnesses()).toEqual([]); // no visibility before commit
+    } finally { await runtime.query('ROLLBACK'); }
+    expect(await witnesses()).toEqual([]);
+    expect((await owner.query('SELECT 1 FROM public."HostEvidenceScene" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rowCount).toBe(0);
+    expect(await save()).toHaveProperty("ack");
+    expect(await witnesses()).toEqual([{event_id:event.event_id}]);
+    const observer=new Client({connectionString:config!.migrationUrl}); await observer.connect();
+    const pid=(await runtime.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await runtime.query('BEGIN'); let committed=false;
+    try {
+      expect(await save(1,"witness-update")).toHaveProperty("ack");
+      // The unlisted input may still be a model dependency. Its deletion must
+      // quarantine the scene rather than using the partial witness as proof.
+      const deletion=host.deleteEvent(ticket,a.headers,unlisted.event_id); let blocked=false;
+      for(let i=0;i<100;i++) {
+        const status=await observer.query<{blocked:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_checkpoint_delete_event_candidate%') AS blocked",[pid]);
+        if(status.rows[0].blocked){blocked=true;break;} await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      expect(blocked).toBe(true);
+      // A concurrent observer still sees the previously committed witness.
+      expect(await witnesses()).toEqual([{event_id:event.event_id}]);
+      await runtime.query('COMMIT'); committed=true;
+      await expect(deletion).resolves.toMatchObject({durable:true});
+      expect(await witnesses()).toEqual([]);
+      expect((await owner.query('SELECT 1 FROM public."HostEvidenceScene" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rowCount).toBe(0);
+      expect((await owner.query<{deleted_at:Date|null}>('SELECT deleted_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[event.event_id])).rows).toEqual([{deleted_at:null}]);
+      await expect(host.restoreCheckpoint(ticket,a.headers)).rejects.toMatchObject({code:"RECOVERY_UNAVAILABLE"});
+    } finally { if(!committed) await runtime.query('ROLLBACK'); await observer.end(); }
   },30000);
   it("removes a scene when an unlisted deleted event is copied into another task question", async () => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
