@@ -1,12 +1,13 @@
 """Independent original Python execution; no saved response is supplied to Store."""
 import json
+import os
 import sys
 from pathlib import Path
 from datetime import datetime
 from unittest.mock import patch
 from uuid import UUID
 
-root = Path(__file__).resolve().parents[2] / "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包"
+root = Path(os.environ["TRIP_STATE_SOURCE_ROOT"]) if "TRIP_STATE_SOURCE_ROOT" in os.environ else Path(__file__).resolve().parents[2] / "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包"
 sys.path.insert(0, str(root))
 from tripstate.engine import Store, Actor, digest
 from tripstate.rules import validate_state, RuleError, condition_value, index

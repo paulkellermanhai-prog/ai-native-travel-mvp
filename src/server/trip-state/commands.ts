@@ -6,7 +6,7 @@ import { digest } from "./command-json";
 import { validateStateSemantics, rule, instantMicros, reservationProfile } from "./semantics";
 import { incrementCounter, safeCounter } from "./numbers";
 import { assess } from "./assessment";
-import { conditionValue, conditionReferences as conditionRefs, applicable, factUsable, reservationOverlapsTrip } from "./conditions";
+import { conditionValue, conditionReferences as conditionRefs, conflictingFactIds, applicable, factUsable, reservationOverlapsTrip } from "./conditions";
 import type { State, TripStateContracts } from "./contracts.generated";
 
 export type Actor = Readonly<{ role: "user" | "model" | "system" | "tool"; id: string }>;
@@ -79,7 +79,7 @@ export function stampTime(now: Date): string {
 }
 
 // Pure execution. A hypothetical pending-user is used only for proposal calculation, never a storage grant.
-function executeCommands(before: State, request: CommandRequest, actor: Actor, proposal: string, now: Date): State {
+function executeCommands(before: State, request: CommandRequest, actor: Actor, proposal: string, now: Date, simulatingConfirmation = false): State {
   const old = new Map(before.objects.map((o) => [o.id, o]));
   const state = structuredClone(before), objects = new Map(state.objects.map((o) => [o.id, o]));
   const stamp = stampTime(now);
@@ -186,7 +186,9 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
       rule(conditionValue(o.reconsider_when, objects, now) === true, "CONDITION_UNKNOWN", "重新考虑条件未成立或未知");
       transition(o, "reconsider"); o.review_state = "current";
     } else if (cmd.op === "withdraw_decision") {
-      const o = get(cmd.id); rule(o.type === "Decision", "REF_TYPE", cmd.id); transition(o, "revoke");
+      const o = get(cmd.id); rule(o.type === "Decision", "REF_TYPE", cmd.id);
+      if (o.status === "confirmed" && !simulatingConfirmation) rule(o.confirmed_by === actor.id, "PERMISSION", "只有原确认人可以撤销该决定");
+      transition(o, "revoke");
       if (o.decision_kind === "adopt_skeleton" && o.subject_id === state.effective_skeleton_id) state.effective_skeleton_id = null;
     } else if (cmd.op === "ingest_fact") {
       rule(actor.role === "tool", "PERMISSION", "事实由可信适配器导入，普通用户/模型不能写核验结论");
@@ -214,10 +216,13 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
       transition(o, cmd.op === "resolve_issue" ? "resolve" : "dismiss");
       if (cmd.op === "resolve_issue") {
         rule(cmd.evidence_ids.length, "RESOLUTION_EVIDENCE", "解决问题必须提供证据");
+        const contested = conflictingFactIds(objects, now);
+        if (o.issue_kind === "conflict") rule(o.affected_ids.filter((id) => { const f = get(id); return f.type === "ExternalFact" && factUsable(f, now); }).length <= 1,
+          "ISSUE_STILL_BLOCKED", "仍有多条可用的冲突事实，须先核验取舍");
         for (const id of cmd.evidence_ids) {
           const evidence = get(id);
           rule(["ExternalFact", "Constraint", "Decision", "Skeleton"].includes(evidence.type), "RESOLUTION_EVIDENCE", "证据类型不能解决问题");
-          if (evidence.type === "ExternalFact") rule(factUsable(evidence, now), "RESOLUTION_EVIDENCE", "解决依据不可过期或未知");
+          if (evidence.type === "ExternalFact") rule(factUsable(evidence, now) && !contested.has(id), "RESOLUTION_EVIDENCE", "解决依据不可过期、未知或仍有争议");
           const allowed = new Set(o.affected_ids);
           for (const affected of o.affected_ids) {
             const subject = get(affected);
@@ -228,7 +233,8 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
         }
         for (const id of o.affected_ids) {
           const item = get(id);
-          if (item.type === "ExternalFact") rule(factUsable(item, now), "ISSUE_STILL_BLOCKED", "原事实仍未核验");
+          if (item.type === "ExternalFact" && !(o.issue_kind === "conflict" && ["contradicted", "superseded"].includes(item.status)))
+            rule(factUsable(item, now) && !contested.has(id), "ISSUE_STILL_BLOCKED", "原事实仍未核验或仍有争议");
           if (item.type === "Constraint") rule(item.status === "active", "ISSUE_STILL_BLOCKED", "条件尚未生效");
           if (item.type === "Decision") rule(item.status === "confirmed" && item.review_state === "current", "ISSUE_STILL_BLOCKED", "决定依据仍待检查");
           if (item.type === "Candidate") rule(item.review_state === "current", "ISSUE_STILL_BLOCKED", "候选仍待重新判断");
@@ -258,6 +264,12 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
   // Original field-sensitive propagation, including implicit links; no calculations or observation-value writes.
   function propagate(recomputed = new Set<string>()) {
     const changed = new Map(state.objects.filter((o) => !same(old.get(o.id), o)).map((o) => [o.id, changedPaths(old.get(o.id) ?? {}, o)]));
+    const beforeObjects = new Map(before.objects.map((o) => [o.id, o]));
+    const priorContested = conflictingFactIds(beforeObjects, now), currentContested = conflictingFactIds(objects, now);
+    for (const id of new Set([...priorContested, ...currentContested])) if (priorContested.has(id) !== currentContested.has(id)) {
+      if (!changed.has(id)) changed.set(id, new Set());
+      changed.get(id)!.add("");
+    }
     const affected = new Set<string>();
     while (true) {
       const added = new Set<string>();
@@ -345,7 +357,7 @@ function prepared(beforeValue: unknown, requestValue: unknown, actor: Actor, clo
   const needs = needsConfirmation(before, request, actor);
   rule(actor.role !== "tool" || request.commands.every((c) => c.op === "ingest_fact" || c.op === "transition" && ["supersede", "contradict"].includes(c.event)
     && before.objects.some((o) => o.id === c.id && o.type === "ExternalFact")), "PERMISSION", "工具仅能导入事实或使已有事实被替代／反证");
-  const after = executeCommands(before, request, needs ? { role: "user", id: "pending-user" } : actor, proposal, now);
+  const after = executeCommands(before, request, needs ? { role: "user", id: "pending-user" } : actor, proposal, now, needs);
   const delta = diff(before, after), proposalDigest = digest({ request, diff: delta, effective: after.effective_skeleton_id });
   return { before, request, now, proposal, needs, after, delta, proposalDigest };
 }
@@ -404,7 +416,7 @@ export function planConfirmation(beforeValue: unknown, pending: PendingProposal,
   const { request: original } = checkedInput(before, pending.request, pending.actor);
   rule(needsConfirmation(before, original, pending.actor) && pending.actor.role !== "tool", "STORAGE_INTEGRITY", "Persisted proposal must require an authorized confirmation");
   rule(instantMicros(pending.expires) === instantMicros(proposalDeadline(before, new Date(pending.details.created_at))), "STORAGE_INTEGRITY", "Proposal expiry does not match its original creation/dependency conditions");
-  const preview = executeCommands(before, original, { role: "user", id: "pending-user" }, pending.proposalId, new Date(pending.details.created_at));
+  const preview = executeCommands(before, original, { role: "user", id: "pending-user" }, pending.proposalId, new Date(pending.details.created_at), true);
   rule(same(diff(before, preview), pending.details.diff) && preview.effective_skeleton_id === pending.details.effective
     && digest({ request: original, diff: pending.details.diff, effective: pending.details.effective }) === pending.digest,
   "STORAGE_INTEGRITY", "Persisted request, displayed diff and digest disagree");

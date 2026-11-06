@@ -10,7 +10,7 @@ const fail = () : never => { throw new TripStateContractError("DANGLING_REF", "C
 
 /** Pure R6 candidate selection, based on the original TS context reference.
  * No DB read, permission grant, Task service or production Context is created.
- * AC8 C12 contested-fact execution requires the separately accepted TS integration. */
+ * Integrated TS condition rules are reused; full DC Packet assembly remains out of scope. */
 export function selectContextObjects(value: unknown, targetIds: readonly string[]) {
   const state = parseStateReferences(value); checkStateCounters(state);
   const objects = new Map(state.objects.map(o => [o.id,o]));
@@ -49,7 +49,7 @@ export function selectContextObjects(value: unknown, targetIds: readonly string[
   };
 }
 
-/** R6 local scope and three-valued condition only; does not evaluate contested facts. */
+/** R6 local scope with the integrated TS three-valued condition rules. */
 export function scopeApplicability(object: Item, targetIds: readonly string[], objects: ReadonlyMap<string,Item>, now: Date): Applicability {
   const targets=new Set(targetIds);
   if (object.type==="Decision" && !targets.has(object.subject_id)) return "unknown";
@@ -75,7 +75,7 @@ export function scopeApplicability(object: Item, targetIds: readonly string[], o
   }
   return result;
 }
-/** Time-dependent fact check from the existing TS primitive. C12 conflicts remain separately gated. */
+/** Time-dependent single-fact check; this function does not determine cross-fact C12 conflicts. */
 export function isCurrentlyUsableFact(object:Item, now:Date):boolean {
   if (object.type!=="ExternalFact") throw new TripStateContractError("SCHEMA", "Expected ExternalFact");
   return factUsable(object,now);
