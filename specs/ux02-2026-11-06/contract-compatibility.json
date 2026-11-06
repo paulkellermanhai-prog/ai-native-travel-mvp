@@ -1,0 +1,17 @@
+{
+  "schema_checks": [
+    {
+      "package": "trip-state-schema-v0.1",
+      "machine_schema_count": 20,
+      "byte_unchanged": true
+    },
+    {
+      "package": "decision-context-v0.1",
+      "machine_schema_count": 20,
+      "byte_unchanged": true
+    }
+  ],
+  "new_http_envelope": "restorations/preview request+preview+impact+can_submit+warnings; additive, pending review",
+  "core_schema_version": "0.1.0",
+  "checkpoint_format": 1
+}

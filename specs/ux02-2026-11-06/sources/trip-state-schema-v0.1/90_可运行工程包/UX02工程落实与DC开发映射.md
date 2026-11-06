@@ -1,0 +1,88 @@
+# UX-02 → TS / DC 工程落实矩阵（2026-11-06）
+
+状态：Owner 已授权本轮实施；本修订为待技术审核候选，不改写 AC8 或 E03 旧批准记录。逐项来源是 UX/UX-02/Engineering-Impact-Matrix-V0.1.md 的 E01–E32、Core-UX-Flow-V0.1.md、KB-01–10 与 2026-11-05 已同步 PRD §5.3/PRD-008/A08。UX 原归档内“PRD待同步”是旧记录，现以 PRD 正文为准；不倒推原始聊天全量取回。
+
+Existing=原合同/运行能力可复用；New-composition=新增既有命令组合；Enhancement=守卫/恢复呈现补强；Host/External=编排、真实语义/数据/前端必须另实现；Deferred=非TS/DC的职责。表中 E03 子任务是待开发映射。R6 Gate A 已通过并放行 E03-01；本轮 UX02 增量尚待差异审核，不表示生产 Runtime 已实现。
+
+| UX ID | 已验收行为 | 判定 | TS本地与实际代码承接 | DC后续E03子任务 | DC/宿主责任和边界 | 验收断言 |
+|---|---|---|---|---|---|---|
+| E01 | 空日期/预算探索 | Existing | 空根、TripGoal、不完整预算不强写 | E03-02-1 / E03-03-1 | 探索任务允许缺条件；内容/地图由UX与数据提供 | 空日期预算仍能定位任务；TS无假确认 |
+| E02 | 浏览焦点不改旅行 | Existing+Test | 只读状态接口，不产生ChangeRecord | E03-03-2 / E03-05-2 | view.selected_id 与 task.target_ids 分轴；地图切换不改编辑目标 | 地图看阿斯旺，卢克索任务/草稿目标不变 |
+| E03 | 局部兴趣与反悔 | Existing | Preference范围/条件/来源；Candidate/Decision分开 | E03-03-1 / E03-03-4 | 记录真实互动事件；纠错关联原事件，不从点击推导采用 | 喜欢/撤回无骨架采用；未曝光仍未知 |
+| E04 | 连接事实与未知 | Existing | ExternalFact事实等级/失败/时效；assessment | E03-02-3 | 装配当前依据、未知；工具接入另验 | 超时/空集不变无服务；示意线不当班次 |
+| E05 | 任务回答与异步归属 | Existing+Test | revision与对象版本支持读时验证 | E03-03-1 / E03-03-2 | 异步结果绑定trip/task/对象/基准revision；旧结果丢弃或重算 | 旧城市结果不覆盖新焦点/新草稿 |
+| E06 | 决策缺口与下一步 | Deferred-to-NAP | 权威状态与保护集合只读输入 | E03-02-2 / E03-03-2 | DC给gap与当前任务；行动价值/时机归NAP | 缺字段不自动追问；真实语义待UX03/Evals |
+| E07 | 跳过、暂停和改道 | Existing+Test | 不因入口/沉默写Decision | E03-03-2 / E03-06-2 | 保留旧task及paused状态；新focus不自动resume | 跳过推荐仍可地图比较；旧推荐不循环推动 |
+| E08 | 实质候选差异 | Existing+External | Candidate/Skeleton承载；不伪造第二案 | E03-02-2 / E03-03-1 | 对比对象+版本装配；生成质量归规划器 | 两案有真实差别；单案/无案说明原因 |
+| E09 | 全程比较口径 | Existing+External | 同币种人数分项cost_groups、unknowns | E03-02-3 / E03-03-3 | 分页完整消费与当前事实；前端呈现增益/牺牲 | 未知不补零；不得声称完整预算 |
+| E10 | 选择即确认 | Existing+Test | user直接采用；model提案需confirm；旧决定保护 | E03-04-1 / E03-04-2 | 宿主Grant绑定本轮精确请求摘要、版本、主体、效期 | 单次明确选择可生效；未展示重要牺牲无Grant |
+| E11 | 历史只读 | Enhancement+Test | get_history和旧Skeleton；不重算覆盖历史 | E03-03-2 / E03-06-2 | comparison_refs保存版本；新增历史只读警告 | 历史展示不更换effective；旧事实不是当前证据 |
+| E12 | 整份恢复 | New-composition | restoration_request/create+adopt；当前约束重算 | E03-04-1 / E03-04-2 / E03-07-2 | 读取旧内容作为候选，完整预览，再由新事件授权 | 新ID+parent当前版；旧历史不变；失败零写 |
+| E13 | 城市级恢复 | New-composition | 只替目标停留及相邻连接/目标费用引用 | E03-04-1 / E03-04-3 / E03-07-2 | 明确城市及基准；缺城市位置须新澄清；呈现全程影响 | 其他城市不回滚；新边无匹配证据则未知 |
+| E14 | 多入口同一草稿 | Existing+Test+Host | TS只接受同一合法批次，不持有UI私有草稿 | E03-05-2 / E03-03-2 | 同workspace/draft_id/CAS；view与编辑目标分离 | 地图/时间轴/对话共享B；不创建三份业务真相 |
+| E15 | 累计编辑与异步 | Existing+Host | 现有revise/scenario/preview+revision | E03-03-2 / E03-05-2 | 宿主按draft_id/base_revision/操作代次关联重算；确定性先算 | 旧异步不覆盖新B；失败保留已保存B |
+| E16 | 完成编辑与新牺牲 | Existing+Enhancement | 原子命令+已确认体验城市保护；硬冲突拒绝 | E03-04-1 / E03-04-3 | 完成编辑冻结批次及展示范围；新重要取舍重新授权 | 安全普通修改无需反复确认；拒绝保留A/B |
+| E17 | 有效/草稿/假设隔离 | Existing+Test | Skeleton purpose=plan/scenario；preview只读 | E03-03-2 / E03-04-3 / E03-05-2 | draft_kind/unsubmitted/hypothetical；branch actual/hypothetical | C基于A或B须标基准；看C不自动改B/A |
+| E18 | 纠错与过时计算 | Existing+Host | revise替换值和意图历史，不累加旧指令 | E03-03-1 / E03-03-4 | 关联原事件与被纠正操作；作废旧异步代次 | 不是三天是两天仅保留两天；原话追溯遵E11 |
+| E19 | 采用假设保护既有决定 | Existing+Enhancement | 不能直接adopt scenario；新plan及保护集合守卫 | E03-04-1 / E03-04-3 | 实际采用是新的actual事件；编辑中先入B | 假设不会撤旧决定；移除已确认体验城市被阻断 |
+| E20 | 无日期概念采用 | Existing+Test | acknowledge_unknowns+Decision范围，日期仍未知 | E03-02-3 / E03-04-1 | 呈现已知/未知及采用范围；非预订支付授权 | 无日期可采用；不输出班次已核实 |
+| E21 | 补条件局部复核 | Existing+External | 依赖传播/事实消费时效/版本 | E03-02-3 / E03-03-3 | 刷新受影响Packet/任务依据；未受影响决定保留 | 日期变只重查相关事实；不自动重建全程 |
+| E22 | 冲突、未知、失败分开 | Existing+Test | query_status/verification/freshness/assessment/OpenIssue | E03-02-3 / E03-07-2 | 当前TS限制持续装配；UI多视图定位由UX04 | 已知冲突持续可见；不能关闭一次永久消失 |
+| E23 | 跨会话续接 | Existing+Test | 重读TS、不从checkpoint倒灌 | E03-06-1 / E03-06-2 / E03-06-3 | 恢复最后ACK点，tasks/view/drafts；旧输入/Grant/提案不复活 | 新进程、CAS、旧授权、事实过期、缺引用验收 |
+| E24 | 跨Flow连续性 | Existing+Test | 切换view不做业务写 | E03-03-2 / E03-05-2 | 历史view、编辑task和draft分别保留 | 看历史后回编辑仍接同B，修改目标不串 |
+| E25 | 断线与保存回执 | Existing+Test | 成功事务为权威；未提交由DC宿主管理 | E03-05-2 / E03-05-3 | ACK_UNKNOWN只重试现场保存；未ACK不称已保存 | 断线恢复最后ACK；不丢当前已保存成果 |
+| E26 | 部分计算和工具失败 | Existing+External | 事实结果等级，成功分项不被伪造补全 | E03-02-3 / E03-07-2 | 宿主按子任务/版本/适用期记录部分结果 | 成功分项留用，失败分项未知，无虚构价格 |
+| E27 | 提交未知与重试 | Existing+Test | 相同actor/domain/key+相同内容回原回执；冲突拒绝 | E03-04-2 / E03-05-2 / E03-07-2 | TS操作幂等键≠checkpoint幂等键；先核权威回执 | 重复不双写；丢回执不能直接宣告失败 |
+| E28 | 旧草稿与并发 | Existing+Test | expected_revision/CAS阻断旧覆盖 | E03-05-2 / E03-06-2 / E03-07-2 | 旧B保留只读并标stale；新预览/新授权 | 跨设备更新后旧B不覆盖A，不销毁B |
+| E29 | Human×AI行动边界 | Deferred-to-NAP | TS回执≠用户效果；不存策略分数 | E03-03-2 / E03-04-1 | task/范围与授权供NAP；不在DC写第二套Policy | 拒绝/暂停/改道不循环推动；UX03真实语义另验 |
+| E30 | UI状态一致性 | Deferred-to-UX04 | 现有权威状态与预览回执输入 | E03-05-2 / E03-07-2 | 语义view不承诺像素恢复；draft_id及base共享 | 108概念不是定稿控件；真实前端需验 |
+| E31 | 端到端评测 | Partial+Followup | 本轮参考/TS/PG/HTTP证据需分层 | E03-07-2 / E03-07-3 | 将本表纳入UX05跨模块Evals；保存实际head及未测项 | 不能用reference通过代替模型/前端/真实数据 |
+| E32 | MVP排除 | Out-of-scope | 不实现支付预订或逐日细排 | E03-01-1 / E03-07-3 | 合同/安全边界显式排除交易履约 | 测试不要求超MVP能力；不生成虚假能力 |
+
+## TS 本轮实现与调用协议
+
+参考实现 `tripstate/restoration.py::restoration_request` 和 TypeScript `src/server/trip-state/restoration.ts::restorationRequest` 只从当前权威聚合读取历史 Skeleton，输出原 `change-request` 的 create(Skeleton plan) + adopt_skeleton 原子批次。当前版作 parent_id；源版保存在 input.target_ids 和 reason，不建立竞争历史指针。来源必须是权威聚合中已保存的 plan（包括重要未采用候选），不把临时未保存推演或 scenario 直接当恢复来源；当前约束、用户决定和外部事实内容都不回滚。
+
+整份恢复复制源停留/连接/费用引用；城市恢复保持现有城市顺序及其他城市停留，只替目标停留和相邻连接，缺匹配相邻连接保留空证据。若目标城市已移除，须由新用户输入明确插入位置；现有城市改序或源版没有该城不猜测。费用仅替换明确关联目标城市的事实引用，无定位的全程费用保留并按部分覆盖呈现。成本口径、完整体验时间安排与路线优化仍需真实计算器；旧 tradeoffs 文案不拷成今天的计算结论，预览需由宿主补足新增重要牺牲与未知。
+
+两种恢复都不拷 assessment、旧 confirmed_by、旧 Grant、旧 overrides 或旧事实值。当前 TS 重算夜数、相邻连接、当前硬约束、已确认选择及消费时效；任何拒绝不写新骨架。城市级恢复也可能使整趟成本/天数/依据陈旧，需要整趟预览；不能静默回滚无关城市或为解决冲突撤旧决定。
+
+HTTP 增量：`POST /trips/{id}/restorations/preview`，严格请求字段为 source_id/source_version/new_id/expected_revision/idempotency_key/input/reason，可选 city_id/insert_at/acknowledge_unknowns。认证、旅行权限、Origin、体积/数字解码沿用原防线；不接受 actor/owner/Grant。成功 200 返回 `{request,preview,impact,can_submit,warnings}`；输入/鉴权错误仍为原 response；领域阻断返回同一封装和422/409，can_submit=false，impact仍给只读候选评估。客户端完整展示 preview.diff 中新骨架 assessment、当前影响和未知后，由本轮明确授权将**同一 request**提交到原 `/changes`；Model仍生成待确认提案。比较UI入口使用已有 TS input.kind（如 dialogue）与真实 reference，不擅加 comparison 枚举；DC event.entry=comparison 仍独立合法。纯预览不授予写权限，不自动提交、不保存草稿、不生成历史。可重试同一已生成提交请求；应先查回执/状态，不重新编译旧恢复来冒充新意图。既有提交幂等键与身份作用域不变。
+
+新增体验保护守卫：已确认 accept 的 experience，其目录祖先城市不能在新采用骨架中消失；确需放弃须先展示牺牲，并在本轮授权批次显式处理原 Decision。该最小守卫不证明城市内部日程/体验可执行，未映射目录祖先的体验也不能凭此宣称完全保护。
+
+## DC 后续开发位置与依赖
+
+E03-01-1/2/3：锁定本修订来源与20份原Schema、解码错误及参考Oracle；版本仍0.1.0，Checkpoint格式1不变。R6 Gate A 已通过（PR12 review 5795631033，2026-11-06T04:10:43Z）；E03-01可按其既有批准继续。只有切换本轮UX02新来源/Oracle、预览封装、写桥语义或新恢复守卫需补审实际差异；不能用本表提前启动E03-02～07业务Runtime。
+
+E03-02：建议 `src/server/decision-context/assembly.ts` 与 validity 层，接当前TS、保护集合、事实有效期和分页；历史只是只读比较，不使用旧verified结论作当前事实。
+
+E03-03：建议 `task.ts` / `focus.ts` / 宿主async编排层；task目标、view焦点、比较版本、同workspace草稿彼此分开，维护操作代次避免过时结果回写。E11按既有已批准原话保留/删除策略实现，不能为UX02另造永久日志。
+
+E03-04：建议 `write-bridge.ts` 调用TS恢复编译器与原提交/确认服务；本轮事件、精确request摘要、当前revision、完整交付和主体绑定Grant；历史恢复、完成编辑、采用假设均需新的actual事件。未展示的新重大牺牲不给Grant；无Grant按Model提案。不要把预览请求、旧checkpoint/proposal或模型措辞当授权。真实语义区分“看旧版/恢复旧版/恢复某城/如果恢复/完成编辑”，包括“不是三天是两天”的原意图纠错，归UX03/解释器联测。
+
+E03-05：建议 `checkpoint-repository.ts` 与 workspace 适配，迁移参考CAS/ACK/只重试现场保存；三入口共享draft_id，持久B与假设C分开，未ACK诚实提示。现有格式可保存proposal，源目标须在draft.target_ids中，旧检查点不因本轮新规则被破坏。
+
+E03-06：建议 `recovery.ts`；TS重读后恢复task/view/draft，历史comparison警告、过期/缺失引用和stale草稿标注，旧原话只读，旧授权/提案无执行资格。参考实现新增历史只读和假设草稿提示；新保存检查提案输入目标绑定，旧不完整绑定保留只读并警告，不擅自迁移旧payload。
+
+E03-07：真实Session/PG/HTTP/新进程串联F1→F3→F4→F5→F6→恢复；独立验证整份/城市恢复、部分计算失败、超时后状态核实、并发草稿保全及跨账户拒绝。依赖TS本候选与PR11审核；PR10/#12保持原Gate状态，不能把PR12的DC105测试当本修订或生产验收。
+
+上述建议文件路径尚未创建DC生产模块。八阶段与8/10/15/13/10/17/14/13权重保持；本表为新增UX02子任务映射，与AC8/E11清单并存。
+
+## 未决与跨模块出口
+
+未发现需要Owner新增MVP取舍的必停冲突。恢复位置缺失通过必要澄清处理，不猜测。数据源时效/合法性、真实比较与体验代价、完整成本、模型意图、具体UI/自动保存时机以及NAP介入价值仍需各自阶段验收。NAP仅记录影响，不在本轮修改包或代码。正式技术审核应评估新增预览HTTP封装、体验城市守卫的行为收紧及本地包来源锁；不自动批准Schema升级、合并或部署。
+
+## 已批准 R6 与本轮 UX02 增量的审核边界
+
+已核验[真实 Gate A 回执](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033)：获准 head `7b2a1b5a086544d1dba6f64cfa7a624750ce4072`，selection SHA `eaff06a085946c3a55ddd395169a534b12d8b896e7c4f5dd2b4bde08a46bca77`，包 manifest SHA `0e03797ada46e0f0a0546f7237f0a630f49ee12369e1a081d9c2d98b1f514362`。批准者为 Owner 指定的 ChatGPT AI 技术负责人；GitHub review 类型为 COMMENTED，是项目技术 Gate 决定，不冒称原生 APPROVED 或人类审核。旧R6快照与批准记录保留。
+
+E03-01原获批的合同注册/解码/类型/宿主边界和隔离测试底座可继续，不需重新申请开工。本轮只补审：UX02来源及Oracle锁切换、TS恢复编译/新增HTTP封装和体验城市守卫、DC新保存草稿目标校验及历史/假设恢复提示、三入口草稿/历史焦点/新actual授权的跨模块语义。20份DC机器合同/格式1、E11独立边界与Owner已批准隐私策略不重开。E03-02当前依据、03任务/异步归属、04写桥/恢复授权、05草稿ACK/CAS、06只读恢复、07真实联测按本表分别承接，既有阶段权重不变；未获增量接受前不能静默用本地R7替换获准R6或将R6批准说成R7已通过。
+
+确切文件差异与旧/新SHA另列在本轮工程交接的 `ux02-dc-r6-delta.json` 和 `UX02-DC已通过GateA的增量评审范围.md`。本任务没有实现E03-01生产代码，也不改写并行工程分支的看板或AGENTS；仅交接给既有执行者。
+
+## PR #13 技术审核后的候选增量（F01–F04）
+
+历史恢复以 `source_id + source_version` 指定所选对象版本；受信宿主从当前旅行状态或已应用的历史 ChangeRecord 前后快照解析，找不到、跨旅行、未提交或同一版本内容冲突时拒绝，不得回退最新。当前旅行 `expected_revision` 保持单独CAS；来源ID和版本写入 ChangeRecord.reason；OperationIntent.input 保留来源ID与本轮输入，旧 Grant 和事实判断不继承。新增HTTP响应合同区分严格五字段封装与原TS基础错误；422/409可能是两种形状，必须先判完整形状，详细见工程仓库 `docs/UX02恢复预览HTTP合同.md`。
+
+R6已批准源在独立校验区保留，用R6新进程实际生成旧格式1检查点，再由R7另一个新进程恢复、原样保存及验证非法修改拒绝；这不把R7升级为已批准基线。E03-01仍按已批准R6继续；接纳本次版本定位、HTTP合同和兼容修订须技术负责人对具体增量复审。20+20份机器Schema与旧来源逐字节自动对照。

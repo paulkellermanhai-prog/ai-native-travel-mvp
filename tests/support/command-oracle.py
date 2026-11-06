@@ -13,7 +13,10 @@ from tripstate.engine import Store, Actor, digest
 from tripstate.rules import validate_state, RuleError, condition_value, index
 
 payload = json.load(sys.stdin)
-if payload.get("mode") == "states":
+if payload.get("mode") == "restoration":
+    from tripstate.restoration import restoration_request
+    json.dump(restoration_request(payload["state"], **payload["options"]), sys.stdout, ensure_ascii=False)
+elif payload.get("mode") == "states":
     results = []
     for state in payload["states"]:
         try:

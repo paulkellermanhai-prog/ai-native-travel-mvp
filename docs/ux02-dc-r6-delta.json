@@ -1,0 +1,99 @@
+{
+  "approved_r6_head": "7b2a1b5a086544d1dba6f64cfa7a624750ce4072",
+  "approval_url": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033",
+  "approval_status": "PASS_E03_01_AUTHORIZED",
+  "ux02_delta_status": "PENDING_INCREMENTAL_TECH_REVIEW",
+  "approved_files_verified": 67,
+  "changed_count": 16,
+  "unchanged_count": 51,
+  "changed": [
+    {
+      "path": "decision-context-v0.1/00_从这里开始.md",
+      "approved_r6_sha256": "018b910cd18b1f554cb0dce79cb2ee790e3324fc5eaf511661a18a4481fca9cf",
+      "ux02_sha256": "bff5a687738a0b72597ca1a57d41582ef409d41f801d89df8fb48a03b6542745"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "approved_r6_sha256": "061640ad2dd818b37b84040de26a29082d30262c521975ce6111d25cec66e614",
+      "ux02_sha256": "5d7d967334c656c973ef9fd71a8065a4c79ae897e5c540152886a3bc04e8e082"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "approved_r6_sha256": "3ea1acfea9528b179e9adfaca049cfa46c0a75ac84982ccb79ef08a99ef497f3",
+      "ux02_sha256": "9d507be901727b702da0c49e46c9c977b4540e8cbd68cac1ef445490a617978d"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "approved_r6_sha256": "cab4ad45e838fce37f9ba3251f99dad3e8f9d8a5df606f090161a052ab8cb51c",
+      "ux02_sha256": "21c98ed7f4c0124afeedb6e6bba46c26026c51004df683bbed733e3c009dbdf8"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
+      "approved_r6_sha256": "8587e196b3dc5b01da91680a03a5f67985b46694d888b8ccd2cb75788d32ed8c",
+      "ux02_sha256": "4ddce6fda6e9bc545e046e8af2c52003381c43c47e5fa0d81fe05c47178e1cc0"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "approved_r6_sha256": "29f5562d14dda5e47bde41350f24bb6c9ab3f72c6f6c0089f74099da2ac8ae0c",
+      "ux02_sha256": "bbac21430dd4d43ae9a663551cef073ccf5265ea0beb5c1e33deaf7fd23bbeda"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/README.md",
+      "approved_r6_sha256": "5d483e62c022ab543404529c70625a1554b5f63de81bdc6696a7bd33c4191e4a",
+      "ux02_sha256": "83b2a73723f2edbffa301ffd89a4f5457740d205fc013fdd9f379ba3d8a6ce8f"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
+      "approved_r6_sha256": "0ade1178adb1fc1eafd4926a31d544e3108f8a0439ac82e26c3aee91e2b38dfe",
+      "ux02_sha256": "bc985355208caaf1d0367066f9f46677168a815c34fb033cfe0722bedf5667dc"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
+      "approved_r6_sha256": "0e03797ada46e0f0a0546f7237f0a630f49ee12369e1a081d9c2d98b1f514362",
+      "ux02_sha256": "63b31e37cb64c8dfb72245e49c2c117614a860f0bdbce9197d196c11985ce9e6"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/context_runtime/recovery.py",
+      "approved_r6_sha256": "8b454c573849c5776d65e35caf5d813b40d641f1c594ce01693e79fdb76a52b7",
+      "ux02_sha256": "8d46737b87adae1557aa886dcba83d7a601d697021c93903045b8040b27a4dc2"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/run_validation.py",
+      "approved_r6_sha256": "de6048f9c223f22845259a60271f224c9fc3e6f03c05064dc598fdb6ff13d1be",
+      "ux02_sha256": "f053d6d9be50f5659c79372851c6f7611248050abd9dd82dbe568c089b01f399"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/tests/test_recovery.py",
+      "approved_r6_sha256": "0c0001da3e16af2f8736b0fa9d43ab555d5929854e256d9fc031510281e2928b",
+      "ux02_sha256": "811cadb76da6a0ad6e357af57153e5ebdcfb60c9b4f2c991f3e8607cd5de0bc7"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/update_package_index.py",
+      "approved_r6_sha256": "2c1bb4b18681884e91e62dbefbda39729cc849c4687648cd5a2d01a4626332fb",
+      "ux02_sha256": "dd1bc1514af656755e7a77b52ff90370778f2a1c862bd536207d1b7d88e83cf1"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/validation-output.txt",
+      "approved_r6_sha256": "de84ac7330c5ebaa12136f5df1d757153fd2297149c70a99ed24d319207690c1",
+      "ux02_sha256": "59f49bfaaa27dbf8f0e1198ef5fd7122d5558f1ee18997a1c80bbadae72eca2e"
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/validation-results.json",
+      "approved_r6_sha256": "9744f02bdddd61042f63b42e13f8c99ab06f3dba91f3666080a03ab0a22246da",
+      "ux02_sha256": "ebaa60f501f5480fc4acef09ddb09a5cb416061b42a706a5cc47057d68caa37a"
+    },
+    {
+      "path": "decision-context-v0.1/package-index.json",
+      "approved_r6_sha256": "c8d8bed48714c7aa646647223bcface46c76a60ef46920a31e372d0f275ffe74",
+      "ux02_sha256": "5dea392c86818baa8e9d61791bcec07663d3694246f41cd18f33a925d04b0e75"
+    }
+  ],
+  "added_to_original_package": [
+    "decision-context-v0.1/90_可运行工程包/ux02-source-manifest.json",
+    "decision-context-v0.1/03_评审与工程衔接/18_UX02行为落实与E03开发验收映射.md"
+  ],
+  "machine_schema_count": 20,
+  "machine_schema_changed": 0,
+  "checkpoint_format": 1,
+  "review_fix": "F01-F04 revised candidate, pending incremental technical review"
+}

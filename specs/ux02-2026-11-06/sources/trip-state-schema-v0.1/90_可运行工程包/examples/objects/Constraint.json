@@ -1,0 +1,27 @@
+{
+  "id": "constraint-dates",
+  "type": "Constraint",
+  "trip_id": "trip-egypt-test",
+  "version": 2,
+  "status": "active",
+  "scope": {
+    "kind": "trip",
+    "ids": []
+  },
+  "source": {
+    "actor": "user",
+    "actor_id": "user-demo",
+    "reference": "synthetic-input",
+    "text": "修改日期导致旧交通证据不适用",
+    "at": "2030-01-01T00:00:00Z"
+  },
+  "dependencies": [],
+  "updated_at": "2030-01-01T00:00:00Z",
+  "hardness": "hard",
+  "override_policy": "user",
+  "value": {
+    "kind": "date_window",
+    "start": "2030-02-10",
+    "end": "2030-02-14"
+  }
+}

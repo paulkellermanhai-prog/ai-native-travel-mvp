@@ -26,7 +26,8 @@
     "check": "npm run specs:verify && npm run specs:ac8 && npm run contracts:check && npm run db:validate && npm run db:generate && npm run typecheck && npm run lint && npm test && npm run build",
     "auth:admin": "tsx scripts/auth-admin.ts",
     "auth:grant-runtime": "node scripts/grant-identity-runtime.mjs",
-    "test:http": "node --import tsx --test tests/http/http.e2e.ts"
+    "test:http": "node --import tsx --test tests/http/http.e2e.ts",
+    "specs:ux02": "python3 -B scripts/verify-ux02.py"
   },
   "dependencies": {
     "@better-auth/prisma-adapter": "1.7.14",

@@ -1,0 +1,223 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trip-state.example/spec/0.1/ChangeRecord.schema.json",
+  "title": "ChangeRecord",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "type": {
+      "const": "ChangeRecord"
+    },
+    "trip_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "proposal_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "intent_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "pending_confirmation",
+        "rejected"
+      ]
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "非空文本"
+      },
+      "minItems": 1
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "非空文本"
+    },
+    "base_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "result_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "confirmation_actor": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "request_digest": {
+      "type": "string",
+      "minLength": 1,
+      "description": "非空文本"
+    },
+    "affected_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "effective_before": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "effective_after": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "diff": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/TripGoal.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Preference.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Constraint.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/DestinationEntity.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Candidate.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/ExternalFact.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Skeleton.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Decision.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/OpenIssue.schema.json"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/TripGoal.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Preference.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Constraint.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/DestinationEntity.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Candidate.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/ExternalFact.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Skeleton.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Decision.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/OpenIssue.schema.json"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "before",
+          "after"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "id",
+    "type",
+    "trip_id",
+    "proposal_id",
+    "intent_id",
+    "outcome",
+    "actions",
+    "reason",
+    "base_revision",
+    "result_revision",
+    "created_at",
+    "confirmation_actor",
+    "request_digest",
+    "affected_ids",
+    "effective_before",
+    "effective_after",
+    "diff"
+  ],
+  "additionalProperties": false
+}

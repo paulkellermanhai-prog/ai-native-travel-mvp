@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trip-state.example/spec/0.1/Decision.schema.json",
+  "title": "Decision",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "trip_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "type": {
+      "const": "Decision"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "proposed",
+        "pending_confirmation",
+        "confirmed",
+        "revised",
+        "revoked"
+      ]
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "trip",
+                "entity",
+                "skeleton",
+                "traveler"
+              ]
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "date"
+              ]
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true,
+              "maxItems": 0
+            },
+            "start": {
+              "type": "string",
+              "format": "date"
+            },
+            "end": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "required": [
+            "kind",
+            "ids",
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "enum": [
+            "user",
+            "model",
+            "system",
+            "tool"
+          ]
+        },
+        "actor_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "description": "输入或适配器证据标识"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "原始表达或结果摘要"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "actor",
+        "actor_id",
+        "reference",
+        "text",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "input",
+              "evidence",
+              "association"
+            ]
+          }
+        },
+        "required": [
+          "object_id",
+          "version",
+          "paths",
+          "relation"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "subject_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "subject_version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "decision_kind": {
+      "type": "string",
+      "enum": [
+        "adopt_skeleton",
+        "candidate_choice"
+      ]
+    },
+    "value": {
+      "type": "string",
+      "enum": [
+        "accept",
+        "reject",
+        "retain"
+      ]
+    },
+    "confirmation_scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "非空文本"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "basis_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "acknowledged_unknowns": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "非空文本"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "confirmed_by": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "confirmed_at": {
+      "anyOf": [
+        {
+          "type": "string",
+          "format": "date-time"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "supersedes": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "review_state": {
+      "type": "string",
+      "enum": [
+        "current",
+        "stale"
+      ]
+    }
+  },
+  "required": [
+    "id",
+    "trip_id",
+    "type",
+    "version",
+    "status",
+    "scope",
+    "source",
+    "dependencies",
+    "updated_at",
+    "subject_id",
+    "subject_version",
+    "decision_kind",
+    "value",
+    "confirmation_scope",
+    "basis_ids",
+    "acknowledged_unknowns",
+    "confirmed_by",
+    "confirmed_at",
+    "supersedes",
+    "review_state"
+  ],
+  "additionalProperties": false
+}

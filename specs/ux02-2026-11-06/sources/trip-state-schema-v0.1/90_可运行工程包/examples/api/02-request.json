@@ -1,0 +1,18 @@
+{
+  "expected_revision": 2,
+  "idempotency_key": "example-2",
+  "reason": "满足条件后重新考虑，不自动成为已选",
+  "input": {
+    "kind": "dialogue",
+    "reference": "synthetic-input",
+    "text": "满足条件后重新考虑，不自动成为已选",
+    "target_ids": []
+  },
+  "commands": [
+    {
+      "op": "reconsider",
+      "id": "candidate-luxor",
+      "trigger_id": "constraint-nights"
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "review_id": "UX02-PR13-TECH-REVIEW-2026-11-06-01",
+  "status": "CANDIDATE_PENDING_EXACT_HEAD_CI",
+  "red_test": "same saved candidate id v1 selected, old implementation restored v2; reproduced 1 failed and subsequently passed",
+  "local": {
+    "ts_reference": 137,
+    "dc_reference": 107,
+    "reference_total": 244,
+    "reference_failures": 0,
+    "r6_r7_separate_process": "passed",
+    "TS_DC_schema_byte_comparison": "20+20 passed",
+    "focused": 17,
+    "vitest_full_passed": 634,
+    "vitest_local_skipped_no_postgres": 216,
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "prior_timeout": "one pre-existing test timed out under default concurrent load; isolated 52 and full suite with maxWorkers=2 passed"
+  },
+  "source_manifest_sha256": "eed1713e7cba5a41d04046fa0be2a1a1f5f0dbbe4e0cb57569405af7ebe1a821",
+  "r6_gate": "PASS_E03_01_AUTHORIZED",
+  "r7_incremental_gate": "PENDING_TECH_REVIEW",
+  "notes": [
+    "Actual PG/HTTP tests require CI",
+    "Owner-approved product scope unchanged; no merge/deploy"
+  ]
+}

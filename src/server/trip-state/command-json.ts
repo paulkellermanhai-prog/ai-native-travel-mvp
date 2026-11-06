@@ -3,9 +3,9 @@ import { TripStateContractError } from "./contracts";
 import { safeCounter } from "./numbers";
 
 // Node 24 provides the original token to the JSON reviver. Check before precision can be hidden.
-export function decodeCommandJson(text: string): unknown {
+export function decodeCommandJson(text: string, counterNames: readonly string[] = ["expected_revision", "revision", "version", "subject_version", "base_revision", "result_revision"]): unknown {
   return JSON.parse(text, (key: string, value: unknown, context?: { source?: string }) => {
-    if (["expected_revision", "revision", "version", "subject_version", "base_revision", "result_revision"].includes(key) && typeof value === "number") {
+    if (counterNames.includes(key) && typeof value === "number") {
       safeCounter(value, key);
       const match = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/.exec(context?.source ?? "");
       if (!match) throw new TripStateContractError("INTEGER_REPRESENTATION", "Lossless counter token is required");

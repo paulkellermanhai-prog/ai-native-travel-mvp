@@ -1,0 +1,258 @@
+{
+  "outcome": "applied",
+  "revision": 4,
+  "proposal_id": "proposal-0000000000000000000000000000000f",
+  "proposal_digest": "d173edc1c786e1a79522010e189ac6d9f623747e68ae8527d6fd2c438e4b8ff9",
+  "confirmation_required": false,
+  "affected_ids": [
+    "decision-proposal-0000000000000000000000000000000f",
+    "skeleton-a"
+  ],
+  "diff": [
+    {
+      "id": "decision-proposal-0000000000000000000000000000000f",
+      "before": null,
+      "after": {
+        "id": "decision-proposal-0000000000000000000000000000000f",
+        "type": "Decision",
+        "trip_id": "trip-egypt-test",
+        "version": 1,
+        "status": "confirmed",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "dependencies": [],
+        "source": {
+          "actor": "user",
+          "actor_id": "user-demo",
+          "reference": "synthetic-input",
+          "text": "用户明确采用；预算缺项仍然存在",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "updated_at": "2030-01-01T00:00:00Z",
+        "subject_id": "skeleton-a",
+        "subject_version": 3,
+        "decision_kind": "adopt_skeleton",
+        "value": "accept",
+        "confirmation_scope": [
+          "cities",
+          "order",
+          "stays",
+          "connections"
+        ],
+        "basis_ids": [
+          "constraint-budget",
+          "constraint-dates",
+          "constraint-nights",
+          "cost-transport",
+          "fact-cairo-luxor"
+        ],
+        "acknowledged_unknowns": [
+          "partial_budget:constraint-budget"
+        ],
+        "confirmed_by": "user-demo",
+        "confirmed_at": "2030-01-01T00:00:00Z",
+        "supersedes": null,
+        "review_state": "current"
+      }
+    },
+    {
+      "id": "skeleton-a",
+      "before": {
+        "id": "skeleton-a",
+        "type": "Skeleton",
+        "trip_id": "trip-egypt-test",
+        "version": 2,
+        "status": "active",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "source": {
+          "actor": "user",
+          "actor_id": "user-demo",
+          "reference": "synthetic-input",
+          "text": "测试材料，不代表真实用户或现实交通",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "dependencies": [],
+        "updated_at": "2030-01-01T00:00:00Z",
+        "purpose": "plan",
+        "stops": [
+          {
+            "entity_id": "cairo",
+            "nights": 2
+          },
+          {
+            "entity_id": "luxor",
+            "nights": 2
+          }
+        ],
+        "connections": [
+          {
+            "from_id": "cairo",
+            "to_id": "luxor",
+            "fact_ids": [
+              "fact-cairo-luxor"
+            ]
+          }
+        ],
+        "cost_fact_ids": [
+          "cost-transport"
+        ],
+        "parent_id": null,
+        "overrides": [],
+        "tradeoffs": {
+          "gains": [
+            "文化体验"
+          ],
+          "losses": [
+            "转场时间"
+          ]
+        },
+        "assessment": {
+          "status": "stale",
+          "total_nights": null,
+          "connection_minutes": [],
+          "cost_groups": [],
+          "cost_coverage": "none",
+          "unknowns": [
+            "inputs_changed"
+          ],
+          "violations": [],
+          "checked_at": null
+        }
+      },
+      "after": {
+        "id": "skeleton-a",
+        "type": "Skeleton",
+        "trip_id": "trip-egypt-test",
+        "version": 3,
+        "status": "active",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "source": {
+          "actor": "user",
+          "actor_id": "user-demo",
+          "reference": "synthetic-input",
+          "text": "测试材料，不代表真实用户或现实交通",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "dependencies": [
+          {
+            "object_id": "constraint-budget",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "constraint-dates",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "constraint-nights",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "cost-transport",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value",
+              "/freshness",
+              "/applicability",
+              "/expires_at"
+            ],
+            "relation": "input"
+          },
+          {
+            "object_id": "fact-cairo-luxor",
+            "version": 1,
+            "paths": [
+              "/status",
+              "/value",
+              "/freshness",
+              "/applicability",
+              "/expires_at"
+            ],
+            "relation": "input"
+          }
+        ],
+        "updated_at": "2030-01-01T00:00:00Z",
+        "purpose": "plan",
+        "stops": [
+          {
+            "entity_id": "cairo",
+            "nights": 2
+          },
+          {
+            "entity_id": "luxor",
+            "nights": 2
+          }
+        ],
+        "connections": [
+          {
+            "from_id": "cairo",
+            "to_id": "luxor",
+            "fact_ids": [
+              "fact-cairo-luxor"
+            ]
+          }
+        ],
+        "cost_fact_ids": [
+          "cost-transport"
+        ],
+        "parent_id": null,
+        "overrides": [],
+        "tradeoffs": {
+          "gains": [
+            "文化体验"
+          ],
+          "losses": [
+            "转场时间"
+          ]
+        },
+        "assessment": {
+          "status": "pending",
+          "total_nights": 4,
+          "connection_minutes": [
+            60
+          ],
+          "cost_groups": [
+            {
+              "currency": "CNY",
+              "people": 2,
+              "subtotal_minor": 120000,
+              "fact_ids": [
+                "cost-transport"
+              ]
+            }
+          ],
+          "cost_coverage": "partial",
+          "unknowns": [
+            "partial_budget:constraint-budget"
+          ],
+          "violations": [],
+          "checked_at": "2030-01-01T00:00:00Z"
+        }
+      }
+    }
+  ],
+  "errors": []
+}

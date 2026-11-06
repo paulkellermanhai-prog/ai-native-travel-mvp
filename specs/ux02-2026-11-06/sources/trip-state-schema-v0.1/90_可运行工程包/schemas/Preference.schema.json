@@ -1,0 +1,367 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trip-state.example/spec/0.1/Preference.schema.json",
+  "title": "Preference",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "trip_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "type": {
+      "const": "Preference"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "active",
+        "superseded",
+        "withdrawn"
+      ]
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "trip",
+                "entity",
+                "skeleton",
+                "traveler"
+              ]
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "date"
+              ]
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true,
+              "maxItems": 0
+            },
+            "start": {
+              "type": "string",
+              "format": "date"
+            },
+            "end": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "required": [
+            "kind",
+            "ids",
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "enum": [
+            "user",
+            "model",
+            "system",
+            "tool"
+          ]
+        },
+        "actor_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "description": "输入或适配器证据标识"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "原始表达或结果摘要"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "actor",
+        "actor_id",
+        "reference",
+        "text",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "input",
+              "evidence",
+              "association"
+            ]
+          }
+        },
+        "required": [
+          "object_id",
+          "version",
+          "paths",
+          "relation"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "subject_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "aspect": {
+      "type": "string",
+      "minLength": 1,
+      "description": "非空文本"
+    },
+    "polarity": {
+      "type": "string",
+      "enum": [
+        "positive",
+        "negative",
+        "tradeoff"
+      ]
+    },
+    "certainty": {
+      "type": "string",
+      "enum": [
+        "explicit",
+        "inferred",
+        "ambiguous",
+        "unknown"
+      ]
+    },
+    "support": {
+      "type": "string",
+      "enum": [
+        "weak",
+        "supported"
+      ]
+    },
+    "priority": {
+      "type": "string",
+      "enum": [
+        "ordinary",
+        "important",
+        "critical"
+      ]
+    },
+    "expression": {
+      "type": "string",
+      "minLength": 1,
+      "description": "非空文本"
+    },
+    "condition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": [
+                "always"
+              ]
+            }
+          },
+          "required": [
+            "op"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": [
+                "all",
+                "any"
+              ]
+            },
+            "args": {
+              "type": "array",
+              "items": {
+                "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+              },
+              "minItems": 1
+            }
+          },
+          "required": [
+            "op",
+            "args"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": [
+                "not"
+              ]
+            },
+            "arg": {
+              "$ref": "https://trip-state.example/spec/0.1/common.schema.json#/$defs/condition"
+            }
+          },
+          "required": [
+            "op",
+            "arg"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "enum": [
+                "eq",
+                "ne",
+                "lt",
+                "lte",
+                "gt",
+                "gte"
+              ]
+            },
+            "object_id": {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+            },
+            "value": {
+              "type": [
+                "string",
+                "number",
+                "boolean",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "object_id",
+            "path",
+            "value"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "非空文本"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "id",
+    "trip_id",
+    "type",
+    "version",
+    "status",
+    "scope",
+    "source",
+    "dependencies",
+    "updated_at",
+    "subject_ids",
+    "aspect",
+    "polarity",
+    "certainty",
+    "support",
+    "priority",
+    "expression",
+    "condition",
+    "evidence_refs"
+  ],
+  "additionalProperties": false
+}

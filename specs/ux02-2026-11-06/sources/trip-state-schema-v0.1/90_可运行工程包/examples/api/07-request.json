@@ -1,0 +1,30 @@
+{
+  "expected_revision": 5,
+  "idempotency_key": "example-7",
+  "reason": "暂定版本停留调整，不替换当前骨架",
+  "input": {
+    "kind": "dialogue",
+    "reference": "synthetic-input",
+    "text": "暂定版本停留调整，不替换当前骨架",
+    "target_ids": []
+  },
+  "commands": [
+    {
+      "op": "revise",
+      "object_type": "Skeleton",
+      "id": "skeleton-b",
+      "changes": {
+        "stops": [
+          {
+            "entity_id": "cairo",
+            "nights": 1
+          },
+          {
+            "entity_id": "luxor",
+            "nights": 2
+          }
+        ]
+      }
+    }
+  ]
+}

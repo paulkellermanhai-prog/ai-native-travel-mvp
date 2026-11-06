@@ -1,0 +1,69 @@
+{
+  "status": "LOCAL_CHECKS_PASSED_CI_PG_HTTP_PENDING",
+  "base_pr11_head": "0078bb542fd4ac81343a602d5f0fe4e62a42620c",
+  "ts_reference": {
+    "tests": 136,
+    "passed": 136,
+    "failures": 0,
+    "skipped": 0,
+    "executed": "2026-11-06T04:19:32.902794+00:00"
+  },
+  "dc_reference": {
+    "core": 58,
+    "recovery": 49,
+    "inherited": 136,
+    "total": 243,
+    "failures": 0,
+    "skipped": 0,
+    "executed": "2026-11-06T04:20:07.779588+00:00"
+  },
+  "node": {
+    "version": "24.22.1",
+    "npm": "11.19.1",
+    "check": "passed",
+    "vitest_passed": 627,
+    "vitest_skipped": 212,
+    "vitest_total": 839,
+    "ux02_focused_passed": 10,
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "db_check": "not_run_locally_no_PostgreSQL_service",
+    "npm_ci_observed_moderate_advisories": 8
+  },
+  "offline_refs": {
+    "resources": 41,
+    "references": 285,
+    "unresolved": 0
+  },
+  "source_snapshot_sha256": "eed1713e7cba5a41d04046fa0be2a1a1f5f0dbbe4e0cb57569405af7ebe1a821",
+  "limitations": [
+    "Local skip is not PG/HTTP acceptance; require CI at exact PR head",
+    "No production DC runtime/NAP/UI/real provider/LLM evaluation",
+    "No merge/deployment"
+  ],
+  "first_head_ci": {
+    "head": "c9bee15905131c3fb477e9b40e9d023c9455d933",
+    "run": 42162087965,
+    "conclusion": "success",
+    "url": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42162087965",
+    "scope": "includes real PG and actual Next HTTP; later amendment is Gate documentation/source metadata only",
+    "vitest_passed": 839,
+    "vitest_skipped": 0,
+    "reference_total": 243,
+    "http_node_tests": 22,
+    "http_child_scenarios": 21,
+    "http_skipped": 0,
+    "http_artifact": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42162087965/artifacts/13477243468"
+  },
+  "r6_gate": "PASS_E03_01_AUTHORIZED",
+  "ux02_delta": "PENDING_INCREMENTAL_TECH_REVIEW",
+  "review_fix_candidate": {
+    "finding": "UX02-PR13-TECH-REVIEW-2026-11-06-01",
+    "reference_tests": 244,
+    "TS_reference_tests": 137,
+    "R6_R7_independent_process_compatibility": "passed",
+    "schema_byte_comparison": "20 TS + 20 DC passed",
+    "CI": "pending latest head"
+  }
+}

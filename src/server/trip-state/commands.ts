@@ -327,6 +327,17 @@ function executeCommands(before: State, request: CommandRequest, actor: Actor, p
         const included = candidate.subject_ids.every((id) => cities.has(id));
         rule(!(choice.value === "accept" && !included || choice.value === "reject" && included), "CONFIRMED_CANDIDATE", "新骨架与明确候选决定冲突，须在同笔提交中明确撤销该决定");
       }
+      if (candidate.candidate_kind === "experience" && choice.value === "accept") {
+        for (const subject of candidate.subject_ids) {
+          let entity = get(subject); const seen = new Set<string>();
+          while (entity.type === "DestinationEntity" && entity.parent_id && !seen.has(entity.id)) {
+            seen.add(entity.id); entity = get(entity.parent_id);
+            if (entity.type === "DestinationEntity" && entity.entity_kind === "city") {
+              rule(cities.has(entity.id), "CONFIRMED_CANDIDATE", "新骨架移除了已确认体验所在城市，须明确处理原决定"); break;
+            }
+          }
+        }
+      }
     }
     rule(o.assessment.status !== "blocked", "HARD_CONFLICT", "已知硬约束冲突阻止新骨架生效");
     rule(!o.assessment.unknowns.length || cmd.acknowledge_unknowns, "UNKNOWN_ACK", "必须承认已展示待核验项");
