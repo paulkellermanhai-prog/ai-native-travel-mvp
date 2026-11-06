@@ -23,7 +23,7 @@ export const defaultUuid = () => randomUUID().replaceAll("-", "");
 export function validateActor(actor: Actor): void {
   rule(actor && ["user", "model", "system", "tool"].includes(actor.role) && /^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(actor.id), "ACTOR", "执行主体必须由宿主鉴权后注入");
 }
-export function failureResponse(state: State, error: TripStateContractError): TripStateContracts["response"] {
+export function failureResponse(state: Pick<State, "revision">, error: TripStateContractError): TripStateContracts["response"] {
   safeCounter(state.revision, "revision");
   return parseContract("response", { outcome: ["VERSION_CONFLICT", "IDEMPOTENCY_CONFLICT"].includes(error.code) ? "conflict" : "rejected", revision: state.revision,
     proposal_id: null, proposal_digest: null, confirmation_required: false, affected_ids: [], diff: [], errors: [{ code: error.code, message: error.message }] });

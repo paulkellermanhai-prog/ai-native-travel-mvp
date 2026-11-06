@@ -1,3 +1,4 @@
+import { request as nodeHttpRequest } from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -209,6 +210,31 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
       const before = await state(), history = (await http("GET", changes, undefined, a)).body; await stop(); await start(); await login(a);
       assert.deepEqual(await state(), before); assert.deepEqual((await http("GET", changes, undefined, a)).body, history);
       const replay = await http("POST", changes, durableRequest, a); assert.equal(replay.status, 200); assert.deepEqual(replay.body, durableResponse);
+    });
+    await t.test("revocation while a malformed HTTP body is streaming cannot reveal another member's new revision", async () => {
+      admin("grant-trip", {tripId:trip,userId:b.id});
+      const prior=await state();
+      let responseResolve!:(value:{status:number;body:Body})=>void,responseReject!:(error:Error)=>void;
+      const responsePromise=new Promise<{status:number;body:Body}>((resolve,reject)=>{responseResolve=resolve;responseReject=reject;});
+      const slow=nodeHttpRequest(origin+changes,{method:"POST",headers:{cookie:a.cookie,origin,"content-type":"application/json"}},response=>{
+        let raw="";response.setEncoding("utf8");response.on("data",chunk=>{raw+=chunk;});response.on("end",()=>{
+          try{responseResolve({status:response.statusCode!,body:parseContract("response",JSON.parse(raw))});}catch(error){responseReject(error as Error);}
+        });
+      });
+      void responsePromise.catch(()=>{}); // The test may abort before awaiting the HTTP response.
+      slow.on("error",responseReject);slow.write("{");
+      try {
+        // Hold the chunked body open so the request overlaps the member change.
+        await pause(750);
+        const advanced=await http("POST",changes,edit(prior.revision,"other-member-advances"),b);assert.equal(advanced.status,200);
+        assert.equal(advanced.body.revision,prior.revision+1);
+        admin("revoke-trip",{tripId:trip,userId:a.id});
+        const afterB=await owner.query('SELECT "revision", (SELECT count(*)::int FROM "TripStateHistory" h WHERE h."tripId"=$1) AS n FROM "TripStateDocument" WHERE "tripId"=$1',[trip]);
+        slow.end();const denied=await responsePromise;
+        assert.equal(denied.status,403);assert.equal(denied.body.revision,0);assert.equal(denied.body.errors[0].code,"PERMISSION");assert.deepEqual(denied.body.diff,[]);assert.deepEqual(denied.body.affected_ids,[]);
+        const afterA=await owner.query('SELECT "revision", (SELECT count(*)::int FROM "TripStateHistory" h WHERE h."tripId"=$1) AS n FROM "TripStateDocument" WHERE "tripId"=$1',[trip]);assert.deepEqual(afterA.rows,afterB.rows);
+        evidence.push({method:"POST",route:changes,transport:"slow chunked malformed body; membership revoked after another user advanced",status:denied.status,body:denied.body});
+      } finally {slow.destroy();admin("grant-trip",{tripId:trip,userId:a.id});admin("revoke-trip",{tripId:trip,userId:b.id});}
     });
     await t.test("durable authentication throttling cannot be bypassed by claiming a different forwarded IP", async () => {
       let limited = false;

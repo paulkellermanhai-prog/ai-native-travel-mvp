@@ -352,4 +352,54 @@ describe.skipIf(!cfg?.authUrl)("E02-05A real password, database Session and live
     } finally {release();await pending;}
   },15000);
 
+  it.each(["submit","confirm","submit-replay","confirm-replay","submit-malformed","submit-schema","submit-unsafe","confirm-malformed","confirm-schema"] as const)("never disclose another member's advanced revision after revoked/expired initial authorization: %s",async kind=>{
+    for (const failure of ["revoked","expired"] as const) {
+      const f=await setup(),b=await account(f.identity);
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+      const command=goal();let proposalId="proposal-unknown";const confirmation={expected_revision:0,idempotency_key:"confirm-redaction",proposal_digest:"x",accept:true};
+      if(kind==="submit-replay")expect(await f.service.submit(f.tripId,command,f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+      if(kind==="confirm-replay") {
+        const token=await issueInternalCapability(f.secret,f.tripId,{role:"model",id:"model-redaction"});const proposal=await f.internal.submit(f.tripId,command,token);
+        expect(proposal.outcome).toBe("pending_confirmation");proposalId=proposal.proposal_id!;confirmation.proposal_digest=proposal.proposal_digest!;
+        expect(await f.service.confirm(f.tripId,proposalId,confirmation,f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+      }
+      let notify!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{notify=r;}),resume=new Promise<void>(r=>{release=r;});let first=true;
+      const host={...f.host,authorize:async (...args:Parameters<typeof f.host.authorize>)=>{const grant=await f.host.authorize(...args);if(first){first=false;notify();await resume;}return grant;}};
+      const service=await openTripCommandService(cfg!.runtimeUrl,host);resources.push(service);
+      const confirm=kind.startsWith("confirm");let input:unknown=confirm?confirmation:command;
+      if(kind.endsWith("malformed"))input="{";
+      if(kind.endsWith("schema"))input={...command,unexpected_authority:true};
+      if(kind==="submit-unsafe")input=JSON.stringify(command).replace('"expected_revision":0','"expected_revision":9007199254740993');
+      const pending=(confirm?service.confirm(f.tripId,proposalId,input,f.a.headers):service.submit(f.tripId,input,f.a.headers)).then(value=>({value,error:null}),error=>({value:null,error}));
+      try {
+        await entered;const prior=kind.endsWith("replay")?1:0;
+        const bCommand=prior?requestAt(2,prior,`b-activate-${crypto.randomUUID()}`):goal();
+        bCommand.idempotency_key=`b-advance-${crypto.randomUUID()}`;
+        expect(await f.service.submit(f.tripId,bCommand,b.headers)).toMatchObject({outcome:"applied",revision:prior+1});
+        const fingerprint = async () => {
+          const rows=[];
+          for (const table of ["TripStateDocument","TripStateHistory","TripStateProposal","TripStateIdempotency"]) rows.push((await owner.query(`SELECT row_to_json(t)::text AS row FROM "${table}" t WHERE "tripId"=$1 ORDER BY row_to_json(t)::text`,[f.tripId])).rows);
+          return crypto.createHash("sha256").update(JSON.stringify(rows)).digest("hex");
+        };
+        const afterB=await fingerprint();
+        if(failure==="revoked")await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+        else await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);
+        release();const result=await pending;expect(result.error).toBeNull();
+        expect(result.value).toMatchObject({outcome:"rejected",revision:0,affected_ids:[],diff:[],errors:[{code:"PERMISSION"}]});
+        expect(await fingerprint()).toBe(afterB);
+      } finally {release();await pending;}
+    }
+  },30000);
+
+  it("authorized malformed and stale operations retain the original error contract and current revision",async()=>{
+    const f=await setup(), command=goal();expect(await f.service.submit(f.tripId,command,f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+    const malformed=await f.service.submit(f.tripId,"{",f.a.headers);expect(malformed).toMatchObject({outcome:"rejected",revision:1,errors:[{code:"SCHEMA"}]});
+    const malformedConfirm=await f.service.confirm(f.tripId,"proposal-unknown","{",f.a.headers);expect(malformedConfirm).toMatchObject({outcome:"rejected",revision:1,errors:[{code:"SCHEMA"}]});
+    const missing=await f.service.confirm(f.tripId,"proposal-unknown",{expected_revision:1,idempotency_key:"missing",proposal_digest:"x",accept:true},f.a.headers);
+    expect(missing).toMatchObject({outcome:"rejected",revision:1,errors:[{code:"PROPOSAL_NOT_FOUND"}]});
+    const stale=goal();stale.idempotency_key="fresh-stale-key";const conflict=await f.service.submit(f.tripId,stale,f.a.headers);
+    expect(conflict).toMatchObject({outcome:"conflict",revision:1,errors:[{code:"VERSION_CONFLICT"}]});
+    expect((await owner.query('SELECT count(*)::int AS n FROM "TripStateHistory" WHERE "tripId"=$1',[f.tripId])).rows[0].n).toBe(1);
+  });
+
 });
