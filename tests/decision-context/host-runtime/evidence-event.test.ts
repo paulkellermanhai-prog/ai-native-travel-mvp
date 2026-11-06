@@ -3,9 +3,9 @@ import { prepareEvidenceEvent } from "../../../src/server/decision-context/host-
 
 describe("host evidence event preparation", () => {
   const principal = { userId: "user-a", sessionId: "session-a" };
-  const input = { entry: "dialogue", text: "你好 🌍", idempotency_key: "key-a" };
-  const now = new Date("2030-01-01T00:00:00.123Z");
   it("creates server-generated distinct IDs and stable content digests without mutating input", () => {
+    const input = { entry: "dialogue", text: "你好 🌍", idempotency_key: "key-a" };
+    const now = new Date("2030-01-01T00:00:00.123Z");
     const a = prepareEvidenceEvent(principal, "trip-a", "workspace-a", input, now);
     const b = prepareEvidenceEvent(principal, "trip-a", "workspace-a", input, now);
     expect(a.eventId).not.toBe(b.eventId);
