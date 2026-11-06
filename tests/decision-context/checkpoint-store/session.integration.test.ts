@@ -53,9 +53,9 @@ describe.skipIf(!cfg)("checkpoint Session wrapper in real PostgreSQL", () => {
         if (!session) throw new Error("Synthetic account must have a real Session");
         return {user,session};
       }
-      const a = await account(), b = await account(), c = await account(), d = await account(), e = await account(), f = await account(), trip = `trip-cp-${randomBytes(8).toString("hex")}`;
+      const a = await account(), b = await account(), c = await account(), d = await account(), e = await account(), f = await account(), g = await account(), trip = `trip-cp-${randomBytes(8).toString("hex")}`;
       await trips.createTrip(trip,await issueInternalCapability(secret,trip,{role:"system",id:"cp-test"}));
-      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3),($1,$4),($1,$5),($1,$6),($1,$7)',[trip,a.user.id,b.user.id,c.user.id,d.user.id,e.user.id,f.user.id]);
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3),($1,$4),($1,$5),($1,$6),($1,$7),($1,$8)',[trip,a.user.id,b.user.id,c.user.id,d.user.id,e.user.id,f.user.id,g.user.id]);
       const payload = structuredClone((JSON.parse(readFileSync("tests/decision-context/fixtures/r6-contracts.json", "utf8")) as {schema:string;value:CheckpointPayload}[]).find((r) => r.schema === "checkpoint-payload")!.value);
       payload.trip_id = trip;
       const aRepo = new PgCheckpointRepository(pool,null,undefined,{sessionId:a.session.session.id,userId:a.user.id,trip,workspace:"host-workspace"});
@@ -73,6 +73,16 @@ describe.skipIf(!cfg)("checkpoint Session wrapper in real PostgreSQL", () => {
       await expect(pool.query("SELECT e03_checkpoint.list_scenes($1,$2,$3)",[aScope.owner,trip,now.toISOString()])).rejects.toThrow();
       await expect(pool.query("SELECT e03_checkpoint.write_scene($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11)",
         [aScope.owner,trip,aScope.workspace,1,"forged","digest",JSON.stringify(payload),"digest",now.toISOString(),null,false])).rejects.toThrow();
+      const rights = (await pool.query<{direct:boolean;create_schema:boolean;raw_execute:boolean;owner:boolean}>(`SELECT
+        has_table_privilege(current_user,'e03_checkpoint.heads','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') OR
+        has_table_privilege(current_user,'e03_checkpoint.receipts','SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER') AS direct,
+        has_schema_privilege(current_user,'e03_checkpoint','CREATE') AS create_schema,
+        has_function_privilege(current_user,'e03_checkpoint.write_scene(text,text,text,bigint,text,text,jsonb,text,text,text,boolean)','EXECUTE') OR
+        has_function_privilege(current_user,'e03_checkpoint.read_scene(text,text,text,text)','EXECUTE') OR
+        has_function_privilege(current_user,'e03_checkpoint.list_scenes(text,text,text)','EXECUTE') AS raw_execute,
+        EXISTS(SELECT 1 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+          WHERE n.nspname='e03_checkpoint' AND c.relname IN ('heads','receipts') AND pg_has_role(current_user,c.relowner,'USAGE')) AS owner`)).rows[0];
+      expect(rights).toEqual({direct:false,create_schema:false,raw_execute:false,owner:false});
       // The SQL wrapper still accepts a server-supplied workspace string. This
       // deliberate counterexample is why a real host ownership proof remains required.
       const rawOther = await pool.query<{value:{payload?:unknown}}>("SELECT e03_checkpoint.session_read_scene($1,$2,$3,$4,$5) AS value",
@@ -175,6 +185,34 @@ describe.skipIf(!cfg)("checkpoint Session wrapper in real PostgreSQL", () => {
       } finally { fRelease(); }
       expect((await fWrite).checkpoint_revision).toBe(1);
       await expect(fRepo.load(fScope,now)).rejects.toMatchObject({code:"ACCESS_DENIED"});
+      // A privileged maintenance session deliberately violates the advisory-lock
+      // discipline and holds only the row lock. The final authorization already
+      // passed, so expiry while waiting for the row does not revoke this write.
+      const gScope = {...aScope,owner:userActorId(g.user.id)};
+      const gRepo = new PgCheckpointRepository(pool,null,undefined,{sessionId:g.session.session.id,userId:g.user.id,trip,workspace:"host-workspace"});
+      await gRepo.save(gScope,0,"g-initial",payload,now);
+      const rowLocker = new Client({connectionString:cfg!.migrationUrl}); await rowLocker.connect();
+      try {
+        await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()+interval \'3 seconds\' WHERE id=$1',[g.session.session.id]);
+        await rowLocker.query("BEGIN");
+        const blockerPid = (await rowLocker.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+        await rowLocker.query("SELECT revision FROM e03_checkpoint.heads WHERE owner_id=$1 AND trip_id=$2 AND workspace=$3 FOR UPDATE",[gScope.owner,trip,gScope.workspace]);
+        const pending = gRepo.save(gScope,1,"after-final-auth-row-wait",payload,now).then((value) => ({value}), (error) => ({error}));
+        const deadline = Date.now()+7000; let blocked = false, expired = false;
+        while (Date.now()<deadline && !(blocked && expired)) {
+          const row = (await owner.query<{waiting:boolean;expired:boolean}>(`SELECT
+            EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock'
+              AND $3=ANY(pg_blocking_pids(pid)) AND query LIKE '%session_write_scene%') AS waiting,
+            (SELECT "expiresAt" <= clock_timestamp() FROM "AuthSession" WHERE id=$2) AS expired`,
+            [role,g.session.session.id,blockerPid])).rows[0];
+          blocked ||= row.waiting; expired ||= row.expired;
+          if (!(blocked && expired)) await new Promise((resolve) => setTimeout(resolve,20));
+        }
+        expect(blocked).toBe(true); expect(expired).toBe(true);
+        await rowLocker.query("COMMIT");
+        expect(await pending).toMatchObject({value:{checkpoint_revision:2}});
+        await expect(gRepo.load(gScope,now)).rejects.toMatchObject({code:"ACCESS_DENIED"});
+      } finally { await rowLocker.query("ROLLBACK").catch(() => undefined); await rowLocker.end(); }
       let enter!: () => void, release!: () => void, revoked = false;
       const entered = new Promise<void>((resolve) => { enter = resolve; });
       const gate = new Promise<void>((resolve) => { release = resolve; });
