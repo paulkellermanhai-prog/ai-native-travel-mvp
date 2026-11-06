@@ -67,6 +67,10 @@ jobs:
           npm run specs:verify
           npm run specs:ac8
           npm run contracts:check
+      - name: Verify UX02 sources and updated local TS/DC reference
+        run: |
+          npm run specs:ux02
+          "$TRIP_STATE_PYTHON" -B scripts/verify-ux02.py --run-reference
       - name: Validate Prisma schema
         run: npm run db:validate
       - name: Generate Prisma client

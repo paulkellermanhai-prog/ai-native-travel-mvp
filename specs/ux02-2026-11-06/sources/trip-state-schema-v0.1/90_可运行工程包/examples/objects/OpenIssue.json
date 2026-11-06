@@ -1,0 +1,36 @@
+{
+  "id": "issue-cost",
+  "type": "OpenIssue",
+  "trip_id": "trip-egypt-test",
+  "version": 1,
+  "status": "open",
+  "scope": {
+    "kind": "trip",
+    "ids": []
+  },
+  "source": {
+    "actor": "user",
+    "actor_id": "user-demo",
+    "reference": "synthetic-input",
+    "text": "测试材料，不代表真实用户或现实交通",
+    "at": "2030-01-01T00:00:00Z"
+  },
+  "dependencies": [],
+  "updated_at": "2030-01-01T00:00:00Z",
+  "issue_kind": "missing",
+  "question": "住宿餐饮尚未取得费用依据",
+  "affected_ids": [
+    "skeleton-a"
+  ],
+  "severity": "warning",
+  "required_inputs": [
+    "lodging_cost",
+    "food_cost"
+  ],
+  "candidate_actions": [
+    "verify"
+  ],
+  "owner": "provider",
+  "resolution": null,
+  "evidence_ids": []
+}

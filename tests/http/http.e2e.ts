@@ -61,7 +61,7 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
     const h = new Headers(method === "POST" ? { "content-type": "application/json", origin } : {}); for (const [key, value] of Object.entries(headers)) if (value !== undefined) h.set(key, value); if (user?.cookie) h.set("cookie", user.cookie);
     const response = await fetch(origin + route, { method, headers: h, ...(body === undefined ? {} : { body: typeof body === "string" ? body : JSON.stringify(body) }), redirect: "manual" });
     const text = await response.text(), value = text ? JSON.parse(text) : null;
-    if (route.startsWith("/trips/") && method !== "HEAD") parseContract(response.status === 200 && method === "GET" ? route.endsWith("/state") ? "state" : "history" : "response", value);
+    if (route.startsWith("/trips/") && method !== "HEAD" && !route.endsWith("/restorations/preview")) parseContract(response.status === 200 && method === "GET" ? route.endsWith("/state") ? "state" : "history" : "response", value);
     evidence.push({ method, route, status: response.status, body: value }); // Deliberately excludes credentials, cookies and request passwords.
     return { status: response.status, body: value, headers: response.headers };
   }
@@ -219,6 +219,56 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
       const request = requestAt(4, s.revision, `http-rough-budget-${crypto.randomUUID()}`); request.commands = [command]; request.input.target_ids = [];
       const before = await fingerprint(), response = await http("POST", changes, request, a);
       assert.equal(response.status, 422); assert.equal(response.body.errors[0].code, "SCHEMA"); assert.equal(await fingerprint(), before);
+    });
+    await t.test("UX02 whole and city history previews use existing atomic HTTP commit, current identity, idempotency and CAS", async () => {
+      let seedState = await state();
+      const cities = ["cairo", "luxor"].map((id) => {
+        const city = createFrom(object(base, id, "DestinationEntity"), id);
+        assert(city.op === "create" && city.object_type === "DestinationEntity"); city.data.parent_id = null; return city;
+      });
+      const catalog = requestAt(4, seedState.revision, crypto.randomUUID()); catalog.commands = [cities[0], ...cities.slice(1)];
+      assert.equal((await internal.submit(trip, catalog, await issueInternalCapability(secret, trip, { role: "system", id: "ux02-catalog" }))).outcome, "applied");
+      seedState = await state(); const original = createFrom(object(base, "skeleton-a", "Skeleton"), "ux02-original");
+      assert(original.op === "create" && original.object_type === "Skeleton");
+      Object.assign(original.data, { stops: [{ entity_id: "new-city", nights: 1 }, { entity_id: "cairo", nights: 1 }, { entity_id: "luxor", nights: 1 }],
+        connections: [{ from_id: "new-city", to_id: "cairo", fact_ids: [] }, { from_id: "cairo", to_id: "luxor", fact_ids: [] }], cost_fact_ids: [], parent_id: seedState.effective_skeleton_id });
+      const seed = requestAt(4, seedState.revision, crypto.randomUUID());
+      seed.commands = [original, { op: "adopt_skeleton", id: original.id, acknowledge_unknowns: true, confirmation_scope: ["cities", "order", "stays", "connections"] }];
+      assert.equal((await http("POST", changes, seed, a)).status, 200);
+      for (const city of [undefined, "luxor"]) {
+        const initial = await state(), sourceId = initial.objects.find((o) => o.type === "Skeleton" && o.purpose === "plan" && initial.objects.some((d) => d.type === "Decision" && d.subject_id === o.id && d.decision_kind === "adopt_skeleton"))?.id;
+        assert(sourceId);
+        const body = { expected_revision: initial.revision, source_id: sourceId, new_id: `restored-${crypto.randomBytes(6).toString("hex")}`,
+          city_id: city, idempotency_key: crypto.randomUUID(), reason: "合成HTTP本轮明确恢复", acknowledge_unknowns: true,
+          input: { kind: "dialogue", reference: crypto.randomUUID(), text: "恢复已展示的旧安排", target_ids: [] } };
+        const before = await fingerprint();
+        assert.equal((await http("POST", `/trips/${trip}/restorations/preview`, body, b)).status, 403);
+        const prepared = await http("POST", `/trips/${trip}/restorations/preview`, body, a);
+        assert.equal(prepared.status, 200); assert.equal(prepared.body.preview.outcome, "preview");
+        parseContract("change-request", prepared.body.request); parseContract("response", prepared.body.preview);
+        assert.equal(await fingerprint(), before);
+        assert.equal((await http("POST", changes, prepared.body.request, a)).status, 200);
+        const applied = await state(); assert.equal(applied.effective_skeleton_id, body.new_id);
+        const saved = await fingerprint(); assert.equal((await http("POST", changes, prepared.body.request, a)).status, 200);
+        assert.equal(await fingerprint(), saved);
+        const stale = await http("POST", `/trips/${trip}/restorations/preview`, { ...body, new_id: `stale-${crypto.randomBytes(4).toString("hex")}` }, a);
+        assert.equal(stale.status, 409); assert.equal(await fingerprint(), saved);
+      }
+      let current = await state();
+      const hard = createFrom(object(base, "constraint-nights", "Constraint"), "ux02-hard-nights");
+      assert(hard.op === "create" && hard.object_type === "Constraint"); hard.data.value = { kind: "duration", maximum_nights: 1 };
+      const constraint = requestAt(4, current.revision, crypto.randomUUID());
+      constraint.commands = [hard, { op: "transition", id: hard.id, event: "activate" }];
+      assert.equal((await http("POST", changes, constraint, a)).status, 200); current = await state();
+      const saved = await fingerprint(), blocked = await http("POST", `/trips/${trip}/restorations/preview`, {
+        source_id: "ux02-original", new_id: "blocked-http-restore", expected_revision: current.revision, idempotency_key: crypto.randomUUID(),
+        input: { kind: "dialogue", reference: "new-hard-conflict", text: "恢复旧版", target_ids: [] }, reason: "当前恢复", acknowledge_unknowns: true,
+      }, a);
+      assert.equal(blocked.status, 422); assert.equal(blocked.body.can_submit, false);
+      assert.equal(blocked.body.impact.diff.find((d: { id: string }) => d.id === "blocked-http-restore").after.assessment.status, "blocked");
+      assert.equal(await fingerprint(), saved);
+      const denied = await http("POST", `/trips/${trip}/restorations/preview`, { expected_revision: current.revision, actor_id: a.id }, a);
+      assert.equal(denied.status, 422);
     });
     await t.test("AC8 X01 real member identity guards direct withdrawal and Model proposal acceptance after restart", async () => {
       admin("grant-trip", { tripId: trip, userId: b.id });

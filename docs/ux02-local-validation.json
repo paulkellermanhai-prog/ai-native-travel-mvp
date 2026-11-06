@@ -1,0 +1,45 @@
+{
+  "status": "LOCAL_CHECKS_PASSED_CI_PG_HTTP_PENDING",
+  "base_pr11_head": "0078bb542fd4ac81343a602d5f0fe4e62a42620c",
+  "ts_reference": {
+    "tests": 136,
+    "passed": 136,
+    "failures": 0,
+    "skipped": 0,
+    "executed": "2026-11-06T04:19:32.902794+00:00"
+  },
+  "dc_reference": {
+    "core": 58,
+    "recovery": 49,
+    "inherited": 136,
+    "total": 243,
+    "failures": 0,
+    "skipped": 0,
+    "executed": "2026-11-06T04:20:07.779588+00:00"
+  },
+  "node": {
+    "version": "24.22.1",
+    "npm": "11.19.1",
+    "check": "passed",
+    "vitest_passed": 627,
+    "vitest_skipped": 212,
+    "vitest_total": 839,
+    "ux02_focused_passed": 10,
+    "typecheck": "passed",
+    "lint": "passed",
+    "build": "passed",
+    "db_check": "not_run_locally_no_PostgreSQL_service",
+    "npm_ci_observed_moderate_advisories": 8
+  },
+  "offline_refs": {
+    "resources": 41,
+    "references": 285,
+    "unresolved": 0
+  },
+  "source_snapshot_sha256": "34f4f73fc60cdcac8443875c4f8e231481ff99d9418ee187a928e6b8fbc35761",
+  "limitations": [
+    "Local skip is not PG/HTTP acceptance; require CI at exact PR head",
+    "No production DC runtime/NAP/UI/real provider/LLM evaluation",
+    "No merge/deployment"
+  ]
+}

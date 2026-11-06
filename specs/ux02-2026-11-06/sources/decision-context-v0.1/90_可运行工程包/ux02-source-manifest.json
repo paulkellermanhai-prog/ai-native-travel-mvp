@@ -1,0 +1,83 @@
+{
+  "format": "antu-ux02-source/v1",
+  "revision": "2026-11-06-ux02-candidate",
+  "approval": "IMPLEMENTATION_CANDIDATE_PENDING_TECH_REVIEW",
+  "sources": [
+    {
+      "path": "UX/UX-02/Core-UX-Flow-V0.1.md",
+      "sha256": "2a42c5c460af5452d681e73be9e315cc8218ce771b87db36afd13e100159b9a4"
+    },
+    {
+      "path": "UX/UX-02/Engineering-Impact-Matrix-V0.1.md",
+      "sha256": "aa74180346ff6e396b744321fefc25643833b605eb7bd8be45ba8e63361b1d0b"
+    },
+    {
+      "path": "UX/UX-02/Interaction-and-UI-Concepts-V0.1.md",
+      "sha256": "695c276b0048384a59974ad29f35649b2f3cf20081a4e2c30c96377597869508"
+    },
+    {
+      "path": "UX/UX-02/README.md",
+      "sha256": "d0b3ca0b770a75b6ddd23d25b1f57f635c84a3de88f499747eaa1d8bc50eec95"
+    },
+    {
+      "path": "UX/UX-02/UX-02-NAP-Impact-V0.1.md",
+      "sha256": "8311487f48233d87ac6f69ed29574c04968209ab88a1fdaf6ae7d000d42a77aa"
+    },
+    {
+      "path": "UX/UX-02/UX-02-PRD-TS-DC-Review-V0.1.md",
+      "sha256": "a1ea703a646f8991803c14b83a78f8751a805ea67686eaf89d86f171ebcb1b30"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-01.md",
+      "sha256": "0621bbbaa99323c32a3f03b796a3ffb048d255166f5052ab37e154e7c899148f"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-02.md",
+      "sha256": "78232b8ce8d13d1ddf5a90c676be40c856d5a696d2ad5ff8cff3f6d5a1f8dd0f"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-03.md",
+      "sha256": "418951b795d9766309276b28d5c593621cf330f113fd9e069334719cabc52a8f"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-04.md",
+      "sha256": "706023bf51f7e706d32edf43e721b46f539c2e96c579782a289ea0a5fb3b4b26"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-05.md",
+      "sha256": "81e6e1d93ba144259f55d581d8fd2781b6525935f0fa71bd22f89e5d45923190"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-06.md",
+      "sha256": "0fe84e26b6a706a772b95254cb767ea28e3029e3f63e2a1b191ed2c700ca1db3"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-07.md",
+      "sha256": "1e950b9d0bf7d7e22c4fc8d2cf27fd7f64df7bc508e6f148f8fe73e87a07ffc8"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-08.md",
+      "sha256": "a97a5e51f9a1e3d18fae48dd64dba0ef696731f0873ae6a20315cb606cfddaa6"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-09.md",
+      "sha256": "3d7e38e6df1cc6ca3c788c0e77887364f109472f72553bfa5ce92ae23331ca40"
+    },
+    {
+      "path": "UX/UX-02/sources/KB-10.md",
+      "sha256": "72357606f8d4a2403c85ac0aeb6a424145e81e52659977eeae09eab940864e9a"
+    },
+    {
+      "path": "UX/UX-02/sources/Original-Chat-Access.md",
+      "sha256": "4b40759df0c9475cac9ac8c8cfafcd43d0b907332a3969cf586260ee0b61058d"
+    },
+    {
+      "path": "UX/UX-02/sources/README.md",
+      "sha256": "b9704317867b70d3227e77e07ba54a5d7293c9fab878f6581b7b22a42bbe0f18"
+    },
+    {
+      "path": "AI Native旅行产品｜PRD V0.1.md",
+      "sha256": "19321a8f0e459d54fcff5e54f77ea3af06235035699dcc777a3d6cff7dd2c203"
+    }
+  ]
+}

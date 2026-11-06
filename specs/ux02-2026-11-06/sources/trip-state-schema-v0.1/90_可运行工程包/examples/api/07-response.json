@@ -1,0 +1,146 @@
+{
+  "outcome": "applied",
+  "revision": 6,
+  "proposal_id": "proposal-00000000000000000000000000000016",
+  "proposal_digest": "21d1c063af7aebe624889bd6c88c59ac48e230d02ff475df40742d075aa90712",
+  "confirmation_required": false,
+  "affected_ids": [
+    "skeleton-b"
+  ],
+  "diff": [
+    {
+      "id": "skeleton-b",
+      "before": {
+        "id": "skeleton-b",
+        "type": "Skeleton",
+        "trip_id": "trip-egypt-test",
+        "version": 1,
+        "status": "active",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "dependencies": [],
+        "source": {
+          "actor": "user",
+          "actor_id": "user-demo",
+          "reference": "synthetic-input",
+          "text": "连续编辑前创建独立暂定版本",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "updated_at": "2030-01-01T00:00:00Z",
+        "purpose": "plan",
+        "stops": [
+          {
+            "entity_id": "cairo",
+            "nights": 2
+          },
+          {
+            "entity_id": "luxor",
+            "nights": 2
+          }
+        ],
+        "connections": [
+          {
+            "from_id": "cairo",
+            "to_id": "luxor",
+            "fact_ids": [
+              "fact-cairo-luxor"
+            ]
+          }
+        ],
+        "cost_fact_ids": [
+          "cost-transport"
+        ],
+        "parent_id": null,
+        "overrides": [],
+        "tradeoffs": {
+          "gains": [
+            "文化体验"
+          ],
+          "losses": [
+            "转场时间"
+          ]
+        },
+        "assessment": {
+          "status": "stale",
+          "total_nights": null,
+          "connection_minutes": [],
+          "cost_groups": [],
+          "cost_coverage": "none",
+          "unknowns": [
+            "inputs_changed"
+          ],
+          "violations": [],
+          "checked_at": null
+        }
+      },
+      "after": {
+        "id": "skeleton-b",
+        "type": "Skeleton",
+        "trip_id": "trip-egypt-test",
+        "version": 2,
+        "status": "active",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "dependencies": [],
+        "source": {
+          "actor": "user",
+          "actor_id": "user-demo",
+          "reference": "synthetic-input",
+          "text": "暂定版本停留调整，不替换当前骨架",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "updated_at": "2030-01-01T00:00:00Z",
+        "purpose": "plan",
+        "stops": [
+          {
+            "entity_id": "cairo",
+            "nights": 1
+          },
+          {
+            "entity_id": "luxor",
+            "nights": 2
+          }
+        ],
+        "connections": [
+          {
+            "from_id": "cairo",
+            "to_id": "luxor",
+            "fact_ids": [
+              "fact-cairo-luxor"
+            ]
+          }
+        ],
+        "cost_fact_ids": [
+          "cost-transport"
+        ],
+        "parent_id": null,
+        "overrides": [],
+        "tradeoffs": {
+          "gains": [
+            "文化体验"
+          ],
+          "losses": [
+            "转场时间"
+          ]
+        },
+        "assessment": {
+          "status": "stale",
+          "total_nights": null,
+          "connection_minutes": [],
+          "cost_groups": [],
+          "cost_coverage": "none",
+          "unknowns": [
+            "inputs_changed"
+          ],
+          "violations": [],
+          "checked_at": null
+        }
+      }
+    }
+  ],
+  "errors": []
+}

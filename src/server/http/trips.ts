@@ -1,3 +1,5 @@
+import { restorationRequest, parseRestorationInput, restorationImpact } from "../trip-state/restoration";
+import { decodeCommandJson } from "../trip-state/command-json";
 import { parseContract, TripStateContractError } from "../trip-state/contracts";
 import { StorageError } from "../trip-state/internal/persistence";
 import type { TripStateContracts } from "../trip-state/contracts.generated";
@@ -31,12 +33,21 @@ export async function handleTripHttp(request: Request, tripId: string, resource:
     const path = resource.join("/"), id = /^[A-Za-z][A-Za-z0-9_-]{0,95}$/;
     if (!id.test(tripId)) throw new TripStateContractError("NOT_FOUND", "接口不存在");
     const confirmation = resource.length === 3 && resource[0] === "changes" && resource[2] === "confirm" && id.test(resource[1]);
-    const get = path === "state" || path === "changes", post = path === "changes" || path === "changes/preview" || confirmation;
+    const get = path === "state" || path === "changes", post = path === "changes" || path === "changes/preview" || path === "restorations/preview" || confirmation;
     if (!get && !post) throw new TripStateContractError("NOT_FOUND", "接口不存在");
     if (request.method === "GET" && get) return json(path === "state" ? before : parseContract("history", await trips.history(tripId, credential)), 200);
     if (request.method !== "POST" || !post) return json(errorResponse("METHOD_NOT_ALLOWED", "方法不适用于该接口", revision), 405, { Allow: path === "changes" ? "GET, POST" : get ? "GET" : "POST" });
     requireOrigin(request, identity.config.origin);
     const raw = await readJsonText(request); // Keep the original numeric tokens for the existing controlled decoder.
+    if (path === "restorations/preview") {
+      const restore = restorationRequest(before, parseRestorationInput(decodeCommandJson(raw)));
+      const preview = await trips.preview(tripId, restore, credential);
+      if (["PERMISSION", "ACTOR"].includes(preview.errors[0]?.code ?? "")) return json(errorResponse("PERMISSION", "Access denied"), 403);
+      if (statusFor(preview) === 500) return json(errorResponse("INTERNAL_FAILURE", "Request failed"), 500);
+      // Even blocked adoption returns a read-only candidate assessment for explanation and repair.
+      const impact = restorationImpact(before, restore);
+      return json({ request: restore, preview, impact, can_submit: preview.outcome === "preview", warnings: ["historical_content_not_current_verification", "present_current_impacts_before_authorization", "cost_coverage_is_partial", ...(preview.revision !== before.revision ? ["state_changed_refresh_preview"] : [])] }, statusFor(preview));
+    }
     const response = confirmation ? await trips.confirm(tripId, resource[1], raw, credential)
       : path === "changes/preview" ? await trips.preview(tripId, raw, credential) : await trips.submit(tripId, raw, credential);
     // No revision or identity details escape if a live transaction guard detects intervening revocation.

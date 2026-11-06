@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trip-state.example/spec/0.1/response.schema.json",
+  "title": "response",
+  "type": "object",
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "applied",
+        "pending_confirmation",
+        "rejected",
+        "conflict",
+        "preview"
+      ]
+    },
+    "revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "proposal_id": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "proposal_digest": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "description": "非空文本"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "confirmation_required": {
+      "type": "boolean"
+    },
+    "affected_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "diff": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "before": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/TripGoal.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Preference.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Constraint.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/DestinationEntity.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Candidate.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/ExternalFact.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Skeleton.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Decision.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/OpenIssue.schema.json"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "after": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/TripGoal.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Preference.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Constraint.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/DestinationEntity.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Candidate.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/ExternalFact.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Skeleton.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/Decision.schema.json"
+                  },
+                  {
+                    "$ref": "https://trip-state.example/spec/0.1/OpenIssue.schema.json"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "before",
+          "after"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "description": "非空文本"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "description": "非空文本"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    }
+  },
+  "required": [
+    "outcome",
+    "revision",
+    "proposal_id",
+    "proposal_digest",
+    "confirmation_required",
+    "affected_ids",
+    "diff",
+    "errors"
+  ],
+  "additionalProperties": false
+}

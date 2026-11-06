@@ -1,0 +1,17 @@
+{
+  "expected_revision": 7,
+  "idempotency_key": "example-9",
+  "reason": "有限重算返回未知，不编造新日期班次",
+  "input": {
+    "kind": "dialogue",
+    "reference": "synthetic-input",
+    "text": "有限重算返回未知，不编造新日期班次",
+    "target_ids": []
+  },
+  "commands": [
+    {
+      "op": "recalculate",
+      "id": "skeleton-a"
+    }
+  ]
+}

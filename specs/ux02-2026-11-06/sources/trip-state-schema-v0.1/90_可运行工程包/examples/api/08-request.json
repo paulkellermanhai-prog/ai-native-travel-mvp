@@ -1,0 +1,25 @@
+{
+  "expected_revision": 6,
+  "idempotency_key": "example-8",
+  "reason": "修改日期导致旧交通证据不适用",
+  "input": {
+    "kind": "dialogue",
+    "reference": "synthetic-input",
+    "text": "修改日期导致旧交通证据不适用",
+    "target_ids": []
+  },
+  "commands": [
+    {
+      "op": "revise",
+      "object_type": "Constraint",
+      "id": "constraint-dates",
+      "changes": {
+        "value": {
+          "kind": "date_window",
+          "start": "2030-02-10",
+          "end": "2030-02-14"
+        }
+      }
+    }
+  ]
+}
