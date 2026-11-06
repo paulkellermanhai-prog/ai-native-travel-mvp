@@ -1,0 +1,36 @@
+{
+  "format": "antu-e03-c12-applicability-decision/v1",
+  "decision_id": "E03-02-C12-APPLICABILITY-2026-11-06-01",
+  "status": "SEMANTIC_ACCEPTED_IMPLEMENTATION_VALIDATION_PENDING",
+  "authority": "工程侧｜MVP开发计划，AI 技术负责人",
+  "source_conversation": "https://chatgpt.com/c/6adf1136-df44-83e8-9162-95dd261946e7",
+  "source_message_id": "2c06837b-dd25-42a0-b410-75650e2a2d17",
+  "reviewed_prior_head": "b15edffd515f926df963c2c3b2fd3fba6ec67010",
+  "reference_sources": {
+    "r6_selection": "specs/dc-ac8-r6-calibration-2026-11-05/selection.json",
+    "r6_selection_sha256": "eaff06a085946c3a55ddd395169a534b12d8b896e7c4f5dd2b4bde08a46bca77",
+    "r6_runtime_sha256": "12cefe8393194b427c27f13349dfb1a84b189d326f6a25a285b33ca8452b6e01",
+    "ts_reference_commit": "0078bb542fd4ac81343a602d5f0fe4e62a42620c",
+    "ts_reference_engine_sha256": "00d7693bdae138e11b1acee7c8dd9c69806fb19d1f47502aaaf13603d0633dac",
+    "ts_reference_rules_sha256": "dc6cf6d690440035ee876c12afda268f9a670dbc69b1347bf0c3353183da9bc6",
+    "oracle_lock": "specs/e03-01-oracle-lock.json",
+    "r6_manifest": "specs/dc-ac8-r6-calibration-2026-11-05/sources/decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
+    "r6_manifest_sha256": "0e03797ada46e0f0a0546f7237f0a630f49ee12369e1a081d9c2d98b1f514362"
+  },
+  "accepted_difference": "在原注释路径已求值的条件中，将同一已授权旅行、同一版本及同一时刻全快照的现有 C12 争议集合传入原子条件；明确案例为已选 Preference 顶层 condition。争议事实引用为 unknown，复合保持既有三值逻辑，最终保留原 scope 规则。",
+  "unchanged_boundaries": [
+    "冻结 R6 的 selection、manifest、源代码与 Oracle 不改；旧 Oracle 输出真实旧行为",
+    "不扩争议算法、事实召回、跨旅行范围、展示、隐藏、淘汰、追问或自动行动",
+    "不新增 Schema、URI、版本或权限；下游可观察 applicability 有明确行为变化",
+    "taskId 不代表 turn/task 已授权；未开放 Packet、分页、E11 或生产 HTTP"
+  ],
+  "evidence_paths": [
+    "scripts/e03-02-annotation-oracle.py",
+    "tests/decision-context/c12-reference.test.ts",
+    "tests/decision-context/c12-temporal.test.ts",
+    "tests/decision-context/c12-scope.test.ts"
+  ],
+  "formal_stage_accepted": false,
+  "accepted_e03_weight_percent": 18,
+  "stage_acceptance_requires": "最终固定 head 的完整 CI 和原工程计划技术验收；本语义裁定不构成阶段 PASS。"
+}
