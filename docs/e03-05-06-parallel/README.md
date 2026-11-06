@@ -11,6 +11,7 @@
 | `checkpoint-store/migration.sql`、`repository.ts` | 专属 SQL 候选：按 owner/trip/workspace 的头与幂等回执；事务锁/CAS；事务提交后 ACK、不确定提交处理；加载、列举、版本、到期、删除墓碑。新增 Session 包装函数，在同一事务内调用 E02 `authorize_trip_session` 验证并锁住 Session 与成员关系，owner 从已验证用户 ID 推导。 | **未经真实 PG 执行或审核。原始存储函数仍接受范围字符串，不能向生产运行角色授权其 EXECUTE；只拟对身份包装函数按需授权。工作区仍需真实宿主的可信绑定与归属解析，不能从请求体取得。主集成人须审核迁移、授权与各连接点，不能挂到生产或公开路由。** 此目录中的 SQL 不属于正式迁移链。 |
 | `recovery-core/index.ts`、`generation.ts`、`evidence-preflight.ts` | 基于当前 TS 计算版本落后拒绝、缺失、比较/草稿陈旧、已暂缓和重开问题；本地代次轮换；原话页按主体、旅行、工作区、任务、事件、来源和原文做恢复前核验，删除/过期/缺页/不匹配保持不可用。 | 没有恢复或安装真实 Turn/Task；代次未接真实 Grant/Packet 缓存。原话页核验不是可锁定的删除屏障，草稿源尚不可验证时仍拒绝；不可因此宣称真实恢复或旧授权失效。 |
 | `recovery-service/inspection.ts` | 内部只读检查：以现有 Session 与 TS 服务取当前状态，通过身份包装函数在保存点读取事务内复验 Session/成员，检查前后用户、状态及保存点；只返回分类摘要 | 未接 E11 屏障，不返回原话、草稿内容、任务或 `scene-restored`；未开放路由。workspace 只能由可信宿主固定；最后一次复验之后与撤权/删除不保证严格原子。未联测真实 Session/PG。 |
+| `recovery-service/evidence-readiness.ts` | 按已有 E11 `HostInteractionEvidenceReader` 内部合同向每个任务发起有界读取；不可用时保留未知，返回无原话的预检结果。 | 当前只有接口与合成测试，实际 reader、完整分页和可锁定／复验的删除屏障尚不可用；预检结果不授予恢复权限。 |
 
 R6 `datetime` 支持微秒，当前仓储传入 JS `Date` 只有毫秒精度；UTC 文本输出对齐 Python `isoformat` 的秒/六位微秒格式，但微秒级边界尚须明确共享时钟接口及同输入 R6 对照，不能宣称精确等价。R6 和 E11 各自保留政策不同：当前仓储可接受宿主指定的保存期限；检查服务只读时使用 null，不建立生产保留配置。
 
@@ -19,7 +20,7 @@ R6 `datetime` 支持微秒，当前仓储传入 JS `Date` 只有毫秒精度；U
 ## 验证与测试入口
 
 - 先前冻结 R6 SQLite：原恢复 47 项＋专用 5 项 **52 通过**，包含独立进程、CAS、SIGKILL 和旧授权参考测试；与本 TypeScript / PG 应用不是同一验收。
-- 当前新增纯测试覆盖原合同、非法字段、旧状态、Unicode 证据、2MB 拒绝、陈旧/缺失、仅保存重试、本地代次、Session 包装函数路由和 E11 原话缺证判断；本地执行 **16 通过、7 项真实 PG/Session 跳过**。typecheck 和专属目录 lint 通过。原话测试仅使用合成记录，未证明真实权限或删除屏障。
+- 当前新增纯测试覆盖原合同、非法字段、旧状态、Unicode 证据、2MB 拒绝、陈旧/缺失、仅保存重试、本地代次、Session 包装函数路由和 E11 原话缺证判断；本地 **17 通过、7 项真实 PG/Session 跳过**，typecheck 与专属目录 lint 通过。原话测试仅使用合成记录，未证明真实权限或删除屏障。
 - `tests/decision-context/checkpoint-store/postgres.test.ts` 含隔离库重复迁移、受限角色、独立连接和独立进程 CAS、提交前故障、提交后丢回执的故障注入、删除防复活、隔离与到期。新增 `session.integration.test.ts` 准备实际登录、独立受限角色、跨用户/工作区隔离、伪造 Session、撤销成员关系后的数据库守卫测试。**这 7 项目前未运行**。本机 PATH 未发现 PG 或 Docker，`npm run db:check` 因未配置 `DATABASE_URL` 失败。测试可使用已按现有脚本配置的 PostgreSQL 17 本机隔离 E02 数据库 `E02_STORAGE_ENV_FILE`；仅存储测试亦可使用 `E03_CHECKPOINT_TEST_ADMIN_URL` 指向名称以 `antu_e03_test_` 开头的本机专用库。管理员需能创建测试角色。CI 若缺 E02 隔离连接信息则失败，不静默略过真实 Session；存储测试角色允许原始函数仅用于合成测试，Session 测试角色仅授予包装函数执行权限。
 - 当前测试故障点是应用层模拟提交前/后，而非真实数据库网络中断或生产故障；未来需补真实数据库终止连接、后端进程终止、响应不确定、已有 E02 库增量迁移、备份恢复及清理失败。不可把 SQLite 的 SIGKILL 证据换成 PostgreSQL 证据。
 - Node `24.22.1`、npm `11.19.1`；依赖从本机已有工作区复制，不是一次新的 `npm ci`。本机首次 `npm run check` 因 Prisma 尝试写工作区外的缓存被拒；使用 `/tmp/e03-05-06-tools/schema-engine` 的本地副本配置 `PRISMA_SCHEMA_ENGINE_BINARY` 后，来源、合同、Prisma 验证/生成、typecheck 和全项目 lint 通过。全量并行 Vitest 运行时已出现 5 个既有测试失败，执行未结束便中断；这些失败的 5 个测试以 `--maxWorkers=1` 分别重跑全部通过，但原因尚未确证。另一次 `--maxWorkers=2` 全量复跑在完成前中断，**全量 check 未通过，完整回归和 build 未完成**。不能把无 PG 的跳过记为通过。
