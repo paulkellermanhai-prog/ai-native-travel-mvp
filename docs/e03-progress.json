@@ -4,9 +4,9 @@
   "generated_view": "docs/E03阶段看板.md",
   "candidate_pr": 12,
   "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
-  "accepted_weight_percent": 18,
+  "accepted_weight_percent": 33,
   "submitted_weight_percent": 0,
-  "scope": "E03-02 conditionally authorized: pure context and public auth fix; no real TS integration before gates",
+  "scope": "E03-02 accepted at fixed PR #18 head; E03-03 limited parallel authorization only; no automatic production Task, pagination, E11 or later stages",
   "stages": [
     {
       "id": "E03-00",
@@ -100,49 +100,57 @@
       "id": "E03-02",
       "name": "权威状态读取与 Context 组装",
       "weight_percent": 15,
-      "status": "IN_PROGRESS",
-      "accepted": false,
+      "status": "ACCEPTED",
+      "accepted": true,
       "subtasks": [
         {
           "id": "E03-02-1",
           "description": "接入已授权同版状态读取",
-          "status": "IN_PROGRESS"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-02-2",
           "description": "移植原只读Context对象选择与引用闭合",
-          "status": "IN_PROGRESS"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-02-3",
           "description": "校验保护集合、事实时效、未知与组装失败边界",
-          "status": "IN_PROGRESS"
+          "status": "ACCEPTED"
         }
       ],
-      "evidence": [],
-      "execution_location": "feat/e03-02-context-integration 独立分支；纯计算与公共认证前置",
-      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "evidence": [
+        "docs/e03-02-technical-acceptance.json",
+        "docs/E03-02阶段验收与后续接口交接.md",
+        "docs/e03-02-c12-applicability-acceptance.json",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/18",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42187804000",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42187804000/artifacts/13489032296",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42187804000/artifacts/13488922983"
+      ],
+      "execution_location": "PR #18 固定验收 head 9b92c1c；主实施与集成执行者维护验收记录及共享接口",
+      "responsibilities": "执行工程师维护内部只读服务、证据及后续单一集成；AI 技术负责人验收固定 head",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "真实TS业务读取须公共认证修复复审、TS应用提交技术接受并集成、同一head联合验证"
+        "阶段已验收；CI #65 首次 HTTP P05 状态读取连接关闭，根因未明，第2次同 head 完整重跑通过，持续保留稳定性事项"
       ]
     },
     {
       "id": "E03-03",
       "name": "Turn / Task / Focus / 分页",
       "weight_percent": 13,
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "accepted": false,
       "subtasks": [
         {
           "id": "E03-03-1",
           "description": "接入既有结构化解释输入协议",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         },
         {
           "id": "E03-03-2",
           "description": "实现原任务身份、关联、焦点和进度守卫",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         },
         {
           "id": "E03-03-3",
@@ -156,11 +164,14 @@
         }
       ],
       "evidence": [],
-      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
-      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "execution_location": "独立工作区本地候选 8b3c0c4313dd3962ce81f143cb97ae81fd006882 基于授权 G；尚无远程 PR、真实 PostgreSQL CI 或阶段验收",
+      "responsibilities": "E03-02／PR #18 主实施与集成执行者负责 AGENTS、唯一看板、授权及共享接口；独立 E03-03 执行者负责获准纯函数、合成测试和专属交接",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+        "仅 -1/-2 的有限纯函数与合成测试已形成本地候选；直接锁源 R6 逐规则对照、真实 PostgreSQL 全量 CI 和正式审核待完成",
+        "独立只读发现 received_at 第七位小数边界与 R6 有差异；须以同输入原参考回归并经技术负责人明确处置，不能直接认定等价",
+        "自动审批曾拒绝向 GitHub 目标仓库上传该独立候选，当前未创建 PR；不得绕过该拒绝",
+        "生产 Task 接线仍须明确授权；-3 分页与 -4 真实 E11 继续按对应前置等待"
       ]
     },
     {
@@ -298,7 +309,17 @@
       ]
     }
   ],
-  "approved_change_registrations": [],
+  "approved_change_registrations": [
+    {
+      "stage_id": "E03-03",
+      "description": "有限并行授权时尚未开始；现已有独立本地候选，未验收；仅 -1/-2 内不依赖完整 Context 的合同复用、纯任务守卫和合成测试，固定 33059d4 后先落盘 G，不计验收",
+      "approval_evidence": "工程侧｜MVP开发计划 AI 技术负责人，E03-03-PARALLEL-SCOPE-2026-11-06-01",
+      "subtask_ids": [
+        "E03-03-1",
+        "E03-03-2"
+      ]
+    }
+  ],
   "change_policy": "后续仅将已批准工程变更登记到既有阶段及新增子任务，不自动改变八阶段框架或权重；正式字段/权限/版本变化另行规格审核；不保证所有变更无需改机器契约",
   "gate_a": {
     "status": "APPROVED",

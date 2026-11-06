@@ -1,0 +1,55 @@
+{
+  "format": "antu-e03-slice-acceptance/v1",
+  "record": "E03-02-PR18-TECH-ACCEPTANCE-2026-11-06-01",
+  "status": "PASS",
+  "accepted_pr": 18,
+  "accepted_head": "9b92c1c0c9b5ffcfca468ddf9cc6c7baec69f911",
+  "accepted_base_pr15_head": "d736b1306f16f7619b0bbc3c3f360ebc4a927282",
+  "accepted_ts_application_pr11_head": "0078bb542fd4ac81343a602d5f0fe4e62a42620c",
+  "semantic_decision": "E03-02-C12-APPLICABILITY-2026-11-06-01",
+  "review_location": "工程侧｜MVP开发计划",
+  "review_thread_id": "6adf1136-df44-83e8-9162-95dd261946e7",
+  "review_message_id": "0a52ad57-c1e6-4c4d-be4f-b67e303dcfb5",
+  "reviewer": "Owner-designated ChatGPT AI technical lead",
+  "github_review_published": false,
+  "accepted_stage_weight_percent": 15,
+  "accepted_e03_weight_percent": 33,
+  "subtasks": {
+    "E03-02-1": "PASS",
+    "E03-02-2": "PASS",
+    "E03-02-3": "PASS"
+  },
+  "ci": {
+    "run_id": 42187804000,
+    "url": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42187804000",
+    "head": "9b92c1c0c9b5ffcfca468ddf9cc6c7baec69f911",
+    "accepted_attempt": 2,
+    "attempt_1": {
+      "job_id": 127792199363,
+      "result": "FAILURE",
+      "vitest": "958/958",
+      "http": "21 pass; P05 subtest and parent failed",
+      "failure": "P05 initial state fetch UND_ERR_SOCKET other side closed",
+      "root_cause": "NOT_ESTABLISHED"
+    },
+    "attempt_2": {
+      "job_id": 127795675889,
+      "result": "SUCCESS",
+      "vitest": "958/958",
+      "http": "23/23",
+      "p05": "EXECUTED_AND_PASSED"
+    },
+    "c12_artifact": {
+      "id": 13489032296,
+      "sha256": "497a2425c573f59ee38f5b06ce9800bd745cb9ffc54fdc70ca8bec6d1167d09b"
+    },
+    "http_artifact": {
+      "id": 13488922983,
+      "sha256": "e0656cdf40f7e99205581611df6456e37991745f0aefd95f1cb0367899400d84"
+    }
+  },
+  "stability_issue": "OPEN: first attempt connection close root cause unknown; rerun success does not establish fix",
+  "e03_03_authorization": "E03-03-PARALLEL-SCOPE-2026-11-06-01 limited only; no automatic production Task, pagination or E11 authorization",
+  "merge_authorized": false,
+  "deployment_authorized": false
+}
