@@ -75,6 +75,31 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB) FROM PUBLIC;
 
+-- R6 allows a previously saved view to remain exactly as-is even if its
+-- targets later become historical. A new view must resolve against the locked
+-- TS snapshot and cannot claim a future object version.
+CREATE FUNCTION public.host_checkpoint_view_valid_candidate(p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_view JSONB)
+RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+DECLARE old_view JSONB; snap JSONB; ref JSONB; selected TEXT;
+BEGIN
+  SELECT payload->'view' INTO old_view FROM e03_checkpoint.heads
+    WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace AND NOT deleted;
+  IF old_view IS NOT NULL AND old_view=p_view THEN RETURN TRUE; END IF;
+  SELECT "snapshot" INTO snap FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
+  IF jsonb_typeof(p_view) IS DISTINCT FROM 'object' OR jsonb_typeof(p_view->'comparison_refs') IS DISTINCT FROM 'array' OR
+     jsonb_typeof(snap->'objects') IS DISTINCT FROM 'array' THEN RETURN FALSE; END IF;
+  FOR ref IN SELECT value FROM jsonb_array_elements(p_view->'comparison_refs') LOOP
+    IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(snap->'objects') AS x(obj)
+      WHERE obj->>'id'=ref->>'id' AND (ref->>'version')::BIGINT <= (obj->>'version')::BIGINT) THEN RETURN FALSE; END IF;
+  END LOOP;
+  selected := p_view->>'selected_id';
+  IF selected IS NOT NULL AND NOT EXISTS (SELECT 1 FROM jsonb_array_elements(snap->'objects') AS x(obj) WHERE obj->>'id'=selected) THEN RETURN FALSE; END IF;
+  RETURN TRUE;
+EXCEPTION WHEN data_exception THEN RETURN FALSE;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_checkpoint_view_valid_candidate(TEXT,TEXT,TEXT,JSONB) FROM PUBLIC;
+
 CREATE FUNCTION public.host_checkpoint_save_candidate(
   p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_expected BIGINT,p_key TEXT,
   p_request_digest TEXT,p_payload JSONB,p_payload_digest TEXT,p_saved_at TEXT,p_expires_at TEXT
@@ -83,6 +108,9 @@ DECLARE result JSONB;
 BEGIN
   IF public.host_checkpoint_sources_valid_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,p_payload) IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE');
+  END IF;
+  IF public.host_checkpoint_view_valid_candidate(p_owner,p_trip,p_workspace,p_payload->'view') IS DISTINCT FROM TRUE THEN
+    RETURN jsonb_build_object('fault','SCENE_REFERENCES');
   END IF;
   result := e03_checkpoint.write_scene('user-'||p_owner,p_trip,p_workspace,p_expected,p_key,p_request_digest,p_payload,p_payload_digest,p_saved_at,p_expires_at,FALSE);
   IF public.host_checkpoint_sources_valid_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,p_payload) IS DISTINCT FROM TRUE THEN

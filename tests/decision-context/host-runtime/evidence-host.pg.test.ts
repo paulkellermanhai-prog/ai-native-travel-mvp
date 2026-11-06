@@ -59,7 +59,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   afterAll(async () => {
     await host?.close(); await internal?.close(); await identity?.close(); await runtime?.end();
     if (created) {
-      await owner.query('DROP FUNCTION public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
+      await owner.query('DROP FUNCTION public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_view_valid_candidate(TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
       await owner.query('DROP FUNCTION public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
       await owner.query('DROP TABLE public."HostEvidenceTaskSource", public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
     }
@@ -262,6 +262,10 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(await save(eb.workspace_key,ca,payload,"wrong-workspace")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
     expect(await save(ea.workspace_key,ca,{...payload,drafts:[{}]},"draft")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
     expect(await save(ea.workspace_key,ca,{...payload,captured_object_versions:[{id:"fake",version:1}]},"fake-versions")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    const missingView=structuredClone(payload); missingView.view.selected_id="missing-object";
+    await expect(host.saveCheckpoint(wa,a.headers,missingView,0,"missing-view")).rejects.toMatchObject({code:"SCENE_REFERENCES"});
+    const missingComparison=structuredClone(payload); missingComparison.view.comparison_refs=[{id:"missing-object",version:1}];
+    await expect(host.saveCheckpoint(wa,a.headers,missingComparison,0,"missing-comparison")).rejects.toMatchObject({code:"SCENE_REFERENCES"});
     await expect(runtime.query('SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,ea.workspace_key,ca,ea.event_id])).rejects.toThrow();
     const altered=structuredClone(payload); altered.tasks[0].task.question="forged";
     expect(await save(ea.workspace_key,ca,altered,"forged")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
@@ -274,6 +278,20 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(await host.inspectCheckpoint(wa,a.headers)).toMatchObject({revision:1});
     expect(await inspect(ea.workspace_key,ca)).toMatchObject({revision:1});
     expect(await inspect(ea.workspace_key,ca)).not.toHaveProperty("payload");
+    // Isolated owner fixture exercises R6's view rule against one held TS
+    // snapshot, including the exact unchanged historical-view exception.
+    await owner.query("BEGIN");
+    try {
+      await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}', $2::jsonb) WHERE "tripId"=$1`,[trip,JSON.stringify([{id:"known",version:2}])]);
+      const view=async (value:unknown) => (await owner.query<{ok:boolean}>('SELECT public.host_checkpoint_view_valid_candidate($1,$2,$3,$4::jsonb) AS ok',[a.user.id,trip,ea.workspace_key,JSON.stringify(value)])).rows[0].ok;
+      const oldVersion={...payload.view,selected_id:"known",comparison_refs:[{id:"known",version:1}]};
+      expect(await view(oldVersion)).toBe(true);
+      expect(await view({...oldVersion,comparison_refs:[{id:"known",version:3}]})).toBe(false);
+      const historical={...payload.view,selected_id:"removed"};
+      expect(await view(historical)).toBe(false);
+      await owner.query(`UPDATE e03_checkpoint.heads SET payload=jsonb_set(payload,'{view}',$4::jsonb) WHERE owner_id=$1 AND trip_id=$2 AND workspace=$3`,[`user-${a.user.id}`,trip,ea.workspace_key,JSON.stringify(historical)]);
+      expect(await view(historical)).toBe(true);
+    } finally { await owner.query("ROLLBACK"); }
     const unrelated=await host.record(wa,a.headers,{entry:"dialogue",text:"unrelated",idempotency_key:`unrelated_${randomUUID()}`});
     await host.deleteEvent(wa,a.headers,unrelated.event_id);
     expect(await host.inspectCheckpoint(wa,a.headers)).toMatchObject({revision:1});
