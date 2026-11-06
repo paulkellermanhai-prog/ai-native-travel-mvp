@@ -36,8 +36,8 @@ function checkTaskCore(body: OpenTurn, priorTasks: readonly TaskCorePrior[], now
   requireCondition(Number.isSafeInteger(nowMs), "CLOCK");
   const receivedMs = Date.parse(body.event.received_at);
   const fraction = body.event.received_at.match(/\.(\d+)(?:Z|[+-]\d\d:\d\d)$/i)?.[1] ?? "";
-  // R6 uses Python datetime.fromisoformat, which truncates fractional seconds to microseconds.
-  const subMillisecond = /[1-9]/.test(fraction.slice(3, 6));
+  // Compare every digit: never truncate a future timestamp into the current millisecond.
+  const subMillisecond = /[1-9]/.test(fraction.slice(3));
   requireCondition(Number.isFinite(receivedMs) &&
     (receivedMs < nowMs || (receivedMs === nowMs && !subMillisecond)), "EVENT_TIME");
   const keys = body.tasks.map(task => task.task_key);

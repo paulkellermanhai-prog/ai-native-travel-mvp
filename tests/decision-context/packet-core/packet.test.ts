@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assembleContextSnapshot } from "../../../src/server/decision-context/context-assembly";
-import { buildPacketCandidate, checkConsumption, checkPacketTurn, preparePage, recordDelivery } from "../../../src/server/decision-context/packet-core/packet";
-import { canonicalJson } from "../../../src/server/trip-state/command-json";
+import { buildPacketCandidate, checkConsumption, checkPacketTurn, emptyDeliveryLedger, preparePage, recordDelivery } from "../../../src/server/decision-context/packet-core/packet";
+import { canonicalJson, digest } from "../../../src/server/trip-state/command-json";
 import type { DecisionContextContracts } from "../../../src/server/decision-context/contracts";
 import { base } from "../../support/bcg-fixtures";
 
@@ -43,43 +43,43 @@ describe("E03-03 packet core (synthetic host inputs)", () => {
   });
   it("pages only the manifest, leaves initial candidate untouched, and requires host ledger update", () => {
     const {candidate,input} = setup(2), before = structuredClone(candidate), ids=candidate.packet.deferred_ids;
-    const first = ids.slice(0,2), p = preparePage(candidate,request(first),[],moment(input.state),moment(input.state));
+    const first = ids.slice(0,2), p = preparePage(candidate,request(first),emptyDeliveryLedger(candidate),moment(input.state),moment(input.state));
     expect(p.objects.map(o=>o.id)).toEqual(first);
     expect(p.remaining_ids).toEqual(ids.filter(id=>!first.includes(id)));
     expect(p.delivery_only_not_model_comprehension).toBe(true);
-    expect(checkConsumption(candidate,input.state,now(),[]).remainingIds).toEqual(ids);
-    const ledger = recordDelivery(candidate,[],first);
+    expect(checkConsumption(candidate,input.state,now(),emptyDeliveryLedger(candidate)).remainingIds).toEqual(ids);
+    const ledger = recordDelivery(candidate,emptyDeliveryLedger(candidate),first);
     expect(checkConsumption(candidate,input.state,now(),ledger).remainingIds).toEqual(p.remaining_ids);
     expect(candidate).toEqual(before);
-    expect(()=>preparePage(candidate,request(["not-in-manifest"]),[],moment(input.state),moment(input.state))).toThrowError(expect.objectContaining({code:"PAGE_SCOPE"}));
-    expect(()=>recordDelivery(candidate,[],["not-in-manifest"])).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
+    expect(()=>preparePage(candidate,request(["not-in-manifest"]),emptyDeliveryLedger(candidate),moment(input.state),moment(input.state))).toThrowError(expect.objectContaining({code:"PAGE_SCOPE"}));
+    expect(()=>recordDelivery(candidate,emptyDeliveryLedger(candidate),["not-in-manifest"])).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
   });
   it("rejects changed revisions, altered bodies, and expiry on either side of a page", () => {
     const {candidate,input} = setup(2), ids=candidate.packet.deferred_ids.slice(0,1), changed=structuredClone(input.state);
     changed.revision++;
-    expect(()=>preparePage(candidate,request(ids),[],moment(input.state),moment(changed))).toThrowError(expect.objectContaining({code:"PACKET_STALE"}));
+    expect(()=>preparePage(candidate,request(ids),emptyDeliveryLedger(candidate),moment(input.state),moment(changed))).toThrowError(expect.objectContaining({code:"PACKET_STALE"}));
     const expired = new Date(candidate.packet.context.expires_at);
-    expect(()=>preparePage(candidate,request(ids),[],moment(input.state),moment(input.state,expired))).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
+    expect(()=>preparePage(candidate,request(ids),emptyDeliveryLedger(candidate),moment(input.state),moment(input.state,expired))).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
     const tampered=structuredClone(candidate); tampered.packet.deferred_ids.pop();
-    expect(()=>checkConsumption(tampered,input.state,now(),[])).toThrowError(expect.objectContaining({code:"PACKET_MISMATCH"}));
-    expect(checkConsumption(candidate,input.state,now(),[]).remainingIds).toEqual(candidate.packet.deferred_ids);
+    expect(()=>checkConsumption(tampered,input.state,now(),emptyDeliveryLedger(tampered))).toThrowError(expect.objectContaining({code:"PACKET_MISMATCH"}));
+    expect(checkConsumption(candidate,input.state,now(),emptyDeliveryLedger(candidate)).remainingIds).toEqual(candidate.packet.deferred_ids);
   });
   it("does not advance the ledger after a failed page or accept changed bodies without a revision bump", () => {
-    const {candidate,input} = setup(2), ids=candidate.packet.deferred_ids, ledger: string[]=[];
+    const {candidate,input} = setup(2), ids=candidate.packet.deferred_ids, ledger=emptyDeliveryLedger(candidate);
     const changed=structuredClone(input.state); changed.objects[0].version++;
     expect(()=>preparePage(candidate,request(ids.slice(0,1)),ledger,moment(input.state),moment(changed))).toThrowError(expect.objectContaining({code:"PACKET_STALE"}));
-    expect(ledger).toEqual([]);
+    expect(ledger.deliveredIds).toEqual([]);
     expect(()=>preparePage(candidate,request(ids.slice(0,1)),ledger,moment(input.state,new Date(candidate.packet.context.expires_at)),moment(input.state))).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
     expect(()=>preparePage(candidate,{...request(ids.slice(0,1)),packet_id:"another"},ledger,moment(input.state),moment(input.state))).toThrowError(expect.objectContaining({code:"PACKET_MISMATCH"}));
   });
   it("preserves delivery idempotency, requires all manifest IDs, and rejects tampered primary bodies", () => {
     const {candidate,input}=setup(10_000_000), ids=candidate.packet.objects.map(o=>o.id);
-    const ledger=recordDelivery(candidate,[],ids);
+    const ledger=recordDelivery(candidate,emptyDeliveryLedger(candidate),ids);
     expect(recordDelivery(candidate,ledger,ids)).toEqual(ledger);
     expect(checkConsumption(candidate,input.state,now(),ledger).remainingIds).toEqual([]);
     const broken=structuredClone(candidate); broken.packet.objects[0].version++;
     expect(()=>checkConsumption(broken,input.state,now(),ledger)).toThrowError(expect.objectContaining({code:"PACKET_MISMATCH"}));
-    expect(()=>checkConsumption(candidate,input.state,now(),["forged-id"])).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
+    expect(()=>checkConsumption(candidate,input.state,now(),{packetId:"packet-test",deliveredIds:["forged-id"]})).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
   });
   it("rejects a page crossing selected fact expiry even when the state revision does not change", () => {
     const state=structuredClone(base), fact=state.objects.find(o=>o.id==="fact-cairo-luxor");
@@ -87,42 +87,80 @@ describe("E03-03 packet core (synthetic host inputs)", () => {
     fact.expires_at="2030-01-01T00:00:00.001Z";
     const assembly=assembleContextSnapshot(state,"E",task.target_ids,now());
     const candidate=buildPacketCandidate({request:{runtime_contract_version:"0.1.0",turn_id:"turn-test",task_key:"E",body_budget_bytes:2},packetId:"packet-test",task,pending,assembly,state,now:now(),recoveredInput:false,saveUnacknowledged:false});
-    const ledger: string[]=[], requested=candidate.packet.deferred_ids.slice(0,1);
+    const ledger=emptyDeliveryLedger(candidate), requested=candidate.packet.deferred_ids.slice(0,1);
     expect(candidate.packet.context.expires_at).toBe("2030-01-01T00:00:00.001000Z");
     expect(()=>preparePage(candidate,request(requested),ledger,moment(state),moment(state,new Date("2030-01-01T00:00:00.001Z")))).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
-    expect(ledger).toEqual([]);
+    expect(ledger.deliveredIds).toEqual([]);
     expect(()=>checkConsumption(candidate,state,new Date("2030-01-01T00:00:00.001Z"),ledger)).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
   });
   it("shows why untrusted client delivery claims cannot be passed as the host ledger", () => {
     const {candidate,input}=setup(2), forged=candidate.packet.deferred_ids;
     expect(candidate.packet.objects).toEqual([]);
     // This pure function compares the supplied values; it cannot authenticate who supplied them.
-    expect(checkConsumption(candidate,input.state,now(),forged).remainingIds).toEqual([]);
-    expect(checkConsumption(candidate,input.state,now(),[]).remainingIds).toEqual(forged);
-    expect(preparePage(candidate,request(forged.slice(0,1)),[],moment(input.state),moment(input.state)).remaining_ids.length).toBe(forged.length-1);
+    expect(checkConsumption(candidate,input.state,now(),{packetId:"packet-test",deliveredIds:forged}).remainingIds).toEqual([]);
+    expect(checkConsumption(candidate,input.state,now(),emptyDeliveryLedger(candidate)).remainingIds).toEqual(forged);
+    expect(preparePage(candidate,request(forged.slice(0,1)),emptyDeliveryLedger(candidate),moment(input.state),moment(input.state)).remaining_ids.length).toBe(forged.length-1);
     // Preparing a response did not deliver anything or mutate the authoritative host ledger.
-    expect(checkConsumption(candidate,input.state,now(),[]).remainingIds).toEqual(forged);
+    expect(checkConsumption(candidate,input.state,now(),emptyDeliveryLedger(candidate)).remainingIds).toEqual(forged);
   });
   it("exposes the lost-update risk when concurrent pages use an old ledger snapshot", () => {
     const {candidate,input}=setup(2), ids=candidate.packet.deferred_ids;
-    const pageA=recordDelivery(candidate,[],[ids[0]]), pageB=recordDelivery(candidate,[],[ids[1]]);
+    const pageA=recordDelivery(candidate,emptyDeliveryLedger(candidate),[ids[0]]), pageB=recordDelivery(candidate,emptyDeliveryLedger(candidate),[ids[1]]);
     expect(checkConsumption(candidate,input.state,now(),pageB).remainingIds).toContain(ids[0]);
     const merged=recordDelivery(candidate,pageA,[ids[1]]);
-    expect(merged).toEqual([ids[0],ids[1]].sort());
+    expect(merged.deliveredIds).toEqual([ids[0],ids[1]].sort());
     expect(checkConsumption(candidate,input.state,now(),merged).remainingIds).not.toContain(ids[0]);
     expect(checkConsumption(candidate,input.state,now(),merged).remainingIds).not.toContain(ids[1]);
   });
   it("compares a Packet to its original turn and task without claiming owner authorization", () => {
     const {candidate}=setup(2);
     const turn: DecisionContextContracts["turn"]={runtime_contract_version:"0.1.0",runtime_id:"runtime-test",turn_id:"turn-test",revision:0,tasks:[structuredClone(task)],focus_keys:["E"],checkpoint_ack:null};
-    expect(()=>checkPacketTurn(candidate,turn)).not.toThrow();
-    expect(()=>checkPacketTurn(candidate,{...turn,turn_id:"another-turn"})).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    expect(()=>checkPacketTurn(candidate,turn,pending)).not.toThrow();
+    expect(()=>checkPacketTurn(candidate,{...turn,turn_id:"another-turn"},pending)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
     const missing=structuredClone(turn); missing.tasks[0].task_key="another-task"; missing.focus_keys=["another-task"];
-    expect(()=>checkPacketTurn(candidate,missing)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    expect(()=>checkPacketTurn(candidate,missing,pending)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
     const altered=structuredClone(turn); altered.tasks[0].question="另一解释";
-    expect(()=>checkPacketTurn(candidate,altered)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    expect(()=>checkPacketTurn(candidate,altered,pending)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
     const duplicated=structuredClone(turn); duplicated.tasks.push(structuredClone(task));
-    expect(()=>checkPacketTurn(candidate,duplicated)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    expect(()=>checkPacketTurn(candidate,duplicated,pending)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+  });
+  it("requires the trusted pending event and original turn revision to match", () => {
+    const {candidate}=setup(2);
+    const turn: DecisionContextContracts["turn"]={runtime_contract_version:"0.1.0",runtime_id:"runtime-test",turn_id:"turn-test",revision:0,tasks:[structuredClone(task)],focus_keys:["E"],checkpoint_ack:null};
+    expect(()=>checkPacketTurn(candidate,{...turn,revision:17},pending)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    for(const update of [{event_id:"forged"},{text:"伪造"},{reference:"different"},{received_at:"2030-01-01T00:00:00.001Z"},{entry:"map" as const}]) {
+      const other={...pending,event:{...pending.event,...update}};
+      expect(()=>checkPacketTurn(candidate,turn,other)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    }
+    expect(()=>checkPacketTurn(candidate,turn,{...pending,processing_status:"applied"})).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    expect(()=>checkPacketTurn(candidate,turn,undefined)).toThrow();
+    const tampered=structuredClone(candidate); tampered.packet.pending_input.event.text="伪造";
+    expect(()=>checkPacketTurn(tampered,turn,pending)).toThrowError(expect.objectContaining({code:"PACKET_MISMATCH"}));
+  });
+  it("detects removed safety warnings and rejects delivery-ledger replay across Packets", () => {
+    const {input}=setup(2);
+    const a=buildPacketCandidate({...input,recoveredInput:true,saveUnacknowledged:true});
+    const b=buildPacketCandidate({...input,packetId:"packet-other",recoveredInput:true,saveUnacknowledged:true});
+    const ledger=recordDelivery(a,emptyDeliveryLedger(a),a.packet.deferred_ids);
+    expect(()=>checkConsumption(b,input.state,now(),ledger)).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
+    expect(()=>recordDelivery(b,ledger,b.packet.deferred_ids.slice(0,1))).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
+    for(const warning of ["restored_input_read_only_repreview_required","scene_save_unacknowledged_business_state_is_separate"]) {
+      const changed=structuredClone(a); changed.packet.warnings=changed.packet.warnings.filter(w=>w!==warning);
+      expect(()=>checkConsumption(changed,input.state,now(),ledger)).toThrowError(expect.objectContaining({code:"PACKET_MISMATCH"}));
+    }
+    expect(()=>checkConsumption(a,input.state,now(),[] as unknown as typeof ledger)).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
+  });
+  it("shows that the fingerprint and packetId alone do not authenticate client data", () => {
+    const {input}=setup(2), a=buildPacketCandidate({...input,recoveredInput:true});
+    const b=buildPacketCandidate({...input,packetId:"packet-other"});
+    const altered=structuredClone(a); altered.packet.warnings=[];
+    altered.fingerprint=digest({packet:altered.packet,assembly:altered.assembly});
+    // Anyone who controls both data and hash can recompute it: the trusted host must retain the original.
+    expect(()=>checkConsumption(altered,input.state,now(),emptyDeliveryLedger(altered))).not.toThrow();
+    const ledger=recordDelivery(a,emptyDeliveryLedger(a),a.packet.deferred_ids);
+    const relabeled={...ledger,packetId:"packet-other"};
+    // Client-editable identifiers cannot protect a ledger; the host must bind it privately to authority.
+    expect(checkConsumption(b,input.state,now(),relabeled).remainingIds).toEqual([]);
   });
   it("requires explicit host scene status and preserves restored/save warnings", () => {
     const {input}=setup(2);

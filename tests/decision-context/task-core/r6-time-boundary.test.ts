@@ -52,6 +52,6 @@ describe("R6 timestamp precision evidence", () => {
       env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1", PYTHONPATH: [dc, ts].join(path.delimiter) },
     });
     expect(JSON.parse(result)).toEqual(["accepted", "accepted", "accepted", "EVENT_TIME", "EVENT_TIME", "EVENT_TIME", "accepted", "accepted"]);
-    expect(times.map(candidate)).toEqual(["accepted", "accepted", "accepted", "EVENT_TIME", "EVENT_TIME", "EVENT_TIME", "accepted", "accepted"]);
+    expect(times.map(candidate)).toEqual(["accepted", "accepted", "EVENT_TIME", "EVENT_TIME", "EVENT_TIME", "EVENT_TIME", "EVENT_TIME", "accepted"]);
   });
 });

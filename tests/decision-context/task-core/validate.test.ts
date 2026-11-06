@@ -43,6 +43,17 @@ describe("limited synthetic task-core checks", () => {
     expect(() => parseAndCheckTaskCore(same, [], now)).not.toThrow();
     expect(() => parseAndCheckTaskCore(turn(), [], NaN)).toThrow(expect.objectContaining({ code: "CLOCK" }));
   });
+  it("compares all input fraction digits against an integer-millisecond clock", () => {
+    const equal = turn(); equal.event.received_at = "2030-01-01T00:00:00.000000000Z";
+    expect(() => parseAndCheckTaskCore(equal, [], now)).not.toThrow();
+    const tiny = turn(); tiny.event.received_at = "2030-01-01T01:00:00.0000000001+01:00";
+    code(tiny, [], "EVENT_TIME");
+    const before = turn(); before.event.received_at = "2029-12-31T23:59:59.999999999Z";
+    expect(() => parseAndCheckTaskCore(before, [], now)).not.toThrow();
+    const sameMillisecond = turn(); sameMillisecond.event.received_at = "2030-01-01T00:00:00.0001Z";
+    // With only an integer-millisecond trusted clock, reject rather than assume hidden fractions.
+    code(sameMillisecond, [], "EVENT_TIME");
+  });
   it("validates exact Unicode code point spans and progress evidence against this event", () => {
     expect(() => parseAndCheckTaskCore(turn(), [], now)).not.toThrow();
     code(turn([task({ evidence: [{ start: 0, end: 4, quote: "先🧭看" }] })]), [], "SOURCE_SPAN");
