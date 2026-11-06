@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { assembleContextSnapshot, validateContextSnapshot } from "../../src/server/decision-context/context-assembly";
+import { digest } from "../../src/server/trip-state/command-json";
+import { factUsable } from "../../src/server/trip-state/conditions";
 import type { Condition, State } from "../../src/server/trip-state/contracts.generated";
 import { base, object } from "../support/bcg-fixtures";
 
@@ -64,6 +66,60 @@ describe("E03-02 C12 temporal and composite condition consumption", () => {
     expect(prefApplicability(fresh)).toBe("applicable");
     expect(state.revision).toBe(packet.context.state_revision);
     expect(state).toEqual(baseline);
+  });
+
+  it.each([
+    { transition: "observed", observed: "2030-01-01T00:00:01.000Z", expires: "2030-01-01T00:10:00Z", before: "applicable", after: "unknown" },
+    { transition: "expired", observed: "2029-12-31T23:59:00Z", expires: "2030-01-01T00:00:01.000Z", before: "unknown", after: "applicable" },
+  ])("revalidates unselected opposite at the exact millisecond-aligned $transition boundary", ({ transition, observed, expires, before, after }) => {
+    // Date provides millisecond precision. Existing tests straddle a non-aligned
+    // .000001Z fact timestamp; here alignment lets us test equality itself.
+    const { state, factId, oppositeId } = fixture(observed, expires), original = structuredClone(state), old = read(state, initial), beforePoint = at("2030-01-01T00:00:00.999Z"), point = at("2030-01-01T00:00:01.000Z"), afterPoint = at("2030-01-01T00:00:01.001Z");
+    expect(old.context.expires_at).toBe("2030-01-01T00:05:00Z");
+    expect(prefApplicability(old)).toBe(before); selectedEvidence(old, factId, oppositeId);
+    expect(() => validateContextSnapshot(old, state, beforePoint)).not.toThrow();
+    for (const moment of [point, afterPoint]) {
+      expect(() => validateContextSnapshot(old, state, moment)).toThrowError(expect.objectContaining({ code: "EVIDENCE_CHANGED" }));
+      const fresh = read(state, moment); expect(prefApplicability(fresh)).toBe(after);
+      expect(fresh.context.state_revision).toBe(old.context.state_revision);
+      expect(fresh.snapshot_digest).toBe(old.snapshot_digest);
+      selectedEvidence(fresh, factId, oppositeId);
+    }
+    expect(digest(state)).toBe(old.snapshot_digest); expect(state).toEqual(original);
+    const other = object(state, oppositeId, "ExternalFact");
+    expect(factUsable(other, beforePoint)).toBe(transition === "expired");
+    expect(factUsable(other, point)).toBe(transition === "observed");
+    expect(factUsable(other, afterPoint)).toBe(transition === "observed");
+  });
+
+  it("keeps the dispute when an unselected opposite expires but another usable opposite remains", () => {
+    const { state, factId, oppositeId } = fixture("2029-12-31T23:59:00Z", "2030-01-01T00:00:01.000Z");
+    const third = structuredClone(object(state, oppositeId, "ExternalFact"));
+    third.id = "temporal-persistent-opposite"; third.expires_at = "2030-01-01T00:10:00Z"; state.objects.push(third);
+    const original = structuredClone(state), old = read(state, initial), moment = at("2030-01-01T00:00:01.000Z");
+    expect(old.context.stale_fact_ids).toContain(factId); expect(prefApplicability(old)).toBe("unknown");
+    expect(old.context.selected_object_ids).not.toContain(third.id);
+    expect(factUsable(object(state, oppositeId, "ExternalFact"), moment)).toBe(false); expect(factUsable(third, moment)).toBe(true);
+    expect(() => validateContextSnapshot(old, state, moment)).not.toThrow();
+    const fresh = read(state, moment); expect(fresh.context.stale_fact_ids).toContain(factId); expect(prefApplicability(fresh)).toBe("unknown");
+    expect(fresh.context.state_revision).toBe(old.context.state_revision); expect(fresh.snapshot_digest).toBe(old.snapshot_digest);
+    expect(state).toEqual(original);
+  });
+
+  it("does not expire an unrelated unselected non-comparable fact globally", () => {
+    const { state, factId, oppositeId } = fixture("2029-12-31T23:59:00Z", "2030-01-01T00:00:01.000Z");
+    // The differing query parameter makes this observation non-comparable under the existing algorithm.
+    object(state, oppositeId, "ExternalFact").query.parameters.push({name: "unrelated-route", value: "different"});
+    const original = structuredClone(state), old = read(state, initial), before = at("2030-01-01T00:00:00.999Z"), point = at("2030-01-01T00:00:01.000Z"), after = at("2030-01-01T00:00:01.001Z");
+    selectedEvidence(old, factId, oppositeId); expect(old.context.stale_fact_ids).not.toContain(factId); expect(prefApplicability(old)).toBe("applicable");
+    for (const moment of [before, point, after]) {
+      expect(() => validateContextSnapshot(old, state, moment)).not.toThrow();
+      const fresh = read(state, moment); expect(fresh.context.stale_fact_ids).toEqual(old.context.stale_fact_ids);
+      expect(fresh.annotations).toEqual(old.annotations); expect(fresh.snapshot_digest).toBe(old.snapshot_digest);
+    }
+    expect(factUsable(object(state, oppositeId, "ExternalFact"), before)).toBe(true);
+    expect(factUsable(object(state, oppositeId, "ExternalFact"), point)).toBe(false);
+    expect(state.revision).toBe(old.context.state_revision); expect(state).toEqual(original);
   });
 
   it.each([

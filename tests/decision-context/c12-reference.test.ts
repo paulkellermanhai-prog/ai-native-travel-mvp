@@ -56,6 +56,19 @@ describe("C12 applicability comparison with pinned R6 annotation runtime", () =>
     expect(candidate.annotations.find(a=>a.id==="pref-culture")?.applicability).toBe(expected);
     expect(candidate.context.stale_fact_ids).toEqual(original.context.stale_fact_ids);
   });
+  it("distinguishes an R6-selected opposite fact deferred by the real reference Packet budget", () => {
+    const state=fixture(true,true),candidate=assembleContextSnapshot(state,"task-test",targets,now);
+    const output=JSON.parse(execFileSync(process.env.TRIP_STATE_PYTHON ?? "python3", ["scripts/e03-02-annotation-oracle.py"], {
+      input:JSON.stringify([{state,targets,now:now.toISOString(),packet_budget:2}]),encoding:"utf8",timeout:20000,
+      env:{...process.env,PYTHONDONTWRITEBYTECODE:"1"},
+    }))[0] as {packet:{context:{selected_object_ids:string[]};objects:Array<{id:string}>;deferred_ids:string[];annotations:Annotation[]}};
+    const packet=output.packet;
+    expect(packet.context.selected_object_ids).toContain("opposite-fact");
+    expect(packet.deferred_ids).toContain("opposite-fact");
+    expect(packet.objects.map(o=>o.id)).not.toContain("opposite-fact");
+    expect(packet.annotations.find(a=>a.id==="pref-culture")?.applicability).toBe("unknown");
+    expect(candidate.annotations.find(a=>a.id==="pref-culture")?.applicability).toBe("unknown");
+  });
   it("matches the original annotation when both opposing facts are selected", () => {
     const state=fixture(true,true), candidate=assembleContextSnapshot(state,"task-test",targets,now), original=reference(state);
     expect(candidate.context.selected_object_ids).toEqual(original.context.selected_object_ids);

@@ -19,7 +19,7 @@ export type ContextAssembly = {
 const fail = (code: string): never => { throw new TripStateContractError(code, "Decision Context must be rebuilt"); };
 const equal = (a: unknown, b: unknown) => digest(a) === digest(b);
 
-/** The R6 read-only annotations over one closed, selected snapshot. */
+/** R6 baseline annotations with the accepted E03-02-C12-APPLICABILITY-2026-11-06-01 difference. */
 function annotate(selected: Item[], targets: readonly string[], now: Date, stale: ReadonlySet<string>, contested: ReadonlySet<string>): Annotation[] {
   const objects = new Map(selected.map(o => [o.id, o]));
   const windows = selected.filter((o): o is Extract<Item, {type:"Constraint"}> => o.type === "Constraint" && o.status === "active" && o.scope.kind === "trip" && o.value.kind === "date_window")
