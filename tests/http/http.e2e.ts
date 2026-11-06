@@ -224,7 +224,7 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
     });
     await t.test("UX02 whole and city history previews use existing atomic HTTP commit, current identity, idempotency and CAS", async () => {
       let seedState = await state();
-      const cities = ["cairo", "luxor"].map((id) => {
+      const cities = ["cairo", "luxor", "aswan"].map((id) => {
         const city = createFrom(object(base, id, "DestinationEntity"), id);
         assert(city.op === "create" && city.object_type === "DestinationEntity"); city.data.parent_id = null; return city;
       });
@@ -240,6 +240,8 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
       // Same persistent candidate identity is revised; restore the specifically selected old version.
       let historical = await state(); const savedCandidate = createFrom(object(historical, "ux02-original", "Skeleton"), "ux02-versioned");
       assert(savedCandidate.op === "create" && savedCandidate.object_type === "Skeleton");
+      savedCandidate.data.stops.push({ entity_id: "aswan", nights: 1 });
+      savedCandidate.data.connections.push({ from_id: "luxor", to_id: "aswan", fact_ids: [] });
       const saveCandidate = requestAt(4, historical.revision, crypto.randomUUID()); saveCandidate.commands = [savedCandidate];
       assert.equal((await http("POST", changes, saveCandidate, a)).status, 200); historical = await state();
       const v1 = object(historical, "ux02-versioned", "Skeleton"), previousVersion = v1.version, oldStops = structuredClone(v1.stops), newStops = structuredClone(oldStops);
@@ -250,6 +252,21 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
       const historicPreview = await http("POST", `/trips/${trip}/restorations/preview`, { source_id: v1.id, source_version: previousVersion, new_id: "historic-restore", expected_revision: historical.revision, idempotency_key: crypto.randomUUID(), input: { kind: "dialogue", reference: "historical-v1", text: "恢复旧版", target_ids: [] }, reason: "历史版本恢复", acknowledge_unknowns: true }, a);
       assert.equal(historicPreview.status, 200); assert.deepEqual(historicPreview.body.request.commands[0].data.stops, oldStops);
       assert.match(historicPreview.body.request.reason, new RegExp(`version=${previousVersion}`)); assert.equal(await fingerprint(), beforeHistoricalPreview);
+      // Build original wire tokens literally: JS number objects would round before the request.
+      const numericBody = (versionToken: string, positionToken: string) => `{"source_id":"ux02-versioned","source_version":${versionToken},"new_id":"numeric-restore","expected_revision":${historical.revision},"idempotency_key":"numeric-key","reason":"恢复","input":{"kind":"dialogue","reference":"numeric","text":"恢复","target_ids":[]},"acknowledge_unknowns":true,"city_id":"aswan","insert_at":${positionToken}}`;
+      for (const [version, position] of [["1.00000000000000001", "1"], ["1.99999999999999999", "1"], ["9007199254740993", "1"], ["1e100", "1"], ["1", "1.00000000000000001"], ["1", "1.99999999999999999"], ["1", "9007199254740993"], ["1", "1e100"]]) {
+        const invalid = await http("POST", `/trips/${trip}/restorations/preview`, numericBody(version, position), a);
+        assert.equal(invalid.status, 422); assert.equal(invalid.body.errors[0].code, "INTEGER_REPRESENTATION"); assert.equal("request" in invalid.body, false);
+        assert.equal(await fingerprint(), beforeHistoricalPreview);
+      }
+      for (const [version, position, expected] of [["1.0", "1.0", 1], ["1e0", "2e0", 2], ["1", "0e999", 0]] as const) {
+        const legal = await http("POST", `/trips/${trip}/restorations/preview`, numericBody(version, position), a);
+        assert.equal(legal.status, 200); assert.equal(legal.body.request.commands[0].data.stops[expected].entity_id, "aswan");
+        assert.equal(await fingerprint(), beforeHistoricalPreview);
+      }
+      const integerButMissing = await http("POST", `/trips/${trip}/restorations/preview`, numericBody("1e2", "1"), a);
+      assert.equal(integerButMissing.status, 422); assert.equal(integerButMissing.body.errors[0].code, "RESTORE_SOURCE_VERSION");
+      assert.equal(await fingerprint(), beforeHistoricalPreview);
       const unavailable = await http("POST", `/trips/${trip}/restorations/preview`, { source_id: v1.id, source_version: 9999, new_id: "missing-version", expected_revision: historical.revision, idempotency_key: crypto.randomUUID(), input: { kind: "dialogue", reference: "missing", text: "恢复", target_ids: [] }, reason: "恢复", acknowledge_unknowns: true }, a);
       assert.equal(unavailable.status, 422); assert.equal(unavailable.body.errors[0].code, "RESTORE_SOURCE_VERSION"); assert.equal(await fingerprint(), beforeHistoricalPreview);
       for (const city of [undefined, "luxor"]) {

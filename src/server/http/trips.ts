@@ -40,7 +40,8 @@ export async function handleTripHttp(request: Request, tripId: string, resource:
     requireOrigin(request, identity.config.origin);
     const raw = await readJsonText(request); // Keep the original numeric tokens for the existing controlled decoder.
     if (path === "restorations/preview") {
-      const options = parseRestorationInput(decodeCommandJson(raw));
+      // Keep all original TS counters while adding the two restoration-only integer tokens.
+      const options = parseRestorationInput(decodeCommandJson(raw, ["expected_revision", "revision", "version", "subject_version", "base_revision", "result_revision", "source_version", "insert_at"]));
       const history = await trips.history(tripId, credential);
       const restore = restorationRequest(before, options, history);
       const preview = await trips.preview(tripId, restore, credential);

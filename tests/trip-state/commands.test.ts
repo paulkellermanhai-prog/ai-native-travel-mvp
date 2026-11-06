@@ -123,6 +123,18 @@ describe("safe integer representation without changing the original contract", (
   it.each(["9007199254740991", "1.0", "1e0", "0e999999"])("accepts exactly representable integer token %s", (n) => {
     expect(decodeCommandJson(`{"expected_revision":${n}}`)).toEqual({ expected_revision: Number(n) });
   });
+  it("allows a caller to extend counters without changing the legacy default", () => {
+    const names = ["expected_revision", "revision", "version", "subject_version", "base_revision", "result_revision", "source_version", "insert_at"];
+    for (const key of ["source_version", "insert_at"]) {
+      for (const token of ["1.00000000000000001", "1.99999999999999999", "9007199254740993", "1e100", "-1"]) {
+        expect(() => decodeCommandJson(`{"${key}":${token}}`, names)).toThrowError(expect.objectContaining({ code: "INTEGER_REPRESENTATION" }));
+      }
+      for (const token of ["1.0", "1e2", "0e999999", "9007199254740991"]) expect(decodeCommandJson(`{"${key}":${token}}`, names)).toEqual({ [key]: Number(token) });
+    }
+    for (const key of names.slice(0, 6)) expect(() => decodeCommandJson(`{"${key}":1.99999999999999999}`, names)).toThrowError(expect.objectContaining({ code: "INTEGER_REPRESENTATION" }));
+    expect(decodeCommandJson('{"source_version":1.99999999999999999}')).toEqual({ source_version: 2 });
+    expect(() => decodeCommandJson('{"expected_revision":1.99999999999999999}')).toThrowError(expect.objectContaining({ code: "INTEGER_REPRESENTATION" }));
+  });
   it("rejects overflowing state or object increment before any state mutation", () => {
     const state = structuredClone(scenario.initial_state); state.revision = Number.MAX_SAFE_INTEGER;
     expect(validateStateSemantics(state).revision).toBe(Number.MAX_SAFE_INTEGER);
