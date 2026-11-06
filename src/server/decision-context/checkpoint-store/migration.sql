@@ -70,4 +70,41 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS $$
     'saved_at',saved_at,'expires_at',expires_at,'available',NOT deleted AND (expires_at IS NULL OR expires_at::timestamptz > p_now::timestamptz)) ORDER BY workspace),'[]'::jsonb)
   FROM e03_checkpoint.heads WHERE owner_id=p_owner AND trip_id=p_trip
 $$;
+
+-- Authenticated wrappers: lock the actual E02 Session, user and membership in the
+-- same transaction as storage. Caller supplies a server-verified session identity;
+-- owner is derived here, never taken from request JSON. Workspace remains a
+-- host-installed binding and must not be taken from the request body.
+CREATE OR REPLACE FUNCTION e03_checkpoint.session_write_scene(
+  p_session text, p_user text, p_trip text, p_workspace text, p_expected bigint,
+  p_key text, p_request_digest text, p_payload jsonb, p_payload_digest text,
+  p_saved_at text, p_expires_at text, p_delete boolean
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+BEGIN
+  IF public.authorize_trip_session(p_session,p_user,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN jsonb_build_object('fault','ACCESS_DENIED');
+  END IF;
+  RETURN e03_checkpoint.write_scene('user-'||p_user,p_trip,p_workspace,p_expected,p_key,p_request_digest,
+    p_payload,p_payload_digest,p_saved_at,p_expires_at,p_delete);
+END $$;
+
+CREATE OR REPLACE FUNCTION e03_checkpoint.session_read_scene(
+  p_session text, p_user text, p_trip text, p_workspace text, p_now text
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+BEGIN
+  IF public.authorize_trip_session(p_session,p_user,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN jsonb_build_object('fault','ACCESS_DENIED');
+  END IF;
+  RETURN e03_checkpoint.read_scene('user-'||p_user,p_trip,p_workspace,p_now);
+END $$;
+
+CREATE OR REPLACE FUNCTION e03_checkpoint.session_list_scenes(
+  p_session text, p_user text, p_trip text, p_now text
+) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
+BEGIN
+  IF public.authorize_trip_session(p_session,p_user,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN jsonb_build_object('fault','ACCESS_DENIED');
+  END IF;
+  RETURN e03_checkpoint.list_scenes('user-'||p_user,p_trip,p_now);
+END $$;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA e03_checkpoint FROM PUBLIC;

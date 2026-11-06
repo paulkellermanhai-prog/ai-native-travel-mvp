@@ -21,7 +21,6 @@ export async function openRecoveryInspection(workspace: string, env: Partial<Nod
   try { trips = await openTripCommandService(connection, sessionHost(identity)); }
   catch (error) { await identity.close(); throw error; }
   const pool = new Pool({ connectionString: connection });
-  const repo = new PgCheckpointRepository(pool, null); // inspection never writes or sets a retention policy
   let closed = false;
   async function principal(headers: Headers) {
     const session = await identity.auth.api.getSession({ headers, query: { disableCookieCache: true } });
@@ -33,6 +32,9 @@ export async function openRecoveryInspection(workspace: string, env: Partial<Nod
       if (closed || !(credential instanceof Headers)) throw new CheckpointError("ACCESS_DENIED");
       const headers = new Headers({ cookie: credential.get("cookie") ?? "" });
       const initialPrincipal = await principal(headers);
+      // Real Session ID is derived from the verified Cookie; PG revalidates it and
+      // the membership inside every checkpoint read transaction.
+      const repo = new PgCheckpointRepository(pool, null, undefined, initialPrincipal);
       const state = await trips.state(tripId, headers); // actual session + trip membership
       if (!state || state.trip_id !== tripId) throw new CheckpointError("ACCESS_DENIED");
       const scope = { owner: userActorId(initialPrincipal.userId), trip: tripId, workspace };

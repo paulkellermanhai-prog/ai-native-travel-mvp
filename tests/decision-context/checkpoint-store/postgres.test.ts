@@ -6,7 +6,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { PgCheckpointRepository } from "../../../src/server/decision-context/checkpoint-store/repository";
 
 // Explicit isolated local database only; a CI test must not silently skip missing PG.
-const url = process.env.E03_CHECKPOINT_TEST_ADMIN_URL;
+const e02File = process.env.E02_STORAGE_ENV_FILE;
+const e02 = e02File ? JSON.parse(readFileSync(e02File, "utf8")) as { migrationUrl: string } : null;
+const url = process.env.E03_CHECKPOINT_TEST_ADMIN_URL ?? e02?.migrationUrl;
 const run = Boolean(url) || Boolean(process.env.CI);
 const role = `e03_checkpoint_test_${randomUUID().replaceAll("-", "")}`;
 const password = randomUUID();
@@ -17,17 +19,23 @@ const scope = () => ({ owner: randomUUID(), trip: "trip-egypt-test", workspace: 
 
 describe.skipIf(!run)("E03 checkpoint isolated PostgreSQL repository candidate", () => {
   beforeAll(async () => {
-    if (!url) throw new Error("CI requires E03_CHECKPOINT_TEST_ADMIN_URL for checkpoint PG tests");
+    if (!url) throw new Error("CI requires a disposable E02_STORAGE_ENV_FILE or E03_CHECKPOINT_TEST_ADMIN_URL");
     const parsed = new URL(url);
-    if (!["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname) || !parsed.pathname.slice(1).startsWith("antu_e03_test_"))
-      throw new Error("Only an explicitly provisioned, local antu_e03_test_ database may be modified");
+    const db = parsed.pathname.slice(1);
+    if (!["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname) ||
+        !(db.startsWith("antu_e03_test_") || (url === e02?.migrationUrl && db.startsWith("antu_e02_test_"))))
+      throw new Error("Only an explicitly provisioned local E02/E03 disposable test database may be modified");
     admin = new Pool({ connectionString: url });
     const migration = readFileSync("src/server/decision-context/checkpoint-store/migration.sql", "utf8");
-    await admin.query(migration); await admin.query(migration);
+    const client = await admin.connect();
+    try { await client.query("BEGIN"); await client.query("SELECT pg_advisory_xact_lock(hashtext('e03_checkpoint_test_migration'))");
+      await client.query(migration); await client.query(migration); await client.query("COMMIT"); }
+    catch (error) { await client.query("ROLLBACK"); throw error; }
+    finally { client.release(); }
     await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`);
     roleCreated = true;
-    const db = parsed.pathname.slice(1).replaceAll('"', '""');
-    await admin.query(`GRANT CONNECT ON DATABASE "${db}" TO "${role}"`);
+    const quotedDb = db.replaceAll('"', '""');
+    await admin.query(`GRANT CONNECT ON DATABASE "${quotedDb}" TO "${role}"`);
     await admin.query(`GRANT USAGE ON SCHEMA e03_checkpoint TO "${role}"`);
     await admin.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA e03_checkpoint TO "${role}"`);
     parsed.username = role; parsed.password = password;

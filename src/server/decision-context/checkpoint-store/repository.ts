@@ -6,6 +6,8 @@ import type { Ack, CheckpointPayload, SceneListResult } from "../contracts.gener
 
 /** A storage key, never an authentication proof. Only a future trusted host may bind it. */
 export type StorageScope = Readonly<{ owner: string; trip: string; workspace: string }>;
+/** Server-derived values from a real, verified Session; not a client JSON contract. */
+export type VerifiedSession = Readonly<{ sessionId: string; userId: string }>;
 type Fault = "before_commit" | "after_commit";
 type Result = { fault?: string; ack?: Ack };
 type Saved = { revision: number; saved_at: string; expires_at: string | null; payload_digest: string; payload: CheckpointPayload; fault?: string };
@@ -24,9 +26,13 @@ const stamp = (value: Date): string => value.toISOString().replace(/\.(\d{3})Z$/
  */
 export class PgCheckpointRepository {
   constructor(private readonly pool: Pool, private readonly retentionSeconds: number | null,
-    private readonly fault?: (point: Fault) => void | Promise<void>) {
+    private readonly fault?: (point: Fault) => void | Promise<void>, private readonly session?: VerifiedSession) {
     if (retentionSeconds !== null && (!Number.isSafeInteger(retentionSeconds) || retentionSeconds <= 0)) fail("CHECKPOINT_POLICY");
     if (fault && process.env.NODE_ENV !== "test") fail("CHECKPOINT_POLICY");
+  }
+
+  private requireOwner(owner: string) {
+    if (this.session && (!this.session.sessionId || !this.session.userId || owner !== `user-${this.session.userId}`)) fail("ACCESS_DENIED");
   }
 
   async save(scope: StorageScope, expected: number, key: string, input: unknown, now: Date): Promise<Ack> {
@@ -40,7 +46,7 @@ export class PgCheckpointRepository {
   }
 
   private async write(scope: StorageScope, expected: number, key: string, payload: CheckpointPayload | null, now: Date, deleted: boolean): Promise<Ack> {
-    checkScope(scope); checkRevision(expected);
+    checkScope(scope); this.requireOwner(scope.owner); checkRevision(expected);
     if (!key || key.length > 512 || !Number.isFinite(now.getTime())) fail("CHECKPOINT_POLICY");
     const savedAt = stamp(now);
     let expires: string | null = null;
@@ -54,10 +60,11 @@ export class PgCheckpointRepository {
     let commitSent = false, committed = false;
     try {
       await client.query("BEGIN");
-      const rows = await client.query<{ value: Result }>(
-        "SELECT e03_checkpoint.write_scene($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11) AS value",
-        [scope.owner, scope.trip, scope.workspace, expected, key, requestDigest, payload === null ? null : JSON.stringify(payload),
-          payload === null ? null : checkpointDigest(payload), savedAt, expires, deleted]);
+      const params = [scope.trip, scope.workspace, expected, key, requestDigest, payload === null ? null : JSON.stringify(payload),
+        payload === null ? null : checkpointDigest(payload), savedAt, expires, deleted];
+      const rows = this.session
+        ? await client.query<{ value: Result }>("SELECT e03_checkpoint.session_write_scene($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9,$10,$11,$12) AS value", [this.session.sessionId, this.session.userId, ...params])
+        : await client.query<{ value: Result }>("SELECT e03_checkpoint.write_scene($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11) AS value", [scope.owner, ...params]);
       const result = rows.rows[0]?.value;
       if (!result) fail("CHECKPOINT_STORAGE");
       if (result.fault) fail(result.fault);
@@ -82,10 +89,12 @@ export class PgCheckpointRepository {
   }
 
   async load(scope: StorageScope, now: Date): Promise<Saved> {
-    checkScope(scope);
+    checkScope(scope); this.requireOwner(scope.owner);
     if (!Number.isFinite(now.getTime())) fail("CHECKPOINT_POLICY");
     let saved: Saved;
-    try { saved = (await this.pool.query<{ value: Saved }>("SELECT e03_checkpoint.read_scene($1,$2,$3,$4) AS value", [scope.owner, scope.trip, scope.workspace, now.toISOString()])).rows[0].value; }
+    try { saved = this.session
+      ? (await this.pool.query<{ value: Saved }>("SELECT e03_checkpoint.session_read_scene($1,$2,$3,$4,$5) AS value", [this.session.sessionId, this.session.userId, scope.trip, scope.workspace, now.toISOString()])).rows[0].value
+      : (await this.pool.query<{ value: Saved }>("SELECT e03_checkpoint.read_scene($1,$2,$3,$4) AS value", [scope.owner, scope.trip, scope.workspace, now.toISOString()])).rows[0].value; }
     catch { return fail("CHECKPOINT_STORAGE"); }
     if (saved.fault) fail(saved.fault);
     try {
@@ -97,10 +106,15 @@ export class PgCheckpointRepository {
   }
 
   async list(owner: string, trip: string, now: Date): Promise<SceneListResult["checkpoints"]> {
-    checkScope({ owner, trip, workspace: "_" });
+    checkScope({ owner, trip, workspace: "_" }); this.requireOwner(owner);
     if (!Number.isFinite(now.getTime())) fail("CHECKPOINT_POLICY");
-    try { return (await this.pool.query<{ value: SceneListResult["checkpoints"] }>("SELECT e03_checkpoint.list_scenes($1,$2,$3) AS value", [owner, trip, now.toISOString()])).rows[0].value; }
+    let value: SceneListResult["checkpoints"] | { fault: string };
+    try { value = this.session
+      ? (await this.pool.query<{ value: SceneListResult["checkpoints"] | { fault: string } }>("SELECT e03_checkpoint.session_list_scenes($1,$2,$3,$4) AS value", [this.session.sessionId, this.session.userId, trip, now.toISOString()])).rows[0].value
+      : (await this.pool.query<{ value: SceneListResult["checkpoints"] }>("SELECT e03_checkpoint.list_scenes($1,$2,$3) AS value", [owner, trip, now.toISOString()])).rows[0].value; }
     catch { return fail("CHECKPOINT_STORAGE"); }
+    if (!Array.isArray(value)) return fail(value.fault || "CHECKPOINT_STORAGE");
+    return value;
   }
 
   async revision(scope: StorageScope, now: Date): Promise<number> {
