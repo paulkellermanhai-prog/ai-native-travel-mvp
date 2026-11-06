@@ -156,11 +156,12 @@
         }
       ],
       "evidence": [],
-      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
-      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "execution_location": "有限并行已授权、尚未开始；从固定 33059d4 经授权落盘 G 的独立分支与工作区执行",
+      "responsibilities": "E03-02／PR #18 主实施与集成执行者负责 AGENTS、唯一看板、授权及共享接口；独立 E03-03 执行者负责获准纯函数、合成测试和专属交接",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+        "E03-03-1/2 仅有限范围获授权，先有 G 再开始编码；不得接入生产链",
+        "E03-03-3 分页及时效需 E03-02 验收；E03-03-4 真实 E11 等待对应权限及授权"
       ]
     },
     {
@@ -298,7 +299,17 @@
       ]
     }
   ],
-  "approved_change_registrations": [],
+  "approved_change_registrations": [
+    {
+      "stage_id": "E03-03",
+      "description": "有限并行已授权、尚未开始；仅 -1/-2 内不依赖完整 Context 的合同复用、纯任务守卫和合成测试，固定 33059d4 后先落盘 G，不计验收",
+      "approval_evidence": "工程侧｜MVP开发计划 AI 技术负责人，E03-03-PARALLEL-SCOPE-2026-11-06-01",
+      "subtask_ids": [
+        "E03-03-1",
+        "E03-03-2"
+      ]
+    }
+  ],
   "change_policy": "后续仅将已批准工程变更登记到既有阶段及新增子任务，不自动改变八阶段框架或权重；正式字段/权限/版本变化另行规格审核；不保证所有变更无需改机器契约",
   "gate_a": {
     "status": "APPROVED",
