@@ -13,7 +13,9 @@
     "ts_reference_commit": "0078bb542fd4ac81343a602d5f0fe4e62a42620c",
     "ts_reference_engine_sha256": "00d7693bdae138e11b1acee7c8dd9c69806fb19d1f47502aaaf13603d0633dac",
     "ts_reference_rules_sha256": "dc6cf6d690440035ee876c12afda268f9a670dbc69b1347bf0c3353183da9bc6",
-    "oracle_lock": "specs/e03-01-oracle-lock.json"
+    "oracle_lock": "specs/e03-01-oracle-lock.json",
+    "r6_manifest": "specs/dc-ac8-r6-calibration-2026-11-05/sources/decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
+    "r6_manifest_sha256": "0e03797ada46e0f0a0546f7237f0a630f49ee12369e1a081d9c2d98b1f514362"
   },
   "accepted_difference": "在原注释路径已求值的条件中，将同一已授权旅行、同一版本及同一时刻全快照的现有 C12 争议集合传入原子条件；明确案例为已选 Preference 顶层 condition。争议事实引用为 unknown，复合保持既有三值逻辑，最终保留原 scope 规则。",
   "unchanged_boundaries": [

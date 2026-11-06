@@ -1,8 +1,10 @@
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { assembleContextSnapshot } from "../../src/server/decision-context/context-assembly";
 import type { Annotation } from "../../src/server/decision-context/contracts.generated";
-import type { Condition, State } from "../../src/server/trip-state/contracts.generated";
+import { digest } from "../../src/server/trip-state/command-json";
+import type { Condition, DecisionContext, State } from "../../src/server/trip-state/contracts.generated";
 import { base, object } from "../support/bcg-fixtures";
 
 const now = new Date("2030-01-01T00:00:00Z"), targets = ["skeleton-a"];
@@ -10,7 +12,7 @@ function reference(state: State) {
   return JSON.parse(execFileSync(process.env.TRIP_STATE_PYTHON ?? "python3", ["scripts/e03-02-annotation-oracle.py"], {
     input: JSON.stringify([{state, targets, now: now.toISOString()}]), encoding: "utf8", timeout: 20000,
     env: {...process.env, PYTHONDONTWRITEBYTECODE:"1"},
-  }))[0] as {context:{selected_object_ids:string[];stale_fact_ids:string[]};annotations:Annotation[]};
+  }))[0] as {context:DecisionContext;annotations:Annotation[]};
 }
 function fixture(opposite: boolean, selected: boolean) {
   const state = structuredClone(base), fact = object(state,"fact-cairo-luxor","ExternalFact");
@@ -34,14 +36,26 @@ describe("C12 applicability comparison with pinned R6 annotation runtime", () =>
   });
   it("records the exact observable difference when an opposite fact is outside selected bodies", () => {
     const state=fixture(true,false), candidate=assembleContextSnapshot(state,"task-test",targets,now), original=reference(state);
-    expect(candidate.context.selected_object_ids).toEqual(original.context.selected_object_ids);
-    expect(candidate.context.stale_fact_ids).toEqual(original.context.stale_fact_ids);
+    // IDs are independently generated UUIDs. Every other Context field must match.
+    const referenceContext={...original.context}, candidateContext={...candidate.context};
+    referenceContext.id="context-normalized";candidateContext.id="context-normalized";
+    expect(candidateContext).toEqual(referenceContext);
     expect(candidate.context.selected_object_ids).not.toContain("opposite-fact");
     const referencePref=original.annotations.find(a=>a.id==="pref-culture"), candidatePref=candidate.annotations.find(a=>a.id==="pref-culture");
     expect(referencePref?.applicability).toBe("applicable");
     expect(candidatePref?.applicability).toBe("unknown");
     expect({...candidatePref,applicability:"applicable"}).toEqual(referencePref);
     expect(candidate.annotations.filter(a=>a.id!=="pref-culture")).toEqual(original.annotations.filter(a=>a.id!=="pref-culture").sort((a,b)=>a.id.localeCompare(b.id)));
+    const evidencePath=process.env.E03_C12_REFERENCE_EVIDENCE_PATH;
+    if(process.env.CI && !evidencePath) throw new Error("CI requires R6/C12 comparison evidence path");
+    if(evidencePath) fs.writeFileSync(evidencePath,JSON.stringify({
+      scenario:"synthetic unselected opposite fact; R6 selected versus full snapshot condition evaluation",
+      reference_source:"locked R6 Runtime._annotations and approved TS Store.context",
+      candidate_source:"TypeScript assembleContextSnapshot", comparison_clock:now.toISOString(), targets,
+      state_digest:digest(state), state, original, candidate,
+      permitted_context_difference:["id: independent UUID"],
+      permitted_annotation_difference:["pref-culture.applicability: R6 applicable; candidate unknown"],
+    },null,2)+"\n");
   });
   it.each([
     { op:"not", condition:{op:"not",arg:{op:"eq",object_id:"fact-cairo-luxor",path:"/value/service_exists",value:true}} as Condition, r6:"not_applicable", candidate:"unknown" },

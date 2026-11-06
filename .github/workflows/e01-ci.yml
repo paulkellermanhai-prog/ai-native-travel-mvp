@@ -116,7 +116,15 @@ jobs:
           E02_FACT_STORAGE_EVIDENCE_PATH: ${{ runner.temp }}/e02-04c-postgres.jsonl
           E02_DEF_EVIDENCE_PATH: ${{ runner.temp }}/e02-04d-def.json
           E02_FINAL_STORAGE_EVIDENCE_PATH: ${{ runner.temp }}/e02-04d-postgres.jsonl
+          E03_C12_REFERENCE_EVIDENCE_PATH: ${{ runner.temp }}/e03-02-c12-comparison.json
         run: npm test
+      - name: Preserve synthetic R6 and C12 candidate comparison
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e03-02-c12-reference-comparison
+          path: ${{ runner.temp }}/e03-02-c12-comparison.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Preserve actual TypeScript Scenario A execution evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
