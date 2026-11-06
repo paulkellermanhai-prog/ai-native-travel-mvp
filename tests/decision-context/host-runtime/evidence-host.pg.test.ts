@@ -8,6 +8,9 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openIdentity, type Identity } from "../../../src/server/auth/config";
 import { openEvidenceHost } from "../../../src/server/decision-context/host-runtime/evidence-host";
 import { createPacketSocketDeliveryCandidate } from "../../../src/server/decision-context/host-runtime/packet-socket-delivery-candidate";
+import { createShortPacketHandoffCandidate } from "../../../src/server/decision-context/host-runtime/packet-short-handoff-candidate";
+import type { PacketCandidate } from "../../../src/server/decision-context/packet-core/packet";
+import type { State } from "../../../src/server/trip-state/contracts.generated";
 import { issueInternalCapability, openInternalTripService } from "../../../src/server/auth/internal-service";
 import { base } from "../../support/bcg-fixtures";
 import { checkpointDigest, validateCheckpoint } from "../../../src/server/decision-context/checkpoint-core";
@@ -606,6 +609,86 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
       if(server.listening) await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
       await wired.close();
     }
+  },30000);
+  it("revalidates separate socket pages in short real Session/PG transactions", async () => {
+    const t=`trip_page_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"short-fixture"}));
+    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    const a=await account(),b=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[t,a.user.id,b.user.id]);
+    const objects=structuredClone(base.objects.filter(item=>["egypt","aswan"].includes(item.id))); for(const item of objects)item.trip_id=t;
+    await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}',$2::jsonb) WHERE "tripId"=$1`,[t,JSON.stringify(objects)]);
+    const state=(await owner.query<{snapshot:State}>('SELECT snapshot FROM public."TripStateDocument" WHERE "tripId"=$1',[t])).rows[0].snapshot;
+    let response:http.ServerResponse|undefined,first:PacketCandidate|undefined;
+    let tracker:ReturnType<typeof createShortPacketHandoffCandidate>|undefined;
+    const handoff:{value?:ReturnType<ReturnType<typeof createShortPacketHandoffCandidate>["beginPacket"]>}={};
+    let phase:"packet"|"page"|"hold"|"postflight"="packet";
+    let markHeld!:()=>void,releaseHeld!:()=>void;
+    const held=new Promise<void>(resolve=>{markHeld=resolve;}),release=new Promise<void>(resolve=>{releaseHeld=resolve;});
+    let deletionDone:Promise<unknown>|undefined; const order:string[]=[];
+    let turnId="",key="";
+    const text="了解阿斯旺",taskInput=()=>({expected_revision:0,tasks:[{task_key:key,question:text,kind:"explore",target_ids:["aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null}],focus_keys:[key]});
+    const wired=await openEvidenceHost(env,{onLivePacketCandidate:async(candidate,recheck,bind)=> {
+      if(phase==="postflight")return;
+      if(!response)throw new Error("missing test response");
+      await recheck(); // held DB locks; begin below is synchronous
+      if(phase==="packet") {
+        first=structuredClone(candidate); // synthetic fixture only, not a production cache
+        tracker=createShortPacketHandoffCandidate(first,async()=> {
+          const before=phase; phase="postflight";
+          try {if(before==="hold"&&deletionDone)await deletionDone;await wired.inspectLivePacketCandidate(ticket,a.headers,turnId,key,2,taskInput());} finally {phase=before;}
+        });
+        bind(tracker.invalidate);
+        handoff.value=tracker.beginPacket(response,first);
+      } else {
+        if(!first||!tracker||candidate.assembly.snapshot_digest!==first.assembly.snapshot_digest||digest(state)!==first.assembly.snapshot_digest)throw new Error("stale snapshot");
+        if(phase==="hold"){markHeld();await release;await recheck();order.push("send-start");}
+        const now=new Date();
+        handoff.value=tracker.beginPage(response,first,{runtime_contract_version:"0.1.0",packet_id:first.packet.packet_id,object_ids:["aswan"]},{state,now},{state,now});
+      }
+    }});
+    const ticket=await wired.createWorkspace(t,a.headers); key=await wired.mintTaskKey(ticket,a.headers,"short-task");
+    const event=await wired.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`short_${randomUUID()}`});
+    turnId=(await wired.registerTaskIdentity(ticket,a.headers,event,taskInput())).turn_id;
+    let done:Promise<void>=Promise.resolve();
+    const server=http.createServer((req,res)=> {
+      response=res; phase=req.url==="/hold"?"hold":req.url==="/page"?"page":"packet"; handoff.value=undefined;
+      done=(async()=> {
+        try {
+          await wired.inspectLivePacketCandidate(ticket,new Headers({cookie:req.headers.cookie??""}),turnId,key,2,taskInput());
+          if(!handoff.value)throw new Error("handoff missing");
+          await handoff.value.afterCommit(); // inspect transaction already ended
+        } catch {handoff.value?.abort(); if(!res.headersSent&&!res.destroyed){res.writeHead(403);res.end();}}
+      })();
+    });
+    try {
+      server.listen(0,"127.0.0.1");await once(server,"listening");const address=server.address();if(!address||typeof address==="string")throw new Error("missing socket");
+      const origin=`http://127.0.0.1:${address.port}`,cookie=a.headers.get("cookie")??"";
+      const packet=await fetch(`${origin}/packet`,{headers:{cookie}}); expect(packet.status).toBe(200);
+      expect((await packet.json() as {deferred_ids:string[]}).deferred_ids).toEqual(["aswan"]);await done;
+      expect(tracker?.progress()).toEqual({initial_sent:true,delivered_count:0,remaining_count:1,pending:false});
+      const page=await fetch(`${origin}/page`,{headers:{cookie}});expect(page.status).toBe(200);
+      expect((await page.json() as {objects:Array<{id:string}>}).objects.map(o=>o.id)).toEqual(["aswan"]);await done;
+      expect(tracker?.progress()).toEqual({initial_sent:true,delivered_count:1,remaining_count:0,pending:false});
+      expect((await fetch(`${origin}/page`,{headers:{cookie:b.headers.get("cookie")??""}})).status).toBe(403);await done;
+      expect(tracker?.progress().delivered_count).toBe(1);
+      const cap=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,t,event.workspace_key])).rows[0].capability_token;
+      const pid=(await owner.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+      const observer=new Client({connectionString:config!.migrationUrl}); await observer.connect();
+      try {
+        const inFlight=fetch(`${origin}/hold`,{headers:{cookie}});await held;
+        deletionDone=owner.query('SELECT * FROM public.host_checkpoint_delete_event_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,t,event.workspace_key,cap,event.event_id]).then(result=>{order.push("delete-committed");return result;});
+        let blocked=false;for(let i=0;i<100;i++) {
+          const wait=await observer.query<{waiting:boolean}>('SELECT wait_event_type=\'Lock\' AS waiting FROM pg_stat_activity WHERE pid=$1',[pid]);
+          if(wait.rows[0]?.waiting){blocked=true;break;}await new Promise(resolve=>setTimeout(resolve,50));
+        }
+        expect(blocked).toBe(true);releaseHeld();
+        expect((await inFlight).status).toBe(200);await deletionDone;await done;
+        expect(order).toEqual(["send-start","delete-committed"]);
+      } finally {releaseHeld();await observer.end();}
+      await wired.deleteEvent(ticket,a.headers,event.event_id); // synchronize already committed deletion
+      expect(()=>tracker?.progress()).toThrow("DELIVERY_UNAVAILABLE");
+      expect((await fetch(`${origin}/page`,{headers:{cookie}})).status).toBe(403);await done;
+    } finally {tracker?.invalidate();if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await wired.close();}
   },30000);
   it("atomically records verified scene events and serializes their removal with deletion", async () => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);

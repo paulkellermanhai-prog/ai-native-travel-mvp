@@ -25,7 +25,7 @@ type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>
 type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string; capability: string; runtimeId: string;
   recoveredEvents: Set<string>; recoveryWatermark: number | null; deletionRevision: number; pendingSaves: Set<string>; pendingSaveSticky: boolean; inflightSaves: number; keyEpochs: Map<string,number>; tasks: Map<string, TaskMemory>;
   turns: Map<string, { digest: string; result: Pick<Registration,"turn_id"|"revision">; sources: Map<string,string>; sequence: number }>;
-  invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; disposed: boolean; tail: Promise<void> };
+  invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; packetInvalidators:Set<()=>void>; disposed: boolean; tail: Promise<void> };
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
 type DeleteRow = { disposition: string; deletion_revision: bigint | null; accepted_at: Date | null; cleanup_pending: boolean | null; event_highwater: bigint | null };
 type EventRow = { allowed: boolean; out_entry: "dialogue" | "map" | "timeline" | "comparison" | null; out_body: string | null; out_received_at: Date | null; out_retention_revision: bigint | null };
@@ -45,7 +45,7 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>)=>Promise<void> }) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void> }) {
   if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
@@ -87,6 +87,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   // Task keys may contain user text; retain only a keyed, scope-bound index.
   const taskIndex = (scope: Scope, key: string) => createHmac("sha256",keySecret).update("task-identity\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,key]),"utf8").digest("hex");
   const taskFingerprint = (scope: Scope, task: unknown) => createHmac("sha256",keySecret).update("task-value\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,task]),"utf8").digest("hex");
+  function invalidatePackets(scope:Scope) { for(const invalidate of scope.packetInvalidators) { try { invalidate(); } catch { /* durable deletion must not be undone by local cleanup */ } } scope.packetInvalidators.clear(); }
   async function exclusive<T>(scope: Scope, action: () => Promise<T>): Promise<T> {
     const previous = scope.tail; let release!: () => void;
     scope.tail = new Promise<void>(resolve => { release = resolve; });
@@ -118,7 +119,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
       const p = await authorized(tripId, credential);
-      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, deletionRevision:0, pendingSaves:new Set(), pendingSaveSticky:false, inflightSaves:0, keyEpochs:new Map(), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), disposed:false, tail: Promise.resolve() };
+      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, deletionRevision:0, pendingSaves:new Set(), pendingSaveSticky:false, inflightSaves:0, keyEpochs:new Map(), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), packetInvalidators:new Set(), disposed:false, tail: Promise.resolve() };
       try {
         await db.$transaction(async tx => {
           try { await host.guard!(tripId, p.headers, tx); } catch { return deny(); }
@@ -203,6 +204,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         // invalidates pre-cutoff state, never later independent work.
         const cutoff=counter(row.event_highwater), revision=counter(row.deletion_revision);
         if (revision>scope.deletionRevision) {
+          invalidatePackets(scope);
           scope.runtimeId=`runtime-${randomUUID().replaceAll("-","")}`;
           scope.pendingSaves.clear(); scope.pendingSaveSticky=false;
         }
@@ -363,14 +365,17 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
             await recheck();
             // Test hook only: openEvidenceHost rejects all hooks outside the
             // test environment. It is not a production delivery barrier.
-            if(testHooks?.onLivePacketCandidate) await testHooks.onLivePacketCandidate(structuredClone(candidate),recheck);
+            if(testHooks?.onLivePacketCandidate) await testHooks.onLivePacketCandidate(structuredClone(candidate),recheck,invalidate=> {
+              if(typeof invalidate!=="function"||scope.packetInvalidators.size>=256)return unavailable();
+              scope.packetInvalidators.add(invalidate); return ()=>scope.packetInvalidators.delete(invalidate);
+            });
             await recheck();
             return {state_revision:state.revision,selected_count:assembly.objects.length,body_count:candidate.packet.objects.length,
               deferred_count:candidate.packet.deferred_ids.length,coverage:candidate.packet.coverage};
           });
           if (closed || scope.disposed) return deny();
           return result;
-        } catch(error) { if (error instanceof EvidenceBoundaryError) throw error; return unavailable(); }
+        } catch(error) { invalidatePackets(scope); if (error instanceof EvidenceBoundaryError) throw error; return unavailable(); }
       });
     },
     /**
@@ -523,7 +528,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           // Atomic within this host's per-workspace executor. Cross-process
           // delivery and the real Packet/Grant host remain separately gated.
           for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
-          scope.receipts.clear(); scope.replayReceipts.clear(); scope.turns.clear(); scope.invalidTurns.clear();
+          invalidatePackets(scope); scope.receipts.clear(); scope.replayReceipts.clear(); scope.turns.clear(); scope.invalidTurns.clear();
           scope.recoveredEvents=new Set(restored.eventIds); scope.recoveryWatermark=restored.watermark; scope.tasks=restored.installed; scope.runtimeId=runtimeId;
           return {runtime_id:runtimeId,checkpoint_revision:restored.checkpointRevision,saved_state_revision:restored.savedRevision,
             current_state_revision:restored.currentRevision,restored_task_count:restored.taskCount,
@@ -558,7 +563,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       const scope = ticket && typeof ticket === "object" ? workspaces.get(ticket) : undefined;
       if (!scope) return;
       await exclusive(scope,async()=> {
-        scope.disposed=true; scope.capability="";
+        scope.disposed=true; scope.capability=""; invalidatePackets(scope);
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
         scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
         workspaces.delete(ticket); activeScopes.delete(scope);
@@ -567,7 +572,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     async close() {
       if (closed) return; closed = true;
       for (const scope of activeScopes) {
-        scope.disposed=true; scope.capability="";
+        scope.disposed=true; scope.capability=""; invalidatePackets(scope);
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
         scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
       }

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { assembleContextSnapshot } from "../../../src/server/decision-context/context-assembly";
 import { buildPacketCandidate } from "../../../src/server/decision-context/packet-core/packet";
 import { createPacketSocketDeliveryCandidate } from "../../../src/server/decision-context/host-runtime/packet-socket-delivery-candidate";
+import { createShortPacketHandoffCandidate } from "../../../src/server/decision-context/host-runtime/packet-short-handoff-candidate";
 import type { DecisionContextContracts } from "../../../src/server/decision-context/contracts";
 import { base } from "../../support/bcg-fixtures";
 
@@ -86,6 +87,39 @@ describe("isolated Packet socket and private delivery ledger",()=> {
       expect((await fetch(`${origin}/packet`)).status).toBe(200);
       expect((await fetch(`${origin}/page`)).status).toBe(500);
       expect(()=>expired.progress()).toThrow("DELIVERY_UNAVAILABLE");
+    });
+  },30000);
+  it("keeps a short-transaction handoff pending until commit and revalidation",async()=> {
+    const {candidate,state,now}=fixture(); let checks=0;
+    const tracker=createShortPacketHandoffCandidate(candidate,async()=>{checks++;});
+    const pending:{value?:ReturnType<typeof tracker.beginPacket>}={};
+    const request={runtime_contract_version:"0.1.0",packet_id:candidate.packet.packet_id,object_ids:[candidate.packet.deferred_ids[0]]};
+    await serverRun(async(path,res)=> {
+      if(path==="/packet") {pending.value=tracker.beginPacket(res,candidate);return;}
+      if(path==="/held") {pending.value=tracker.beginPage(res,candidate,request,{state,now},{state,now});return;}
+      const next={...request,object_ids:[candidate.packet.deferred_ids[1]]};
+      const page=tracker.beginPage(res,candidate,next,{state,now},{state,now});await page.afterCommit();
+    },async origin=> {
+      expect((await fetch(`${origin}/packet`)).status).toBe(200);
+      expect(tracker.progress()).toMatchObject({initial_sent:false,delivered_count:0,pending:true});
+      expect((await fetch(`${origin}/page`)).status).toBe(500);
+      if(!pending.value)throw new Error("missing pending handoff"); await pending.value.afterCommit();
+      expect(tracker.progress()).toMatchObject({initial_sent:true,delivered_count:0,pending:false});
+      expect((await fetch(`${origin}/held`)).status).toBe(200);
+      expect((await fetch(`${origin}/page`)).status).toBe(500);
+      expect(tracker.progress()).toMatchObject({delivered_count:0,pending:true});
+      if(!pending.value)throw new Error("missing page handoff"); await pending.value.afterCommit();
+      expect((await fetch(`${origin}/page`)).status).toBe(200);
+      expect(tracker.progress()).toMatchObject({delivered_count:2,pending:false});
+      expect(checks).toBe(3);
+    });
+    tracker.invalidate();
+  },30000);
+  it("invalidates an uncertain handoff instead of recording a failed transaction",async()=> {
+    const {candidate}=fixture(),tracker=createShortPacketHandoffCandidate(candidate,async()=>{});
+    await serverRun(async(_path,res)=>{const pending=tracker.beginPacket(res,candidate);pending.abort();},async origin=> {
+      await fetch(origin).catch(()=>null);
+      expect(()=>tracker.progress()).toThrow("DELIVERY_UNAVAILABLE");
     });
   },30000);
 });
