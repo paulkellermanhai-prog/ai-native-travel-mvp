@@ -37,6 +37,7 @@ describe("R3 state-by-event independent expectation matrix", () => {
       expect(nextActionPhase(phase, event.input)).toEqual({phase: expected, receiptLookupRequired: event.name === "unknown"});
     } else {
       expect(() => nextActionPhase(phase, event.input)).toThrow(NapPhaseTransitionError);
+      expect(() => nextActionPhase(phase, event.input)).toThrow("NAP candidate action: INVALID_TRANSITION");
     }
     expect(event.input).toEqual(original);
   });
