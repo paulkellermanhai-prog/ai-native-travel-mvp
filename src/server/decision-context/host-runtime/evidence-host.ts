@@ -71,8 +71,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     const [evidenceRole] = await db.$queryRaw<Array<{ denied: boolean }>>`
       WITH principals AS (SELECT oid FROM pg_roles WHERE pg_has_role(current_user,oid,'USAGE') OR pg_has_role(current_user,oid,'SET')),
       evidence_tables AS (SELECT c.oid,c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-        WHERE n.nspname='public' AND c.relname IN ('HostEvidenceWorkspace','HostEvidenceEvent','HostEvidenceCleanup','HostEvidenceTripLifecycle','HostEvidenceTaskSource','HostEvidenceScene','HostEvidenceTaskKey','HostEvidenceSceneEventWitness') AND c.relkind='r')
-      SELECT (SELECT count(*) FROM evidence_tables) <> 8 OR EXISTS (
+        WHERE n.nspname='public' AND c.relname IN ('HostEvidenceWorkspace','HostEvidenceEvent','HostEvidenceCleanup','HostEvidenceTripLifecycle','HostEvidenceTaskSource','HostEvidenceAssociationHead','HostEvidenceAssociationLog','HostEvidenceScene','HostEvidenceTaskKey','HostEvidenceSceneEventWitness') AND c.relkind='r')
+      SELECT (SELECT count(*) FROM evidence_tables) <> 10 OR EXISTS (
         SELECT 1 FROM evidence_tables c CROSS JOIN principals p WHERE c.relowner=p.oid
           OR has_table_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
           OR has_any_column_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')) OR EXISTS (
@@ -353,6 +353,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         if (scope.recoveredEvents.has(proof.eventId) || (scope.recoveryWatermark!==null && receipt.sequence<=scope.recoveryWatermark))
           throw new CheckpointError("RECOVERED_EVENT_REPLAY");
         if (closed || scope.invalidTurns.has(proof.eventId)) return unavailable();
+        const proposedTurnId=`turn_${randomUUID()}`;
         const result = await db.$transaction(async tx => {
           const [document] = await tx.$queryRaw<Array<{ revision: bigint; snapshot: string }>>`SELECT "revision", "snapshot"::text AS snapshot FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
           try { await host.guard!(scope.tripId, headers, tx); } catch { return deny(); }
@@ -402,7 +403,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
             const dependencies = [scope.tasks.get(taskIndex(scope,task.task_key)),...task.related_task_keys.map(key=>scope.tasks.get(taskIndex(scope,key)))];
             for (const prior of dependencies) if (prior) for (const [id,token] of prior.sources) sources.set(id,token);
             for (const [id,token] of [...sources].sort(([a],[b])=>a.localeCompare(b))) {
-              const [linked] = await tx.$queryRaw<Array<{ok:boolean}>>`SELECT public.host_evidence_bind_task_source_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${taskIndex(scope,task.task_key)},${JSON.stringify(task)}::jsonb,${id},${token}) AS ok`;
+              const [linked] = await tx.$queryRaw<Array<{ok:boolean}>>`SELECT public.host_evidence_bind_task_source_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${taskIndex(scope,task.task_key)},${JSON.stringify(task)}::jsonb,${id},${token},${proposedTurnId}) AS ok`;
               if (!linked?.ok) return unavailable();
             }
           }
@@ -411,7 +412,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         if (closed) return unavailable();
         if (result.replay) {rememberTurn(scope,result.replay.turn_id,parsed.data);return { ...structuredClone(result.replay), runtime_id: scope.runtimeId };}
         const checked = result.body!;
-        const registration: Registration = { turn_id:`turn_${randomUUID()}`, revision:checked.expected_revision, task_keys:checked.tasks.map(task => task.task_key), focus_keys:[...checked.focus_keys] };
+        const registration: Registration = { turn_id:proposedTurnId, revision:checked.expected_revision, task_keys:checked.tasks.map(task => task.task_key), focus_keys:[...checked.focus_keys] };
         const sources = new Map<string,string>([[proof.eventId,proof.token]]);
         for (const task of checked.tasks) {
           const taskSources = new Map<string,string>([[proof.eventId,proof.token]]);

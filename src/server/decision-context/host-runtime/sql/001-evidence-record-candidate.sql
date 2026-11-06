@@ -185,6 +185,37 @@ CREATE TABLE public."HostEvidenceTaskSource" (
 );
 REVOKE ALL ON public."HostEvidenceTaskSource" FROM PUBLIC;
 
+-- Monotonic per-Task association ledger. It records no event or Task body.
+-- Only verified link actions are wired to the current Turn registrar; unlink
+-- and supersede require a separately trusted correction command before use.
+CREATE TABLE public."HostEvidenceAssociationHead" (
+  owner_id TEXT NOT NULL,trip_id TEXT NOT NULL,workspace_key TEXT NOT NULL,
+  task_token TEXT NOT NULL CHECK (task_token ~ '^[0-9a-f]{64}$'),
+  task_key_digest TEXT NOT NULL CHECK (task_key_digest ~ '^[0-9a-f]{64}$'),
+  revision BIGINT NOT NULL DEFAULT 0 CHECK (revision BETWEEN 0 AND 9007199254740991),
+  PRIMARY KEY(owner_id,trip_id,workspace_key,task_token),
+  FOREIGN KEY(owner_id,trip_id,workspace_key) REFERENCES public."HostEvidenceWorkspace"(owner_id,trip_id,workspace_key)
+);
+REVOKE ALL ON public."HostEvidenceAssociationHead" FROM PUBLIC;
+CREATE TABLE public."HostEvidenceAssociationLog" (
+  link_id TEXT PRIMARY KEY CHECK (link_id ~ '^link_[0-9a-f]{32}$'),
+  owner_id TEXT NOT NULL,trip_id TEXT NOT NULL,workspace_key TEXT NOT NULL,
+  task_token TEXT NOT NULL CHECK (task_token ~ '^[0-9a-f]{64}$'),
+  task_key_digest TEXT NOT NULL CHECK (task_key_digest ~ '^[0-9a-f]{64}$'),
+  event_id TEXT NOT NULL REFERENCES public."HostEvidenceEvent"(event_id),
+  action TEXT NOT NULL CHECK (action IN ('link','unlink','supersede')),
+  association_revision BIGINT NOT NULL CHECK (association_revision BETWEEN 1 AND 9007199254740991),
+  expected_association_revision BIGINT NOT NULL CHECK (expected_association_revision BETWEEN 0 AND 9007199254740991),
+  source_turn_id TEXT NOT NULL CHECK (source_turn_id ~ '^[A-Za-z][A-Za-z0-9_-]{0,95}$'),
+  operation_token TEXT NOT NULL CHECK (operation_token ~ '^[0-9a-f]{64}$'),
+  linked_at TIMESTAMPTZ(6) NOT NULL DEFAULT clock_timestamp(),
+  UNIQUE(owner_id,trip_id,workspace_key,task_token,association_revision),
+  UNIQUE(owner_id,trip_id,workspace_key,task_token,operation_token),
+  CHECK (association_revision=expected_association_revision+1),
+  FOREIGN KEY(owner_id,trip_id,workspace_key,task_token) REFERENCES public."HostEvidenceAssociationHead"(owner_id,trip_id,workspace_key,task_token)
+);
+REVOKE ALL ON public."HostEvidenceAssociationLog" FROM PUBLIC;
+
 -- Keys used in the restricted persistence slice are minted in PostgreSQL,
 -- not supplied by a model/client or copied from potentially deleted text.
 CREATE TABLE public."HostEvidenceTaskKey" (
@@ -241,13 +272,34 @@ REVOKE ALL ON public."HostEvidenceScene" FROM PUBLIC;
 -- source and current state. The source is re-authorized and held to commit.
 CREATE FUNCTION public.host_evidence_bind_task_source_candidate(
   p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,
-  p_task_token TEXT,p_task JSONB,p_event TEXT,p_event_token TEXT
+  p_task_token TEXT,p_task JSONB,p_event TEXT,p_event_token TEXT,p_turn_id TEXT
 ) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-DECLARE ok BOOLEAN;
+DECLARE ok BOOLEAN; v_revision BIGINT; v_action TEXT; v_task_key TEXT; v_bound_key TEXT; v_task_digest TEXT;
 BEGIN
-  IF p_task_token !~ '^[0-9a-f]{64}$' OR jsonb_typeof(p_task) IS DISTINCT FROM 'object' THEN RETURN FALSE; END IF;
+  v_task_key:=p_task->>'task_key';
+  IF p_task_token IS NULL OR p_task_token !~ '^[0-9a-f]{64}$' OR jsonb_typeof(p_task) IS DISTINCT FROM 'object' OR
+    v_task_key IS NULL OR v_task_key !~ '^[A-Za-z][A-Za-z0-9_-]{0,95}$' OR
+    p_turn_id IS NULL OR p_turn_id !~ '^[A-Za-z][A-Za-z0-9_-]{0,95}$' THEN RETURN FALSE; END IF;
   SELECT allowed INTO ok FROM public.host_evidence_for_turn_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,p_event,p_event_token,TRUE);
   IF ok IS DISTINCT FROM TRUE THEN RETURN FALSE; END IF;
+  v_task_digest:=encode(sha256(convert_to(p_capability||v_task_key,'UTF8')),'hex');
+  INSERT INTO public."HostEvidenceAssociationHead"(owner_id,trip_id,workspace_key,task_token,task_key_digest)
+    VALUES(p_owner,p_trip,p_workspace,p_task_token,v_task_digest) ON CONFLICT DO NOTHING;
+  SELECT revision,task_key_digest INTO v_revision,v_bound_key FROM public."HostEvidenceAssociationHead"
+    WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND task_token=p_task_token FOR UPDATE;
+  IF v_bound_key IS DISTINCT FROM v_task_digest THEN RETURN FALSE; END IF;
+  SELECT action INTO v_action FROM public."HostEvidenceAssociationLog"
+    WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND task_token=p_task_token AND event_id=p_event
+    ORDER BY association_revision DESC LIMIT 1;
+  IF v_action IS DISTINCT FROM 'link' THEN
+    UPDATE public."HostEvidenceAssociationHead" SET revision=revision+1
+      WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND task_token=p_task_token;
+    INSERT INTO public."HostEvidenceAssociationLog"(link_id,owner_id,trip_id,workspace_key,task_token,task_key_digest,event_id,
+      action,association_revision,expected_association_revision,source_turn_id,operation_token)
+      VALUES('link_'||replace(gen_random_uuid()::text,'-',''),p_owner,p_trip,p_workspace,p_task_token,v_task_digest,p_event,
+        'link',v_revision+1,v_revision,p_turn_id,
+        encode(sha256(convert_to(p_capability||p_turn_id||p_task_token||p_event||'link','UTF8')),'hex'));
+  END IF;
   INSERT INTO public."HostEvidenceTaskSource"(owner_id,trip_id,workspace_key,task_token,task_digest,event_id,event_token)
     VALUES(p_owner,p_trip,p_workspace,p_task_token,encode(sha256(convert_to(p_capability || p_task::text,'UTF8')),'hex'),p_event,p_event_token)
     ON CONFLICT DO NOTHING;
@@ -257,7 +309,7 @@ BEGIN
   RETURN TRUE;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT) FROM PUBLIC;
 
 -- Bounded, metadata-only snapshot of one minted Task's committed source set.
 -- The host verifies every event through host_evidence_for_turn_candidate before
@@ -267,7 +319,7 @@ CREATE FUNCTION public.host_evidence_task_snapshot_candidate(
   p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_task_key TEXT,p_task_token TEXT
 ) RETURNS TABLE(ok BOOLEAN,out_retention_revision BIGINT,out_highwater BIGINT,out_association_revision BIGINT,out_unlinked_count BIGINT,out_sources JSONB)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-DECLARE v_retention BIGINT; v_highwater BIGINT; v_count BIGINT; v_unlinked BIGINT; v_sources JSONB;
+DECLARE v_retention BIGINT; v_highwater BIGINT; v_count BIGINT; v_association BIGINT; v_unlinked BIGINT; v_sources JSONB;
 BEGIN
   IF p_task_token !~ '^[0-9a-f]{64}$' OR public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
     RETURN QUERY SELECT FALSE,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::JSONB; RETURN;
@@ -282,11 +334,16 @@ BEGIN
   END IF;
   SELECT count(*) INTO v_count FROM public."HostEvidenceTaskSource" WHERE owner_id=p_owner AND trip_id=p_trip
     AND workspace_key=p_workspace AND task_token=p_task_token;
+  SELECT revision INTO v_association FROM public."HostEvidenceAssociationHead" WHERE owner_id=p_owner AND trip_id=p_trip
+    AND workspace_key=p_workspace AND task_token=p_task_token FOR SHARE;
   IF v_count<1 OR v_count>256 OR EXISTS (
     SELECT 1 FROM public."HostEvidenceTaskSource" b LEFT JOIN public."HostEvidenceEvent" e ON e.event_id=b.event_id
     WHERE b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace AND b.task_token=p_task_token
       AND (e.event_id IS NULL OR e.owner_id IS DISTINCT FROM p_owner OR e.trip_id IS DISTINCT FROM p_trip
-        OR e.workspace_key IS DISTINCT FROM p_workspace OR e.key_token IS DISTINCT FROM b.event_token)) THEN
+        OR e.workspace_key IS DISTINCT FROM p_workspace OR e.key_token IS DISTINCT FROM b.event_token OR
+        (SELECT action FROM public."HostEvidenceAssociationLog" l WHERE l.owner_id=b.owner_id AND l.trip_id=b.trip_id
+          AND l.workspace_key=b.workspace_key AND l.task_token=b.task_token AND l.event_id=b.event_id
+          ORDER BY l.association_revision DESC LIMIT 1) IS DISTINCT FROM 'link')) OR v_association IS NULL THEN
     RETURN QUERY SELECT FALSE,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::JSONB; RETURN;
   END IF;
   SELECT COALESCE(MAX(sequence),0) INTO v_highwater FROM public."HostEvidenceEvent"
@@ -305,7 +362,7 @@ BEGIN
   IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
     RETURN QUERY SELECT FALSE,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::JSONB; RETURN;
   END IF;
-  RETURN QUERY SELECT TRUE,v_retention,v_highwater,v_count,v_unlinked,v_sources;
+  RETURN QUERY SELECT TRUE,v_retention,v_highwater,v_association,v_unlinked,v_sources;
 END;
 $$;
 REVOKE ALL ON FUNCTION public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
