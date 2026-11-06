@@ -38,7 +38,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     if (existing.rows[0]?.relation) throw new Error("Refusing to replace existing evidence tables");
     await owner.query(fs.readFileSync("src/server/decision-context/host-runtime/sql/001-evidence-record-candidate.sql", "utf8")); created = true;
     const role = `"${config.runtimeRole}"`;
-    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN) TO ${role}`);
+    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT) TO ${role}`);
     runtime = new Client({ connectionString: config.runtimeUrl }); await runtime.connect();
     identity = await openIdentity(env);
     internal = await openInternalTripService(config.runtimeUrl, secret);
@@ -50,7 +50,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   afterAll(async () => {
     await host?.close(); await internal?.close(); await identity?.close(); await runtime?.end();
     if (created) {
-      await owner.query('DROP FUNCTION public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT)');
+      await owner.query('DROP FUNCTION public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
       await owner.query('DROP TABLE public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
     }
     await owner?.end();
@@ -72,14 +72,14 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     if (!otherSession) throw new Error("Expected second authenticated Session");
     expect(otherSession.session.id).not.toBe(a.session.session.id);
     await expect(host.record(workspace, otherHeaders, input)).rejects.toMatchObject({ code: "EVIDENCE_ACCESS_DENIED" });
-    const direct = await runtime.query("SELECT * FROM public.host_evidence_record_candidate($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
-      [otherSession.session.id, a.user.id, trip, first.workspace_key, "event_direct", "dialogue", "x", new Date(), "b".repeat(64), "a".repeat(64)]);
+    const direct = await runtime.query("SELECT * FROM public.host_evidence_record_candidate($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
+      [otherSession.session.id, a.user.id, trip, first.workspace_key, "0".repeat(64), "event_direct", "dialogue", "x", new Date(), "b".repeat(64), "a".repeat(64)]);
     expect(direct.rows).toMatchObject([{ disposition: "denied", out_event_id: null, out_sequence: null }]);
-    const directDelete = await runtime.query("SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5)",
-      [otherSession.session.id, a.user.id, trip, first.workspace_key, first.event_id]);
+    const directDelete = await runtime.query("SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)",
+      [otherSession.session.id, a.user.id, trip, first.workspace_key, "0".repeat(64), first.event_id]);
     expect(directDelete.rows).toMatchObject([{ disposition: "denied", deletion_revision: null }]);
-    const guessed = await runtime.query("SELECT * FROM public.host_evidence_for_turn_candidate($1,$2,$3,$4,$5,$6,$7)",
-      [a.session.session.id,a.user.id,trip,first.workspace_key,first.event_id,"0".repeat(64),false]);
+    const guessed = await runtime.query("SELECT * FROM public.host_evidence_for_turn_candidate($1,$2,$3,$4,$5,$6,$7,$8)",
+      [a.session.session.id,a.user.id,trip,first.workspace_key,"0".repeat(64),first.event_id,"0".repeat(64),false]);
     expect(guessed.rows).toMatchObject([{allowed:false,out_body:null}]);
     const interpretation = { expected_revision:0, tasks:[{ task_key:"task-a", question:"原话", kind:"explore", target_ids:[], branch:"actual", relation:"new", related_task_keys:[], certainty:"explicit", evidence:[{start:0,end:2,quote:"原话"}], progress:"open", progress_evidence:null }], focus_keys:["task-a"] };
     const [turn, duplicate] = await Promise.all([host.registerTaskIdentity(workspace,a.headers,first,interpretation),host.registerTaskIdentity(workspace,a.headers,first,interpretation)]);
@@ -120,6 +120,94 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2', [trip, a.user.id]);
     await expect(host.record(workspace, a.headers, input)).rejects.toMatchObject({ code: "EVIDENCE_ACCESS_DENIED" });
   }, 30000);
+  it("binds same-session workspaces to distinct database capabilities and invalidates stale deletion revisions", async () => {
+    const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const wa=await host.createWorkspace(trip,a.headers), wb=await host.createWorkspace(trip,a.headers);
+    const ea=await host.record(wa,a.headers,{entry:"dialogue",text:"A secret",idempotency_key:`a_${randomUUID()}`});
+    const eb=await host.record(wb,a.headers,{entry:"dialogue",text:"B secret",idempotency_key:`b_${randomUUID()}`});
+    const caps=await owner.query<{workspace_key:string;capability_token:string}>('SELECT workspace_key,capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=ANY($3::text[])',[a.user.id,trip,[ea.workspace_key,eb.workspace_key]]);
+    const ca=caps.rows.find(r=>r.workspace_key===ea.workspace_key)!.capability_token;
+    const cb=caps.rows.find(r=>r.workspace_key===eb.workspace_key)!.capability_token;
+    expect(ca).not.toBe(cb); expect(ca).toMatch(/^[0-9a-f]{64}$/);
+    const probe=async (workspace:string,capability:string,revision:number) => (await runtime.query<{ok:boolean}>('SELECT public.host_evidence_checkpoint_probe_candidate($1,$2,$3,$4,$5,$6) AS ok',[a.session.session.id,a.user.id,trip,workspace,capability,revision])).rows[0].ok;
+    expect(await probe(ea.workspace_key,ca,0)).toBe(true);
+    expect(await probe(eb.workspace_key,cb,0)).toBe(true);
+    expect(await probe(eb.workspace_key,ca,0)).toBe(false);
+    expect(await probe(ea.workspace_key,cb,0)).toBe(false);
+    const wrongDelete=await runtime.query('SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,eb.workspace_key,ca,eb.event_id]);
+    expect(wrongDelete.rows).toMatchObject([{disposition:"denied",deletion_revision:null,accepted_at:null}]);
+    const wrongRead=await runtime.query('SELECT * FROM public.host_evidence_for_turn_candidate($1,$2,$3,$4,$5,$6,$7,$8)',[a.session.session.id,a.user.id,trip,eb.workspace_key,ca,eb.event_id,"0".repeat(64),false]);
+    expect(wrongRead.rows).toMatchObject([{allowed:false,out_entry:null,out_body:null,out_received_at:null}]);
+    await expect(runtime.query('SELECT capability_token FROM public."HostEvidenceWorkspace"')).rejects.toThrow();
+    await host.deleteEvent(wa,a.headers,ea.event_id);
+    expect(await probe(ea.workspace_key,ca,0)).toBe(false);
+    expect(await probe(ea.workspace_key,ca,1)).toBe(true);
+    expect(await probe(eb.workspace_key,cb,0)).toBe(true);
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,a.user.id]);
+    expect(await probe(ea.workspace_key,ca,1)).toBe(false);
+  },30000);
+  it("rechecks deletion revision after waiting for the workspace lock", async () => {
+    const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers);
+    const event=await host.record(ticket,a.headers,{entry:"dialogue",text:"serialized",idempotency_key:`lock_${randomUUID()}`});
+    const cap=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rows[0].capability_token;
+    const observer=new Client({connectionString:config!.migrationUrl}); await observer.connect();
+    const pid=(await owner.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    await owner.query("BEGIN"); let committed=false;
+    try {
+      await owner.query('SELECT 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3 FOR UPDATE',[a.user.id,trip,event.workspace_key]);
+      const pending=runtime.query<{ok:boolean}>('SELECT public.host_evidence_checkpoint_probe_candidate($1,$2,$3,$4,$5,$6) AS ok',[a.session.session.id,a.user.id,trip,event.workspace_key,cap,0]);
+      let blocked=false;
+      for(let i=0;i<100;i++) {
+        const r=await observer.query<{blocked:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_evidence_checkpoint_probe_candidate%') AS blocked",[pid]);
+        if(r.rows[0].blocked){blocked=true;break;} await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      expect(blocked).toBe(true);
+      const deleted=await owner.query('SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,event.workspace_key,cap,event.event_id]);
+      expect(deleted.rows).toMatchObject([{disposition:"deleted"}]);
+      await owner.query("COMMIT"); committed=true;
+      expect((await pending).rows).toEqual([{ok:false}]);
+    } finally { if(!committed) await owner.query("ROLLBACK"); await observer.end(); }
+  },30000);
+  it("rechecks session expiry after waiting for the workspace lock", async () => {
+    const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers);
+    const event=await host.record(ticket,a.headers,{entry:"dialogue",text:"deadline",idempotency_key:`deadline_${randomUUID()}`});
+    const cap=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rows[0].capability_token;
+    await owner.query(`UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()+interval '2 seconds' WHERE id=$1`,[a.session.session.id]);
+    const observer=new Client({connectionString:config!.migrationUrl}); await observer.connect();
+    const pid=(await owner.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    await owner.query("BEGIN"); let committed=false;
+    try {
+      await owner.query('SELECT 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3 FOR UPDATE',[a.user.id,trip,event.workspace_key]);
+      const pending=runtime.query<{ok:boolean}>('SELECT public.host_evidence_checkpoint_probe_candidate($1,$2,$3,$4,$5,$6) AS ok',[a.session.session.id,a.user.id,trip,event.workspace_key,cap,0]);
+      let blocked=false,expired=false;
+      for(let i=0;i<150 && !(blocked && expired);i++) {
+        const r=await observer.query<{blocked:boolean;expired:boolean}>(`SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_evidence_checkpoint_probe_candidate%') AS blocked, (SELECT "expiresAt"<=clock_timestamp() FROM "AuthSession" WHERE id=$2) AS expired`,[pid,a.session.session.id]);
+        blocked ||= r.rows[0].blocked; expired ||= r.rows[0].expired;
+        if(!(blocked && expired)) await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      expect(blocked).toBe(true); expect(expired).toBe(true);
+      await owner.query("COMMIT"); committed=true;
+      expect((await pending).rows).toEqual([{ok:false}]);
+    } finally { if(!committed) await owner.query("ROLLBACK"); await observer.end(); }
+  },30000);
+  it("refuses to start if its runtime role can bypass E11 through checkpoint Session SQL", async () => {
+    await owner.query("BEGIN");
+    try {
+      await owner.query("SELECT pg_advisory_xact_lock(hashtext('e03_checkpoint_test_migration'))");
+      await owner.query(fs.readFileSync("src/server/decision-context/checkpoint-store/migration.sql", "utf8"));
+      await owner.query("COMMIT");
+    } catch (error) { await owner.query("ROLLBACK"); throw error; }
+    const role=`"${config!.runtimeRole}"`;
+    await owner.query(`GRANT USAGE ON SCHEMA e03_checkpoint TO ${role}`);
+    await owner.query(`GRANT EXECUTE ON FUNCTION e03_checkpoint.session_read_scene(text,text,text,text,text) TO ${role}`);
+    try { await expect(openEvidenceHost(env)).rejects.toThrow("without checkpoint access"); }
+    finally {
+      await owner.query(`REVOKE EXECUTE ON FUNCTION e03_checkpoint.session_read_scene(text,text,text,text,text) FROM ${role}`);
+      await owner.query(`REVOKE USAGE ON SCHEMA e03_checkpoint FROM ${role}`);
+    }
+  },30000);
   it("rejects an expired session after a workspace was issued", async () => {
     const a = await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)', [trip, a.user.id]);
     const workspace = await host.createWorkspace(trip, a.headers);
@@ -252,7 +340,8 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     const observer=new Client({connectionString:config!.migrationUrl}); await observer.connect();
     await owner.query("BEGIN"); let committed=false;
     try {
-      const deleted=await owner.query("SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5)",[a.session.session.id,a.user.id,trip,event.workspace_key,event.event_id]);
+      const cap=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rows[0].capability_token;
+      const deleted=await owner.query("SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)",[a.session.session.id,a.user.id,trip,event.workspace_key,cap,event.event_id]);
       expect(deleted.rows[0].disposition).toBe("deleted");
       const pending=host.registerTaskIdentity(workspace,a.headers,event,interpretation).then(()=>({code:"unexpected-success"}),error=>({code:error?.code as string}));
       let blocked=false;

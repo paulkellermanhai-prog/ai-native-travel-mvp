@@ -1,4 +1,4 @@
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { z } from "zod";
 import { PrismaClient } from "../../../generated/prisma/client";
@@ -16,7 +16,7 @@ import { checkStateCounters } from "../../trip-state/numbers";
 
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
 type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>; incomplete: boolean };
-type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string;
+type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string; capability: string;
   tasks: Map<string, TaskMemory>;
   turns: Map<string, { digest: string; result: Pick<Registration,"turn_id"|"revision">; sources: Map<string,string> }>;
   invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; disposed: boolean; tail: Promise<void> };
@@ -57,7 +57,19 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         SELECT 1 FROM evidence_tables c CROSS JOIN principals p WHERE c.relowner=p.oid
           OR has_table_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
           OR has_any_column_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')) AS denied`;
-    if (!role || role.denied || !evidenceRole || evidenceRole.denied) throw new Error("Evidence host requires an isolated non-owner runtime role");
+    // Checkpoint primitives are not E11-safe yet, including their Session
+    // wrappers. Do not start this host under a role that can bypass the E11
+    // boundary through a direct grant, ownership or an inherited/SET role.
+    const [checkpointRole] = await db.$queryRaw<Array<{ denied: boolean }>>`
+      WITH principals AS (SELECT oid FROM pg_roles WHERE pg_has_role(current_user,oid,'USAGE') OR pg_has_role(current_user,oid,'SET')),
+      ns AS (SELECT oid,nspowner FROM pg_namespace WHERE nspname='e03_checkpoint')
+      SELECT EXISTS (SELECT 1 FROM ns CROSS JOIN principals p WHERE ns.nspowner=p.oid OR has_schema_privilege(p.oid,ns.oid,'CREATE'))
+        OR EXISTS (SELECT 1 FROM pg_class c JOIN ns ON c.relnamespace=ns.oid CROSS JOIN principals p
+          WHERE c.relkind IN ('r','p') AND (c.relowner=p.oid OR has_table_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN') OR has_any_column_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')))
+        OR EXISTS (SELECT 1 FROM pg_proc f JOIN ns ON f.pronamespace=ns.oid CROSS JOIN principals p
+          WHERE f.proowner=p.oid OR has_function_privilege(p.oid,f.oid,'EXECUTE')) AS denied`;
+    if (!role || role.denied || !evidenceRole || evidenceRole.denied || !checkpointRole || checkpointRole.denied)
+      throw new Error("Evidence host requires an isolated non-owner runtime role without checkpoint access");
   } catch (error) { await Promise.all([db.$disconnect(), identity.close()]); throw error; }
   const host = sessionHost(identity), workspaces = new WeakMap<object, Scope>(), eventProofs = new WeakMap<object, { scope: Scope; eventId: string; token: string }>();
   const activeScopes = new Set<Scope>();
@@ -96,11 +108,11 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
       const p = await authorized(tripId, credential);
-      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), disposed:false, tail: Promise.resolve() };
+      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), disposed:false, tail: Promise.resolve() };
       try {
         await db.$transaction(async tx => {
           try { await host.guard!(tripId, p.headers, tx); } catch { return deny(); }
-          const [row] = await tx.$queryRaw<Array<{ ok: boolean }>>`SELECT public.host_evidence_workspace_candidate(${p.sessionId},${p.ownerId},${tripId},${scope.workspaceKey}) AS ok`;
+          const [row] = await tx.$queryRaw<Array<{ ok: boolean }>>`SELECT public.host_evidence_workspace_candidate(${p.sessionId},${p.ownerId},${tripId},${scope.workspaceKey},${scope.capability}) AS ok`;
           if (!row?.ok) return deny();
         });
       } catch (error) { if (error instanceof EvidenceBoundaryError) throw error; return unavailable(); }
@@ -114,7 +126,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       return exclusive(scope, async () => { try {
         const row = await db.$transaction(async tx => {
           try { await host.guard!(scope.tripId, headers, tx); } catch { return deny(); }
-          const [result] = await tx.$queryRaw<RecordRow[]>`SELECT * FROM public.host_evidence_record_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${event.eventId},${event.input.entry},${event.input.text},${event.receivedAt},${keyToken},${event.inputDigest})`;
+          const [result] = await tx.$queryRaw<RecordRow[]>`SELECT * FROM public.host_evidence_record_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${event.eventId},${event.input.entry},${event.input.text},${event.receivedAt},${keyToken},${event.inputDigest})`;
           if (!result || result.disposition === "denied") return deny();
           if (result.disposition === "deleted") throw new EvidenceBoundaryError("EVIDENCE_DELETED");
           if (result.disposition === "conflict") throw new EvidenceBoundaryError("EVENT_KEY_CONFLICT");
@@ -138,7 +150,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       return exclusive(scope, async () => { try {
         const row = await db.$transaction(async tx => {
           try { await host.guard!(scope.tripId, headers, tx); } catch { return deny(); }
-          const [result] = await tx.$queryRaw<DeleteRow[]>`SELECT * FROM public.host_evidence_delete_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${eventId})`;
+          const [result] = await tx.$queryRaw<DeleteRow[]>`SELECT * FROM public.host_evidence_delete_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${eventId})`;
           if (!result || result.disposition === "denied") return deny();
           if (result.disposition === "missing") throw new EvidenceBoundaryError("EVIDENCE_MISSING");
           if (result.disposition !== "deleted" || !result.accepted_at || result.cleanup_pending === null) return unavailable();
@@ -165,7 +177,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           try { await host.guard!(scope.tripId, headers, tx); } catch { return deny(); }
           if (!document) return deny();
           const event = async (id: string, token: string, metadata: boolean) => {
-            const [row] = await tx.$queryRaw<EventRow[]>`SELECT * FROM public.host_evidence_for_turn_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${id},${token},${metadata})`;
+            const [row] = await tx.$queryRaw<EventRow[]>`SELECT * FROM public.host_evidence_for_turn_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${id},${token},${metadata})`;
             if (!row?.allowed) throw new EvidenceBoundaryError("EVIDENCE_UNAVAILABLE"); return row;
           };
           const source = await event(proof.eventId, proof.token, false);
@@ -223,7 +235,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       const scope = ticket && typeof ticket === "object" ? workspaces.get(ticket) : undefined;
       if (!scope) return;
       await exclusive(scope,async()=> {
-        scope.disposed=true;
+        scope.disposed=true; scope.capability="";
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
         scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear();
         workspaces.delete(ticket); activeScopes.delete(scope);
@@ -232,7 +244,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     async close() {
       if (closed) return; closed = true;
       for (const scope of activeScopes) {
-        scope.disposed=true;
+        scope.disposed=true; scope.capability="";
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
         scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear();
       }
