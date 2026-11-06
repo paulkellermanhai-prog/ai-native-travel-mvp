@@ -28,7 +28,7 @@ assert selection["runtime_implementation_authorized"] is False
 assert selection["gate_a_approval_evidence"] is None
 assert sha(OLD / "selection.json") == selection["previous_selection_sha256"]
 rows = selection["files"]
-assert len(rows) == len({row["path"] for row in rows}) == 66
+assert len(rows) == len({row["path"] for row in rows}) == 67
 for row in rows:
     path = BUNDLE / row["path"]
     assert path.resolve().is_relative_to(BUNDLE) and not path.is_symlink()
@@ -39,8 +39,8 @@ index = load(package / "package-index.json")
 manifest_path = package / "90_可运行工程包/artifact-manifest.json"
 manifest = load(manifest_path)
 assert sha(manifest_path) == selection["dc_package_manifest_sha256"]
-assert len(index["documents"]) == 22 and len(index["engineering_files"]) == 42
-assert len(manifest) == 65
+assert len(index["documents"]) == 23 and len(index["engineering_files"]) == 42
+assert len(manifest) == 66
 assert {row["source_path"] for row in rows} == {
     "decision-context-v0.1/" + path for path in [*manifest, "90_可运行工程包/artifact-manifest.json"]
 }
@@ -82,7 +82,12 @@ for schema in schemas:
             references += 1
 assert references == 285
 assert len(selection["previous_selection_mismatches"]) == 8
-assert len(selection["nap_source_mismatches"]) == 13
+assert len(selection["nap_source_mismatches"]) == 14
+assert index["product_decisions"]["DC-AC8-PRIVACY-01"]["status"] == "APPROVED_BY_OWNER"
+privacy = selection["privacy_retention_decision"]
+assert privacy["status"] == "APPROVED_BY_OWNER" and privacy["production_enabled"] is False
+assert (privacy["trip_end_days"], privacy["related_inactivity_days"], privacy["single_record_months"]) == (30, 180, 12)
+assert privacy["screenshot_sha256"] == "aaf89450dd1aa9d6abda748c45993068642fd16380fc6a77d79d62e61e6127bd"
 old_rows = {row["source_path"]: row for row in load(OLD / "selection.json")["files"]}
 new_rows = {row["source_path"]: row for row in rows}
 for mismatch in selection["previous_selection_mismatches"]:
@@ -90,11 +95,13 @@ for mismatch in selection["previous_selection_mismatches"]:
     assert old_rows[source]["sha256"] == mismatch["previous_sha256"]
     assert new_rows[source]["sha256"] == mismatch["current_sha256"]
 assert all(row["source_path"].startswith("../trip-state-schema-v0.1/") or
-           row["source_path"].startswith("../decision-context-v0.1/")
+           row["source_path"].startswith("../decision-context-v0.1/") or
+           row["source_path"] == "../AI Native旅行产品｜PRD V0.1.md"
            for row in selection["nap_source_mismatches"])
 
 print(json.dumps(dict(status=selection["status"], source_files=len(rows), manifest_entries=len(manifest),
                       dc_schemas=len(dc), resources=len(schemas), references=references,
-                      pr10_source_mismatches=8, nap_source_mismatches_recorded=13,
+                      pr10_source_mismatches=8, nap_source_mismatches_recorded=14,
+                      privacy_strategy_status=privacy["status"],
                       scope="offline source/contract checks; NAP drift recorded from local workspace, not reverified by CI"),
                  ensure_ascii=False))

@@ -4,7 +4,7 @@
   "dc_runtime_contract_version": "0.1.0",
   "checkpoint_payload_format_version": 1,
   "host_evidence_contract": "host-interaction-evidence/v1 (engineering candidate; not DC Schema)",
-  "source_capture_date": "2026-11-05",
+  "source_capture_date": "2026-11-06",
   "parent_pr": 10,
   "parent_pr_head": "c15da4a7377c74537525bb1e37c0b375644e7862",
   "main_head_at_capture": "6ae8b2b66513c51ff209ce7147e8c6ff7376a39b",
@@ -12,13 +12,13 @@
   "ts_pr_head": "0078bb542fd4ac81343a602d5f0fe4e62a42620c",
   "ts_pr_merged_at_capture": false,
   "previous_selection_sha256": "96b610ea25408028afbb2becfc02aaad6bf9f95045ad4eb8634bd42a5f8aac22",
-  "dc_package_manifest_sha256": "d79cd8da740c9ecac7cf3f18cae8a3f1160d20801e715e594eea354e5324dcb4",
+  "dc_package_manifest_sha256": "cf14212de5a89b7f3fa73a887e455eccbe98e2076681682057117ebb6a9a9db1",
   "files": [
     {
       "path": "sources/decision-context-v0.1/00_从这里开始.md",
       "source_path": "decision-context-v0.1/00_从这里开始.md",
-      "sha256": "01cda6bafa34e8afdad746592c765435c22825d632dbafbde0e8230c9be4eb67",
-      "bytes": 6531
+      "sha256": "018b910cd18b1f554cb0dce79cb2ee790e3324fc5eaf511661a18a4481fca9cf",
+      "bytes": 6679
     },
     {
       "path": "sources/decision-context-v0.1/01_产品机制/01_决策上下文机制设计_V0.1.md",
@@ -95,26 +95,32 @@
     {
       "path": "sources/decision-context-v0.1/03_评审与工程衔接/13_DC八项机制融合｜E03工程能力增量与实施映射.md",
       "source_path": "decision-context-v0.1/03_评审与工程衔接/13_DC八项机制融合｜E03工程能力增量与实施映射.md",
-      "sha256": "c3a64ac5fbdc02b66f3b3febf08652c033387d758a00fdd65dc5430150bcc0e7",
-      "bytes": 10912
+      "sha256": "f47e886e2750f199c7d54affa8ae941623483e286869a4429cd695478dcb9036",
+      "bytes": 11652
     },
     {
       "path": "sources/decision-context-v0.1/03_评审与工程衔接/14_DC-AC8验证记录与跨模块交接.md",
       "source_path": "decision-context-v0.1/03_评审与工程衔接/14_DC-AC8验证记录与跨模块交接.md",
-      "sha256": "623db5a8924e83afc82a10179ef3a2527e424f505ad335c337e29bab59b517ad",
-      "bytes": 10191
+      "sha256": "825e0d0f332068d7fd514c7298f00fece1e57434d136465254d012c205ab8e0e",
+      "bytes": 10954
     },
     {
       "path": "sources/decision-context-v0.1/03_评审与工程衔接/15_DC-AC8协议裁决与宿主证据接口交接.md",
       "source_path": "decision-context-v0.1/03_评审与工程衔接/15_DC-AC8协议裁决与宿主证据接口交接.md",
-      "sha256": "cfabc9cbcbe5a22224e7dbf941e694595aca9e10b4b5698f6ea2e29ff14ab4fa",
-      "bytes": 7494
+      "sha256": "879c1759ba52042ca089f59f223f45872e81b1ab308adaa32812709101bc0314",
+      "bytes": 7941
     },
     {
       "path": "sources/decision-context-v0.1/03_评审与工程衔接/16_E11宿主交互证据数据契约与验收轨迹.md",
       "source_path": "decision-context-v0.1/03_评审与工程衔接/16_E11宿主交互证据数据契约与验收轨迹.md",
-      "sha256": "123bf0a279cb8431e8df5978cca51fd8f055d12982483d4c5ec0db9d6f876e9d",
-      "bytes": 10895
+      "sha256": "ed192c56c5ea3839ffed59f83ac2679892c471f137d2319d5ef72767e9f3b946",
+      "bytes": 13505
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/17_DC-AC8-PRIVACY-01_Owner裁决与执行边界.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/17_DC-AC8-PRIVACY-01_Owner裁决与执行边界.md",
+      "sha256": "05159c3f0aa0000f53316e8017f9052facbb7c5fe16ef4fd309c1922a624e6d1",
+      "bytes": 5323
     },
     {
       "path": "sources/decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
@@ -137,14 +143,14 @@
     {
       "path": "sources/decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
       "source_path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
-      "sha256": "4e8fa9a64286db1ac609c13d5505d3d5b803135e9f38cb24fd37130f9d5ce113",
-      "bytes": 7247
+      "sha256": "97b22c5d03a39fd61a9fbd9ff2409f268d85628477b60540c4e75f47a3d86c8f",
+      "bytes": 8220
     },
     {
       "path": "sources/decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
       "source_path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
-      "sha256": "9a39da51546d3946d30d52f04d4bbb0c3a8fdaed6fd4ca48e8ed4beab8400be8",
-      "bytes": 15537
+      "sha256": "34a98cf823e23b2ca9843853cad8cd7b60705dbd035437f468df3f900d7e005b",
+      "bytes": 16145
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
@@ -155,20 +161,20 @@
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/README.md",
       "source_path": "decision-context-v0.1/90_可运行工程包/README.md",
-      "sha256": "0a5bd9acfeedc9605cc8ff85c51c980ad3691177e7688fd790e3024d635334a0",
-      "bytes": 5771
+      "sha256": "5d483e62c022ab543404529c70625a1554b5f63de81bdc6696a7bd33c4191e4a",
+      "bytes": 6183
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
       "source_path": "decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
-      "sha256": "28612d9e0175110b1cf4a69c7ee69981ea643c69ebf07374efd6a18fd41dac70",
+      "sha256": "0ade1178adb1fc1eafd4926a31d544e3108f8a0439ac82e26c3aee91e2b38dfe",
       "bytes": 1770
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
       "source_path": "decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
-      "sha256": "d79cd8da740c9ecac7cf3f18cae8a3f1160d20801e715e594eea354e5324dcb4",
-      "bytes": 8188
+      "sha256": "cf14212de5a89b7f3fa73a887e455eccbe98e2076681682057117ebb6a9a9db1",
+      "bytes": 8337
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/check_cross_package_refs.py",
@@ -389,33 +395,33 @@
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/update_package_index.py",
       "source_path": "decision-context-v0.1/90_可运行工程包/update_package_index.py",
-      "sha256": "05e2d5aead6ac6524f61e772b32c7b9fdf47da18a55f286e2d593557b697b30a",
-      "bytes": 7447
+      "sha256": "2c1bb4b18681884e91e62dbefbda39729cc849c4687648cd5a2d01a4626332fb",
+      "bytes": 8529
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/validation-output.txt",
       "source_path": "decision-context-v0.1/90_可运行工程包/validation-output.txt",
-      "sha256": "56322d1a6ab60a8591e5a6e790fc66b723bed1f69c507fa4f2b64bb60a380597",
+      "sha256": "de84ac7330c5ebaa12136f5df1d757153fd2297149c70a99ed24d319207690c1",
       "bytes": 332
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/validation-results.json",
       "source_path": "decision-context-v0.1/90_可运行工程包/validation-results.json",
-      "sha256": "bcaadac74d0d8186bbc9ed8d1e360954162a8827ad0a1f7811b95ddff83370e8",
+      "sha256": "9744f02bdddd61042f63b42e13f8c99ab06f3dba91f3666080a03ab0a22246da",
       "bytes": 32532
     },
     {
       "path": "sources/decision-context-v0.1/package-index.json",
       "source_path": "decision-context-v0.1/package-index.json",
-      "sha256": "d876821398789f2923a314f106f77e925fb7604c7a3bc4fb2d83ee506704d4f1",
-      "bytes": 24698
+      "sha256": "e15e14966819496898dfcdec1c9dd1f6356b26f4225e74013cee073d9452fe52",
+      "bytes": 26014
     }
   ],
   "previous_selection_mismatches": [
     {
       "source_path": "decision-context-v0.1/00_从这里开始.md",
       "previous_sha256": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026",
-      "current_sha256": "01cda6bafa34e8afdad746592c765435c22825d632dbafbde0e8230c9be4eb67"
+      "current_sha256": "018b910cd18b1f554cb0dce79cb2ee790e3324fc5eaf511661a18a4481fca9cf"
     },
     {
       "source_path": "decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
@@ -435,25 +441,30 @@
     {
       "source_path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
       "previous_sha256": "78792ffdc71bf9fc338a625be9a6a59687ed0260d2ca43e35e02ea56c957134a",
-      "current_sha256": "4e8fa9a64286db1ac609c13d5505d3d5b803135e9f38cb24fd37130f9d5ce113"
+      "current_sha256": "97b22c5d03a39fd61a9fbd9ff2409f268d85628477b60540c4e75f47a3d86c8f"
     },
     {
       "source_path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
       "previous_sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
-      "current_sha256": "9a39da51546d3946d30d52f04d4bbb0c3a8fdaed6fd4ca48e8ed4beab8400be8"
+      "current_sha256": "34a98cf823e23b2ca9843853cad8cd7b60705dbd035437f468df3f900d7e005b"
     },
     {
       "source_path": "decision-context-v0.1/90_可运行工程包/README.md",
       "previous_sha256": "065c7ac1a4b918453a876751da64919821524bde54e41ba908504d0307399d90",
-      "current_sha256": "0a5bd9acfeedc9605cc8ff85c51c980ad3691177e7688fd790e3024d635334a0"
+      "current_sha256": "5d483e62c022ab543404529c70625a1554b5f63de81bdc6696a7bd33c4191e4a"
     },
     {
       "source_path": "decision-context-v0.1/package-index.json",
       "previous_sha256": "c1b784f07d12e72493fe1cf7bab51d0b1802acac1bb7f6339419a363b2665f94",
-      "current_sha256": "d876821398789f2923a314f106f77e925fb7604c7a3bc4fb2d83ee506704d4f1"
+      "current_sha256": "e15e14966819496898dfcdec1c9dd1f6356b26f4225e74013cee073d9452fe52"
     }
   ],
   "nap_source_mismatches": [
+    {
+      "source_path": "../AI Native旅行产品｜PRD V0.1.md",
+      "recorded_sha256": "3cb1ed7e3f4522ac4ef0e46960ab801d5a7f5c93e5528c83c2e72933767ed62d",
+      "current_sha256": "19321a8f0e459d54fcff5e54f77ea3af06235035699dcc777a3d6cff7dd2c203"
+    },
     {
       "source_path": "../trip-state-schema-v0.1/02_业务状态规则/SPECIFICATION.md",
       "recorded_sha256": "9516ecd29b93e56b3aa2458c62a8228da98f7374233c20f4c1a6009abd00f152",
@@ -482,7 +493,7 @@
     {
       "source_path": "../decision-context-v0.1/00_从这里开始.md",
       "recorded_sha256": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026",
-      "current_sha256": "01cda6bafa34e8afdad746592c765435c22825d632dbafbde0e8230c9be4eb67"
+      "current_sha256": "018b910cd18b1f554cb0dce79cb2ee790e3324fc5eaf511661a18a4481fca9cf"
     },
     {
       "source_path": "../decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
@@ -502,7 +513,7 @@
     {
       "source_path": "../decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
       "recorded_sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
-      "current_sha256": "9a39da51546d3946d30d52f04d4bbb0c3a8fdaed6fd4ca48e8ed4beab8400be8"
+      "current_sha256": "34a98cf823e23b2ca9843853cad8cd7b60705dbd035437f468df3f900d7e005b"
     },
     {
       "source_path": "../decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
@@ -520,7 +531,18 @@
       "current_sha256": "00d7693bdae138e11b1acee7c8dd9c69806fb19d1f47502aaaf13603d0633dac"
     }
   ],
-  "privacy_retention_decision": "DC-AC8-PRIVACY-01 pending Owner",
+  "privacy_retention_decision": {
+    "id": "DC-AC8-PRIVACY-01",
+    "status": "APPROVED_BY_OWNER",
+    "owner_source": "Owner direct instruction 2026-11-05; supplied screenshot provides approved numeric proposal",
+    "screenshot_sha256": "aaf89450dd1aa9d6abda748c45993068642fd16380fc6a77d79d62e61e6127bd",
+    "decision_record": "decision-context-v0.1/03_评审与工程衔接/17_DC-AC8-PRIVACY-01_Owner裁决与执行边界.md",
+    "trip_end_days": 30,
+    "related_inactivity_days": 180,
+    "single_record_months": 12,
+    "production_enabled": false,
+    "remaining_gate": "E03 implementation, backup/audit cycle configuration, security/compliance validation"
+  },
   "gate_a_approval_evidence": null,
   "runtime_implementation_authorized": false
 }

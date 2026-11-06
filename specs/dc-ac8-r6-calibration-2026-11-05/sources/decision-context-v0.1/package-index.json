@@ -1,9 +1,9 @@
 {
   "package_name": "决策上下文机制设计 V0.1",
   "index_format_version": "1",
-  "document_revision": "R6_ac8_protocol_decided_gate_candidate",
-  "updated_on": "2026-11-05",
-  "status": "ac8_protocol_decided_host_implementation_pending_final_gate",
+  "document_revision": "R6_ac8_protocol_privacy_decided_gate_candidate",
+  "updated_on": "2026-11-06",
+  "status": "ac8_protocol_privacy_decided_host_implementation_pending_final_gate",
   "entrypoint": "00_从这里开始.md",
   "main_document_id": "DC-PRODUCT-01",
   "source_baseline_id": "DC-TRACE-01",
@@ -20,6 +20,7 @@
     "任务解释采用合成结构化输入，未验证任意自然语言模型正确性",
     "O1首版P0已实现本地事务检查点/草稿/语义焦点恢复并通过故障验收；不代表真实前端或生产集成已验收",
     "P03/P05跨轮未提交解释证据优先由受信宿主记录承载的技术方案已裁决；宿主接口与真实联测待E03，当前不得宣称完整解释证据恢复",
+    "DC-AC8-PRIVACY-01产品策略及期限已获Owner批准；宿主删除/备份/审计工程与安全合规验证未完成，不得据此启用生产原话存储",
     "不包含完整Policy行动排序；本包供最终Gate审核，不是生产发布证明"
   ],
   "documents": [
@@ -27,7 +28,7 @@
       "id": "DC-ENTRY-01",
       "title": "决策上下文 V0.1 从这里开始",
       "path": "00_从这里开始.md",
-      "sha256": "01cda6bafa34e8afdad746592c765435c22825d632dbafbde0e8230c9be4eb67",
+      "sha256": "018b910cd18b1f554cb0dce79cb2ee790e3324fc5eaf511661a18a4481fca9cf",
       "role": "entrypoint",
       "audience": [
         "product_owner",
@@ -341,7 +342,7 @@
         "未测",
         "开发与发布边界"
       ],
-      "sha256": "4e8fa9a64286db1ac609c13d5505d3d5b803135e9f38cb24fd37130f9d5ce113"
+      "sha256": "97b22c5d03a39fd61a9fbd9ff2409f268d85628477b60540c4e75f47a3d86c8f"
     },
     {
       "id": "DC-CLOSURE-01",
@@ -402,7 +403,7 @@
         "删除",
         "版本兼容"
       ],
-      "sha256": "9a39da51546d3946d30d52f04d4bbb0c3a8fdaed6fd4ca48e8ed4beab8400be8"
+      "sha256": "34a98cf823e23b2ca9843853cad8cd7b60705dbd035437f468df3f900d7e005b"
     },
     {
       "id": "DC-RECOVERY-CLOSURE-01",
@@ -463,7 +464,7 @@
         "Deferred",
         "E03阶段"
       ],
-      "sha256": "c3a64ac5fbdc02b66f3b3febf08652c033387d758a00fdd65dc5430150bcc0e7"
+      "sha256": "f47e886e2750f199c7d54affa8ae941623483e286869a4429cd695478dcb9036"
     },
     {
       "id": "DC-AC8-VALIDATION-01",
@@ -484,7 +485,7 @@
         "PR10差异",
         "技术负责人验收"
       ],
-      "sha256": "623db5a8924e83afc82a10179ef3a2527e424f505ad335c337e29bab59b517ad"
+      "sha256": "825e0d0f332068d7fd514c7298f00fece1e57434d136465254d012c205ab8e0e"
     },
     {
       "id": "DC-AC8-PROTOCOL-01",
@@ -504,7 +505,7 @@
         "失败保护",
         "Gate复核"
       ],
-      "sha256": "cfabc9cbcbe5a22224e7dbf941e694595aca9e10b4b5698f6ea2e29ff14ab4fa"
+      "sha256": "879c1759ba52042ca089f59f223f45872e81b1ab308adaa32812709101bc0314"
     },
     {
       "id": "DC-AC8-E11-CONTRACT-01",
@@ -523,9 +524,31 @@
         "任务关联",
         "有界读取",
         "R1-R3",
-        "隐私待裁决"
+        "Owner隐私裁决已批准"
       ],
-      "sha256": "123bf0a279cb8431e8df5978cca51fd8f055d12982483d4c5ec0db9d6f876e9d"
+      "sha256": "ed192c56c5ea3839ffed59f83ac2679892c471f137d2319d5ef72767e9f3b946"
+    },
+    {
+      "id": "DC-AC8-PRIVACY-01",
+      "title": "Owner原话保留与删除裁决",
+      "path": "03_评审与工程衔接/17_DC-AC8-PRIVACY-01_Owner裁决与执行边界.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "APPROVED_BY_OWNER",
+        "30天",
+        "180天",
+        "12个月",
+        "主动删除",
+        "告知",
+        "工程Gate"
+      ],
+      "sha256": "05159c3f0aa0000f53316e8017f9052facbb7c5fe16ef4fd309c1922a624e6d1"
     }
   ],
   "compatibility_entries": [
@@ -565,12 +588,12 @@
     {
       "path": "90_可运行工程包/README.md",
       "role": "source_or_guide",
-      "sha256": "0a5bd9acfeedc9605cc8ff85c51c980ad3691177e7688fd790e3024d635334a0"
+      "sha256": "5d483e62c022ab543404529c70625a1554b5f63de81bdc6696a7bd33c4191e4a"
     },
     {
       "path": "90_可运行工程包/VALIDATION_REPORT.md",
       "role": "execution_evidence",
-      "sha256": "28612d9e0175110b1cf4a69c7ee69981ea643c69ebf07374efd6a18fd41dac70"
+      "sha256": "0ade1178adb1fc1eafd4926a31d544e3108f8a0439ac82e26c3aee91e2b38dfe"
     },
     {
       "path": "90_可运行工程包/check_cross_package_refs.py",
@@ -755,17 +778,17 @@
     {
       "path": "90_可运行工程包/update_package_index.py",
       "role": "source_or_guide",
-      "sha256": "05e2d5aead6ac6524f61e772b32c7b9fdf47da18a55f286e2d593557b697b30a"
+      "sha256": "2c1bb4b18681884e91e62dbefbda39729cc849c4687648cd5a2d01a4626332fb"
     },
     {
       "path": "90_可运行工程包/validation-output.txt",
       "role": "execution_evidence",
-      "sha256": "56322d1a6ab60a8591e5a6e790fc66b723bed1f69c507fa4f2b64bb60a380597"
+      "sha256": "de84ac7330c5ebaa12136f5df1d757153fd2297149c70a99ed24d319207690c1"
     },
     {
       "path": "90_可运行工程包/validation-results.json",
       "role": "execution_evidence",
-      "sha256": "bcaadac74d0d8186bbc9ed8d1e360954162a8827ad0a1f7811b95ddff83370e8"
+      "sha256": "9744f02bdddd61042f63b42e13f8c99ab06f3dba91f3666080a03ab0a22246da"
     }
   ],
   "product_decisions": {
@@ -776,6 +799,14 @@
       "requirement": "精确恢复跨会话暂停现场",
       "engineering_status": "reference_implemented_acceptance_passed",
       "document_id": "DC-RESUME-SCOPE-01"
+    },
+    "DC-AC8-PRIVACY-01": {
+      "status": "APPROVED_BY_OWNER",
+      "source": "Owner 2026-11-05 direct instruction and supplied screenshot",
+      "date": "2026-11-05",
+      "requirement": "完整原话在活跃规划期间保留；旅行结束30天、相关不活跃180天、单条12个月取最早截止；主动删除立即停读；备份与审计最小化并告知用户",
+      "engineering_status": "host_not_implemented_production_gate_pending",
+      "document_id": "DC-AC8-PRIVACY-01"
     }
   },
   "local_export": "LOCAL_EXPORT.json"

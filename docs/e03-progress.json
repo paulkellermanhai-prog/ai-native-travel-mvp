@@ -71,6 +71,11 @@
           "id": "E03-01-3",
           "description": "接入参考Oracle和契约正反例，不实现业务运行逻辑",
           "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-01-4",
+          "description": "锁定宿主 E11 独立合同、Owner 已批准的 30/180/12 个月期限最早截止、主动删除/备份/最小审计/告知配置与隔离测试；生产启用仍受工程 Gate",
+          "status": "NOT_STARTED"
         }
       ],
       "evidence": [],
@@ -132,6 +137,11 @@
         {
           "id": "E03-03-3",
           "description": "实现分层读取、分页交付清单与时效复验",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-03-4",
+          "description": "实现可信原话先记录后关联、有界读取、相关交互续期、自动到期、主动删除立即停读及幂等清理；测跨主体/旅行和删除竞争",
           "status": "NOT_STARTED"
         }
       ],
@@ -226,6 +236,11 @@
           "id": "E03-06-3",
           "description": "轮换授权代次，隔离旧输入/提案/写缓存并验证跨进程恢复",
           "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-06-4",
+          "description": "恢复后重验当前授权与最新 TS，已删/过期宿主原话不可由旧 Checkpoint、游标或备份复活；测缺证安全恢复",
+          "status": "NOT_STARTED"
         }
       ],
       "evidence": [],
@@ -256,6 +271,11 @@
         {
           "id": "E03-07-3",
           "description": "全阶段回归、需求追踪和技术负责人最终Gate",
+          "status": "NOT_STARTED"
+        },
+        {
+          "id": "E03-07-4",
+          "description": "真实 Session/PostgreSQL/HTTP/新进程联测 E11 保留期限、删除/清理失败、备份恢复先重放删除标记、最小审计和用户告知",
           "status": "NOT_STARTED"
         }
       ],
