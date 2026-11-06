@@ -38,6 +38,7 @@ type DeleteRow = { disposition: string; deletion_revision: bigint | null; accept
 type EventRow = { allowed: boolean; out_entry: "dialogue" | "map" | "timeline" | "comparison" | null; out_body: string | null; out_received_at: Date | null; out_retention_revision: bigint | null; out_valid_for_ms:bigint|null };
 type TaskSnapshotRow = { ok:boolean; out_retention_revision:bigint|null; out_highwater:bigint|null; out_association_revision:bigint|null; out_unlinked_count:bigint|null; out_sources:unknown };
 type UnlinkRow = { disposition:"denied"|"conflict"|"replayed"|"unlinked"; out_association_revision:bigint|null; out_retention_revision:bigint|null };
+type SupersedeRow = { disposition:"denied"|"conflict"|"replayed"|"superseded"; out_association_revision:bigint|null; out_retention_revision:bigint|null };
 type InterpretedTask = DecisionContextContracts["open-turn"]["tasks"][number];
 export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordInput["entry"];text:string;reference:string;received_at:string};state:ReturnType<typeof parseStateReferences>;
   runtime_focus:{tasks:InterpretedTask[];focus_keys:string[];complete:boolean};mint_task_key:(ordinal:number)=>Promise<string>})=>Promise<{tasks:unknown;focus_keys:unknown}>;
@@ -46,6 +47,10 @@ const unlinkInput = z.strictObject({action:z.literal("unlink"),task_key:z.string
   source_turn_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),expected_association_revision:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER-1),
   idempotency_key:z.string().min(1).max(256)});
 const unlinkBatchInput=z.array(unlinkInput).min(1).max(32);
+const supersedeInput=z.strictObject({action:z.literal("supersede"),task_key:z.string().regex(/^task-[0-9a-f]{32}$/),
+  old_event_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),old_source_turn_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),
+  replacement_event_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),replacement_source_turn_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),
+  expected_association_revision:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER-1),idempotency_key:z.string().min(1).max(256)});
 export class TurnIdentityError extends Error {
   constructor(readonly code: "EVENT_REUSE" | "REVISION_CHANGED" | "TARGET_NOT_FOUND") { super(`Turn identity: ${code}`); this.name = "TurnIdentityError"; }
 }
@@ -542,6 +547,44 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     /** Single-source convenience wrapper; model text cannot call this path. */
     async unlinkTaskSourceCandidate(ticket:object,credential:Headers,raw:unknown) {
       return (await this.unlinkTaskSourcesBatchCandidate(ticket,credential,[raw]))[0];
+    },
+    /** Same-Task, older-event to newer-event correction; no semantic inference. */
+    async supersedeTaskSourceCandidate(ticket:object,credential:Headers,raw:unknown) {
+      let copy:unknown;try{copy=structuredClone(raw);}catch{return unavailable();}
+      const parsed=supersedeInput.safeParse(copy);if(!parsed.success||parsed.data.old_event_id===parsed.data.replacement_event_id)return unavailable();
+      const command=parsed.data,{scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>{
+        const taskToken=taskIndex(scope,command.task_key),task=scope.tasks.get(taskToken);
+        const oldTurn=scope.turns.get(command.old_event_id),newTurn=scope.turns.get(command.replacement_event_id);
+        const proofToken=(eventId:string)=>{
+          const direct=task?.sources.get(eventId);if(direct)return direct;
+          for(const receipt of scope.receipts.get(eventId)??[]){const proof=eventProofs.get(receipt);if(proof?.scope===scope)return proof.token;}
+          return undefined;
+        };
+        const oldToken=proofToken(command.old_event_id),newToken=task?.sources.get(command.replacement_event_id);
+        if(!task||task.incomplete||!oldToken||!newToken||oldTurn?.result.turn_id!==command.old_source_turn_id||
+          newTurn?.result.turn_id!==command.replacement_source_turn_id||!oldTurn.sources.has(command.old_event_id)||
+          !newTurn.sources.has(command.replacement_event_id))return deny();
+        const operation=createHmac("sha256",keySecret).update("association-supersede\0")
+          .update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,command.idempotency_key])).digest("hex");
+        const [result]=await db.$transaction(async tx=>{
+          await tx.$queryRaw`SELECT 1 FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+          try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+          const rows=await tx.$queryRaw<SupersedeRow[]>`SELECT * FROM public.host_evidence_supersede_task_source_candidate(
+            ${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${command.task_key},${taskToken},
+            ${command.old_event_id},${oldToken},${command.old_source_turn_id},${command.replacement_event_id},${newToken},
+            ${command.replacement_source_turn_id},${BigInt(command.expected_association_revision)},${operation})`;
+          try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+          return rows;
+        });
+        if(!result||result.disposition==="denied")return deny();
+        if(result.disposition==="conflict")throw new EvidenceBoundaryError("ASSOCIATION_CONFLICT");
+        task.sources.delete(command.old_event_id);
+        for(const packet of [...scope.packets.values()])if(packet.taskHash===taskToken)packet.invalidate();
+        return {action:"supersede" as const,task_key:command.task_key,old_event_id:command.old_event_id,
+          replacement_event_id:command.replacement_event_id,association_revision:counter(result.out_association_revision),
+          retention_revision:counter(result.out_retention_revision),replayed:result.disposition==="replayed"};
+      });
     },
     /** Internal bounded historical source page; never a new instruction or write grant. */
     async readTaskEvidenceCandidate(ticket:object,credential:Headers,taskKey:string,raw:unknown):Promise<EvidencePage> {
