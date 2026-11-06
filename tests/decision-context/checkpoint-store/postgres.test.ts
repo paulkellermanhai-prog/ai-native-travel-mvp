@@ -1,0 +1,97 @@
+import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { spawn } from "node:child_process";
+import { Pool } from "pg";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { PgCheckpointRepository } from "../../../src/server/decision-context/checkpoint-store/repository";
+
+// Explicit isolated local database only; a CI test must not silently skip missing PG.
+const url = process.env.E03_CHECKPOINT_TEST_ADMIN_URL;
+const run = Boolean(url) || Boolean(process.env.CI);
+const role = `e03_checkpoint_test_${randomUUID().replaceAll("-", "")}`;
+const password = randomUUID();
+let admin: Pool, runtime: Pool, runtimeUrl: string, roleCreated = false;
+const now = new Date("2030-01-01T00:00:00Z");
+const sample = (JSON.parse(readFileSync("tests/decision-context/fixtures/r6-contracts.json", "utf8")) as {schema:string; value:unknown}[]).find((x) => x.schema === "checkpoint-payload")!.value;
+const scope = () => ({ owner: randomUUID(), trip: "trip-egypt-test", workspace: "workspace" });
+
+describe.skipIf(!run)("E03 checkpoint isolated PostgreSQL repository candidate", () => {
+  beforeAll(async () => {
+    if (!url) throw new Error("CI requires E03_CHECKPOINT_TEST_ADMIN_URL for checkpoint PG tests");
+    const parsed = new URL(url);
+    if (!["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname) || !parsed.pathname.slice(1).startsWith("antu_e03_test_"))
+      throw new Error("Only an explicitly provisioned, local antu_e03_test_ database may be modified");
+    admin = new Pool({ connectionString: url });
+    const migration = readFileSync("src/server/decision-context/checkpoint-store/migration.sql", "utf8");
+    await admin.query(migration); await admin.query(migration);
+    await admin.query(`CREATE ROLE "${role}" LOGIN PASSWORD '${password}' NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT NOREPLICATION NOBYPASSRLS`);
+    roleCreated = true;
+    const db = parsed.pathname.slice(1).replaceAll('"', '""');
+    await admin.query(`GRANT CONNECT ON DATABASE "${db}" TO "${role}"`);
+    await admin.query(`GRANT USAGE ON SCHEMA e03_checkpoint TO "${role}"`);
+    await admin.query(`GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA e03_checkpoint TO "${role}"`);
+    parsed.username = role; parsed.password = password;
+    runtimeUrl = parsed.toString(); runtime = new Pool({ connectionString: runtimeUrl });
+  });
+  afterAll(async () => {
+    await runtime?.end();
+    if (admin) { if (roleCreated) { await admin.query(`DROP OWNED BY "${role}"`); await admin.query(`DROP ROLE "${role}"`); } await admin.end(); }
+  });
+  it("executes migration twice and denies direct table/DDL access", async () => {
+    await expect(runtime.query("SELECT * FROM e03_checkpoint.heads")).rejects.toThrow();
+    await expect(runtime.query("CREATE TABLE e03_checkpoint.bad(id int)")).rejects.toThrow();
+  });
+  it("serializes independent connections racing the same revision", async () => {
+    const s = scope(), a = new PgCheckpointRepository(runtime, null), b = new PgCheckpointRepository(runtime, null);
+    const results = await Promise.allSettled([a.save(s, 0, "a", sample, now), b.save(s, 0, "b", sample, now)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    const rejected = results.find((r) => r.status === "rejected");
+    expect(rejected).toMatchObject({ reason: { code: "CHECKPOINT_CONFLICT" } });
+    expect((await a.load(s, now)).revision).toBe(1);
+  });
+  it("serializes separate OS processes on the same empty checkpoint", async () => {
+    const s = scope();
+    const children = ["one", "two"].map((key) => spawn(process.execPath,
+      ["--import", "tsx", "tests/decision-context/checkpoint-store/race-child.ts"],
+      { env: { ...process.env, E03_CHILD_DATABASE_URL: runtimeUrl, E03_CHILD_SCOPE: JSON.stringify(s), E03_CHILD_KEY: key }, stdio: ["pipe", "pipe", "pipe"] }));
+    try {
+      const outputs = children.map((child) => {
+        let output = "", started = false;
+        return new Promise<string>((resolve, reject) => {
+          child.stdout.on("data", (chunk: Buffer) => { output += chunk.toString(); if (!started && output.startsWith("ready\n")) { started = true; child.stdin.end("go\n"); } });
+          child.on("error", reject); child.on("close", (code) => code === 0 ? resolve(output) : reject(new Error(`child exit ${code}`)));
+        });
+      });
+      const rows = (await Promise.all(outputs)).map((value) => JSON.parse(value.trim().split("\n").at(-1)!));
+      expect(rows.filter((row) => row.revision === 1)).toHaveLength(1);
+      expect(rows.filter((row) => row.code === "CHECKPOINT_CONFLICT")).toHaveLength(1);
+    } finally { for (const child of children) if (child.exitCode === null) child.kill(); }
+  }, 20000);
+  it("rolls back before commit and retries an uncertain committed save", async () => {
+    const s = scope();
+    const failBefore = new PgCheckpointRepository(runtime, null, (p) => { if (p === "before_commit") throw Error("simulated"); });
+    await expect(failBefore.save(s, 0, "before", sample, now)).rejects.toMatchObject({ code: "CHECKPOINT_STORAGE" });
+    const normal = new PgCheckpointRepository(runtime, null);
+    await expect(normal.load(s, now)).rejects.toMatchObject({ code: "CHECKPOINT_NOT_FOUND" });
+    const failAfter = new PgCheckpointRepository(runtime, null, (p) => { if (p === "after_commit") throw Error("lost response"); });
+    await expect(failAfter.save(s, 0, "after", sample, now)).rejects.toMatchObject({ code: "CHECKPOINT_ACK_UNKNOWN" });
+    expect((await normal.save(s, 0, "after", sample, now)).checkpoint_revision).toBe(1);
+    await expect(normal.save(s, 1, "after", sample, now)).rejects.toMatchObject({ code: "CHECKPOINT_IDEMPOTENCY" });
+  });
+  it("does not resurrect deleted payload from an old save receipt", async () => {
+    const s = scope(), repo = new PgCheckpointRepository(runtime, null);
+    await repo.save(s, 0, "old", sample, now);
+    const ack = await repo.delete(s, 1, "delete", now);
+    expect(await repo.delete(s, 1, "delete", now)).toEqual(ack);
+    await expect(repo.save(s, 0, "old", sample, now)).rejects.toMatchObject({ code: "CHECKPOINT_CONFLICT" });
+    await expect(repo.load(s, now)).rejects.toMatchObject({ code: "CHECKPOINT_NOT_FOUND" });
+  });
+  it("separates keys and enforces explicit expiry and superseded receipts", async () => {
+    const s = scope(), repo = new PgCheckpointRepository(runtime, 10);
+    await repo.save(s, 0, "first", sample, now);
+    await expect(repo.load({ ...s, owner: randomUUID() }, now)).rejects.toMatchObject({ code: "CHECKPOINT_NOT_FOUND" });
+    await repo.save(s, 1, "next", sample, now);
+    await expect(repo.save(s, 0, "first", sample, now)).rejects.toMatchObject({ code: "CHECKPOINT_SUPERSEDED" });
+    await expect(repo.load(s, new Date(now.getTime() + 10000))).rejects.toMatchObject({ code: "CHECKPOINT_EXPIRED" });
+  });
+});
