@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assembleContextSnapshot } from "../../../src/server/decision-context/context-assembly";
-import { buildPacketCandidate, checkConsumption, preparePage, recordDelivery } from "../../../src/server/decision-context/packet-core/packet";
+import { buildPacketCandidate, checkConsumption, checkPacketTurn, preparePage, recordDelivery } from "../../../src/server/decision-context/packet-core/packet";
 import { canonicalJson } from "../../../src/server/trip-state/command-json";
 import type { DecisionContextContracts } from "../../../src/server/decision-context/contracts";
 import { base } from "../../support/bcg-fixtures";
@@ -80,6 +80,49 @@ describe("E03-03 packet core (synthetic host inputs)", () => {
     const broken=structuredClone(candidate); broken.packet.objects[0].version++;
     expect(()=>checkConsumption(broken,input.state,now(),ledger)).toThrowError(expect.objectContaining({code:"PACKET_MISMATCH"}));
     expect(()=>checkConsumption(candidate,input.state,now(),["forged-id"])).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
+  });
+  it("rejects a page crossing selected fact expiry even when the state revision does not change", () => {
+    const state=structuredClone(base), fact=state.objects.find(o=>o.id==="fact-cairo-luxor");
+    if (!fact || fact.type!=="ExternalFact") throw new Error("synthetic fact missing");
+    fact.expires_at="2030-01-01T00:00:00.001Z";
+    const assembly=assembleContextSnapshot(state,"E",task.target_ids,now());
+    const candidate=buildPacketCandidate({request:{runtime_contract_version:"0.1.0",turn_id:"turn-test",task_key:"E",body_budget_bytes:2},packetId:"packet-test",task,pending,assembly,state,now:now(),recoveredInput:false,saveUnacknowledged:false});
+    const ledger: string[]=[], requested=candidate.packet.deferred_ids.slice(0,1);
+    expect(candidate.packet.context.expires_at).toBe("2030-01-01T00:00:00.001000Z");
+    expect(()=>preparePage(candidate,request(requested),ledger,moment(state),moment(state,new Date("2030-01-01T00:00:00.001Z")))).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
+    expect(ledger).toEqual([]);
+    expect(()=>checkConsumption(candidate,state,new Date("2030-01-01T00:00:00.001Z"),ledger)).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
+  });
+  it("shows why untrusted client delivery claims cannot be passed as the host ledger", () => {
+    const {candidate,input}=setup(2), forged=candidate.packet.deferred_ids;
+    expect(candidate.packet.objects).toEqual([]);
+    // This pure function compares the supplied values; it cannot authenticate who supplied them.
+    expect(checkConsumption(candidate,input.state,now(),forged).remainingIds).toEqual([]);
+    expect(checkConsumption(candidate,input.state,now(),[]).remainingIds).toEqual(forged);
+    expect(preparePage(candidate,request(forged.slice(0,1)),[],moment(input.state),moment(input.state)).remaining_ids.length).toBe(forged.length-1);
+    // Preparing a response did not deliver anything or mutate the authoritative host ledger.
+    expect(checkConsumption(candidate,input.state,now(),[]).remainingIds).toEqual(forged);
+  });
+  it("exposes the lost-update risk when concurrent pages use an old ledger snapshot", () => {
+    const {candidate,input}=setup(2), ids=candidate.packet.deferred_ids;
+    const pageA=recordDelivery(candidate,[],[ids[0]]), pageB=recordDelivery(candidate,[],[ids[1]]);
+    expect(checkConsumption(candidate,input.state,now(),pageB).remainingIds).toContain(ids[0]);
+    const merged=recordDelivery(candidate,pageA,[ids[1]]);
+    expect(merged).toEqual([ids[0],ids[1]].sort());
+    expect(checkConsumption(candidate,input.state,now(),merged).remainingIds).not.toContain(ids[0]);
+    expect(checkConsumption(candidate,input.state,now(),merged).remainingIds).not.toContain(ids[1]);
+  });
+  it("compares a Packet to its original turn and task without claiming owner authorization", () => {
+    const {candidate}=setup(2);
+    const turn: DecisionContextContracts["turn"]={runtime_contract_version:"0.1.0",runtime_id:"runtime-test",turn_id:"turn-test",revision:0,tasks:[structuredClone(task)],focus_keys:["E"],checkpoint_ack:null};
+    expect(()=>checkPacketTurn(candidate,turn)).not.toThrow();
+    expect(()=>checkPacketTurn(candidate,{...turn,turn_id:"another-turn"})).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    const missing=structuredClone(turn); missing.tasks[0].task_key="another-task"; missing.focus_keys=["another-task"];
+    expect(()=>checkPacketTurn(candidate,missing)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    const altered=structuredClone(turn); altered.tasks[0].question="另一解释";
+    expect(()=>checkPacketTurn(candidate,altered)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
+    const duplicated=structuredClone(turn); duplicated.tasks.push(structuredClone(task));
+    expect(()=>checkPacketTurn(candidate,duplicated)).toThrowError(expect.objectContaining({code:"TASK_MISMATCH"}));
   });
   it("requires explicit host scene status and preserves restored/save warnings", () => {
     const {input}=setup(2);
