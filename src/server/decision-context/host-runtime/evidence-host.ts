@@ -7,7 +7,7 @@ import { databaseEnvSchema } from "../../../lib/env";
 import { openIdentity } from "../../auth/config";
 import { sessionHost, userActorId } from "../../auth/authorization";
 import { runtimeRoleSafetySql } from "../../database/runtime-role-safety.mjs";
-import { EvidenceBoundaryError, type EventReceipt, type DeleteReceipt } from "../../interaction-evidence/contracts";
+import { EvidenceBoundaryError, type EventReceipt, type DeleteReceipt, type RecordInput } from "../../interaction-evidence/contracts";
 import { evidenceKeyToken, prepareEvidenceEvent } from "./evidence-event";
 import { parseAndCheckTaskCore, type TaskCorePrior } from "../task-core/validate";
 import { parseDCContract } from "../contracts";
@@ -35,6 +35,7 @@ type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey:
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
 type DeleteRow = { disposition: string; deletion_revision: bigint | null; accepted_at: Date | null; cleanup_pending: boolean | null; event_highwater: bigint | null };
 type EventRow = { allowed: boolean; out_entry: "dialogue" | "map" | "timeline" | "comparison" | null; out_body: string | null; out_received_at: Date | null; out_retention_revision: bigint | null; out_valid_for_ms:bigint|null };
+export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordInput["entry"];text:string;reference:string;received_at:string};state:ReturnType<typeof parseStateReferences>;new_task_key:string})=>Promise<{tasks:unknown;focus_keys:unknown}>;
 const identityInput = z.strictObject({ expected_revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), tasks: z.unknown(), focus_keys: z.unknown() });
 export class TurnIdentityError extends Error {
   constructor(readonly code: "EVENT_REUSE" | "REVISION_CHANGED" | "TARGET_NOT_FOUND") { super(`Turn identity: ${code}`); this.name = "TurnIdentityError"; }
@@ -402,6 +403,37 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         return { ...registration, runtime_id: scope.runtimeId };
       });
     },
+    /** One new Task from a trusted, server-installed interpreter. No model service is installed here. */
+    async openInterpretedTurnCandidate(ticket:object,credential:Headers,value:RecordInput,interpret:ControlledInterpreter) {
+      if(typeof interpret!=="function")return unavailable();
+      const initial=await scoped(ticket,credential);
+      if(initial.scope.tasks.size||initial.scope.turns.size||initial.scope.receipts.size||initial.scope.replayReceipts.size)return unavailable();
+      const receipt=await this.record(ticket,credential,value);
+      try {
+      const {scope,headers}=await scoped(ticket,credential);
+      const state=await exclusive(scope,async()=>db.$transaction(async tx=>{
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;snapshot:string}>>`SELECT "revision","snapshot"::text AS snapshot FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        if(!document)return deny();
+        const parsed=parseStateReferences(decodeCommandJson(document.snapshot));checkStateCounters(parsed);
+        if(parsed.trip_id!==scope.tripId||BigInt(parsed.revision)!==document.revision)return unavailable();
+        return parsed;
+      }));
+      const taskKey=await this.mintTaskKey(ticket,credential,receipt.event_id);
+      const event={event_id:receipt.event_id,entry:value.entry,text:value.text,reference:`host-interaction:${receipt.event_id}`,received_at:receipt.recorded_at};
+      const interpreted=await interpret({event:structuredClone(event),state:structuredClone(state),new_task_key:taskKey});
+      const proposed=parseDCContract("open-turn",{runtime_contract_version:"0.1.0",trip_id:scope.tripId,expected_revision:state.revision,event,tasks:interpreted.tasks,focus_keys:interpreted.focus_keys});
+      if(proposed.tasks.length!==1||proposed.tasks[0].task_key!==taskKey||proposed.focus_keys.length!==1||proposed.focus_keys[0]!==taskKey)return unavailable();
+      const registration=await this.registerTaskIdentity(ticket,credential,receipt,{expected_revision:state.revision,tasks:proposed.tasks,focus_keys:proposed.focus_keys});
+      return parseDCContract("turn",{runtime_contract_version:"0.1.0",runtime_id:registration.runtime_id,turn_id:registration.turn_id,revision:registration.revision,
+        tasks:proposed.tasks,focus_keys:proposed.focus_keys,checkpoint_ack:null});
+      } catch(error) {
+        // This method is restricted to a fresh single-Turn workspace. An
+        // interpretation failure must not leave its durable source readable.
+        try{await this.deleteEvent(ticket,credential,receipt.event_id);}catch{/* the marker may require maintenance after authorization loss */}
+        throw error;
+      }
+    },
     /**
      * Assemble a registered live Turn against the authorized current TS
      * snapshot, returning metadata only. No Packet, text, delivery proof,
@@ -539,6 +571,49 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       return !!scope&&!scope.disposed&&!closed&&scope.packets.has(packetId);
     },
     async authorizeTicketCandidate(ticket:object,credential:Headers) {await scoped(ticket,credential);},
+    async authorizeTripCandidate(tripId:string,credential:Headers) {await authorized(tripId,credential);},
+    /** Send a registered Turn while its Session, source and state locks are held. */
+    async sendTurnCandidate(ticket:object,credential:Headers,value:unknown,response:ServerResponse) {
+      const turn=parseDCContract("turn",value),{scope,headers}=await scoped(ticket,credential);
+      if(!(response instanceof ServerResponse)||response.headersSent||response.destroyed)return unavailable();
+      try {await exclusive(scope,async()=>db.$transaction(async tx=>{
+        const found=[...scope.turns.entries()].find(([,entry])=>entry.result.turn_id===turn.turn_id);
+        if(!found||turn.runtime_id!==scope.runtimeId)return deny();
+        const [eventId,registered]=found,lease=turnInput(scope,turn.turn_id),parsed=identityInput.safeParse(lease.value);
+        if(!parsed.success)return unavailable();
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;snapshot:string}>>`SELECT "revision","snapshot"::text AS snapshot FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        if(!document||document.revision!==BigInt(registered.result.revision)||turn.revision!==registered.result.revision)return unavailable();
+        const state=parseStateReferences(decodeCommandJson(document.snapshot));checkStateCounters(state);
+        if(state.trip_id!==scope.tripId||BigInt(state.revision)!==document.revision)return unavailable();
+        let deadline=process.hrtime.bigint()+300_000_000_000n,wall=Date.now()+300_000;
+        const read=async(id:string,token:string,metadata:boolean)=>{
+          const started=process.hrtime.bigint(),startedWall=Date.now();
+          const [row]=await tx.$queryRaw<EventRow[]>`SELECT * FROM public.host_evidence_for_turn_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${id},${token},${metadata})`;
+          if(!row?.allowed||counter(row.out_retention_revision)!==scope.deletionRevision||row.out_valid_for_ms===null||row.out_valid_for_ms<=1n)return unavailable();
+          const bounded=row.out_valid_for_ms>300_001n?300_000n:row.out_valid_for_ms-1n;
+          const end=started+bounded*1_000_000n;if(end<deadline)deadline=end;
+          const wallEnd=startedWall+Number(bounded);if(wallEnd<wall)wall=wallEnd;
+          return row;
+        };
+        const token=registered.sources.get(eventId);if(!token)return unavailable();
+        const source=await read(eventId,token,false);
+        if(!source.out_entry||!source.out_body||!source.out_received_at)return unavailable();
+        for(const [id,key] of registered.sources)await read(id,key,true);
+        const body=parseDCContract("open-turn",{runtime_contract_version:"0.1.0",trip_id:scope.tripId,expected_revision:parsed.data.expected_revision,
+          event:{event_id:eventId,entry:source.out_entry,text:source.out_body,reference:`host-interaction:${eventId}`,received_at:source.out_received_at.toISOString()},
+          tasks:parsed.data.tasks,focus_keys:parsed.data.focus_keys});
+        if(createHmac("sha256",keySecret!).update(canonicalJson(body),"utf8").digest("hex")!==registered.digest||
+          canonicalJson([turn.tasks,turn.focus_keys])!==canonicalJson([body.tasks,body.focus_keys]))return unavailable();
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        checkTurnLease(scope,turn.turn_id,lease.id);
+        const bytes=Buffer.from(JSON.stringify(turn),"utf8");
+        if(process.hrtime.bigint()>=deadline||Date.now()>=wall)return unavailable();
+        response.writeHead(200,{"content-type":"application/json; charset=utf-8","content-length":bytes.length,"cache-control":"private, no-store, max-age=0","x-content-type-options":"nosniff","vary":"Cookie"});
+        if(process.hrtime.bigint()>=deadline||Date.now()>=wall){response.destroy();return unavailable();}
+        response.end(bytes);
+      }));} catch(error){if(response.headersSent)response.destroy();if(error instanceof EvidenceBoundaryError)throw error;return unavailable();}
+    },
     /**
      * Internal bounded save only. Drafts, errors and non-unprocessed states
      * require sources/host state not yet available and are rejected, not trimmed.

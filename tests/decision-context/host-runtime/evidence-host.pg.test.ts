@@ -8,6 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openIdentity, type Identity } from "../../../src/server/auth/config";
 import { openEvidenceHost } from "../../../src/server/decision-context/host-runtime/evidence-host";
 import { createPacketHttpCandidate } from "../../../src/server/decision-context/host-runtime/packet-http-candidate";
+import { createSameOriginE03Gateway } from "../../../src/server/decision-context/host-runtime/same-origin-gateway-candidate";
 import { createPacketSocketDeliveryCandidate } from "../../../src/server/decision-context/host-runtime/packet-socket-delivery-candidate";
 import { createShortPacketHandoffCandidate } from "../../../src/server/decision-context/host-runtime/packet-short-handoff-candidate";
 import type { PacketCandidate } from "../../../src/server/decision-context/packet-core/packet";
@@ -690,6 +691,64 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
       expect(()=>tracker?.progress()).toThrow("DELIVERY_UNAVAILABLE");
       expect((await fetch(`${origin}/page`,{headers:{cookie}})).status).toBe(403);await done;
     } finally {tracker?.invalidate();if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await wired.close();}
+  },30000);
+  it("runs record, controlled interpretation, Turn and Packet beside a same-origin Next proxy",async()=>{
+    const t=`trip_gateway_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"gateway-test"}));
+    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    const a=await account(),b=await account();
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[t,a.user.id,b.user.id]);
+    const objects=structuredClone(base.objects.filter(item=>["egypt","aswan"].includes(item.id)));
+    for(const item of objects)item.trip_id=t;
+    await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}',$2::jsonb) WHERE "tripId"=$1`,[t,JSON.stringify(objects)]);
+    let signalSlowClose!:()=>void;const slowClosed=new Promise<void>(resolve=>{signalSlowClose=resolve;});
+    const next=http.createServer((req,res)=>{if(req.url==="/slow"){res.on("close",signalSlowClose);res.writeHead(200);res.write("started");return;}res.writeHead(200,{"content-type":"application/json","x-upstream":"next"});res.end(JSON.stringify({path:req.url}));});
+    next.listen(0,"127.0.0.1");await once(next,"listening");
+    const nextAddress=next.address();if(!nextAddress||typeof nextAddress==="string")throw new Error("missing upstream");
+    const wired=await openEvidenceHost(env);
+    let gateway!:http.Server,origin="",interpretCalls=0;
+    try {
+      const interpreter=async({event,state,new_task_key}:{event:{text:string};state:State;new_task_key:string})=>{
+        interpretCalls++;expect(state.trip_id).toBe(t);expect(state.objects.some(item=>item.id==="aswan")).toBe(true);
+        return {tasks:[{task_key:new_task_key,question:event.text,kind:"explore",target_ids:["aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(event.text).length,quote:event.text}],progress:"open",progress_evidence:null}],focus_keys:[new_task_key]};
+      };
+      const adapterHolder:{current?:ReturnType<typeof createPacketHttpCandidate>}={};
+      const gatewayHandler=createSameOriginE03Gateway((req,res)=>adapterHolder.current!.handle(req,res),`http://127.0.0.1:${nextAddress.port}`);
+      gateway=http.createServer(gatewayHandler);
+      gateway.listen(0,"127.0.0.1");await once(gateway,"listening");
+      const address=gateway.address();if(!address||typeof address==="string")throw new Error("missing gateway");
+      origin=`http://127.0.0.1:${address.port}`;adapterHolder.current=createPacketHttpCandidate(wired,origin,interpreter);
+      const proxied=await fetch(`${origin}/api/health`);expect(proxied.status).toBe(200);expect(proxied.headers.get("x-upstream")).toBe("next");expect(await proxied.json()).toEqual({path:"/api/health"});
+      const cookie=a.headers.get("cookie")??"";
+      const post=(operation:string,body:unknown,auth=cookie)=>fetch(`${origin}/runtime/trips/${t}/${operation}`,{method:"POST",headers:{cookie:auth,origin,"content-type":"application/json"},body:JSON.stringify(body)});
+      const text="阿斯旺体验";
+      const turnResponse=await post("turns",{entry:"dialogue",text,idempotency_key:`gateway_${randomUUID()}`});expect(turnResponse.status).toBe(200);
+      const turn=await turnResponse.json() as {turn_id:string;tasks:Array<{task_key:string}>};expect(interpretCalls).toBe(1);expect(turn.tasks).toHaveLength(1);
+      const denied=await post("assemble",{runtime_contract_version:"0.1.0",turn_id:turn.turn_id,task_key:turn.tasks[0].task_key,body_budget_bytes:2},b.headers.get("cookie")??"");
+      expect(denied.status).toBe(403);expect(await denied.text()).not.toContain(text);
+      const open=await post("assemble",{runtime_contract_version:"0.1.0",turn_id:turn.turn_id,task_key:turn.tasks[0].task_key,body_budget_bytes:2});expect(open.status).toBe(200);
+      const packet=await open.json() as {packet_id:string;deferred_ids:string[]};expect(packet.deferred_ids).toEqual(["aswan"]);
+      const page=await post("pages",{runtime_contract_version:"0.1.0",packet_id:packet.packet_id,object_ids:["aswan"]});expect(page.status).toBe(200);
+      expect((await page.json() as {objects:Array<{id:string}>}).objects.map(item=>item.id)).toEqual(["aswan"]);
+      const controller=new AbortController();const slow=await fetch(`${origin}/slow`,{signal:controller.signal});expect(slow.status).toBe(200);controller.abort();
+      await expect(slow.text()).rejects.toThrow();
+      await expect(Promise.race([slowClosed.then(()=>true),new Promise<boolean>(resolve=>setTimeout(()=>resolve(false),1500))])).resolves.toBe(true);
+      const noInterpreter=createPacketHttpCandidate(wired,origin);
+      const failureServer=http.createServer((req,res)=>{void noInterpreter.handle(req,res);});failureServer.listen(0,"127.0.0.1");await once(failureServer,"listening");
+      try {const failureAddress=failureServer.address();if(!failureAddress||typeof failureAddress==="string")throw new Error("missing failure route");
+        const unavailable=await fetch(`http://127.0.0.1:${failureAddress.port}/runtime/trips/${t}/turns`,{method:"POST",headers:{cookie,origin,"content-type":"application/json"},body:JSON.stringify({entry:"dialogue",text,idempotency_key:`unavailable_${randomUUID()}`})});
+        expect(unavailable.status).toBe(503);expect(await unavailable.text()).not.toContain(text);
+      } finally {await new Promise<void>((resolve,reject)=>failureServer.close(error=>error?reject(error):resolve()));}
+      const rejectedText="解释器失败的原话";
+      const failingAdapter=createPacketHttpCandidate(wired,origin,async()=>{throw new Error("INTERPRETER_FAILED");});
+      const failingServer=http.createServer((req,res)=>{void failingAdapter.handle(req,res);});failingServer.listen(0,"127.0.0.1");await once(failingServer,"listening");
+      try {const failureAddress=failingServer.address();if(!failureAddress||typeof failureAddress==="string")throw new Error("missing interpreter failure route");
+        const failed=await fetch(`http://127.0.0.1:${failureAddress.port}/runtime/trips/${t}/turns`,{method:"POST",headers:{cookie,origin,"content-type":"application/json"},body:JSON.stringify({entry:"dialogue",text:rejectedText,idempotency_key:`throw_${randomUUID()}`})});
+        expect(failed.status).toBe(503);expect(await failed.text()).not.toContain(rejectedText);
+        const marker=await owner.query<{deleted_at:Date|null}>('SELECT deleted_at FROM public."HostEvidenceEvent" WHERE trip_id=$1 AND body=$2 ORDER BY sequence DESC LIMIT 1',[t,rejectedText]);
+        expect(marker.rows[0]?.deleted_at).toBeTruthy();
+      } finally {await new Promise<void>((resolve,reject)=>failingServer.close(error=>error?reject(error):resolve()));}
+    } finally {if(gateway?.listening)await new Promise<void>((resolve,reject)=>gateway.close(error=>error?reject(error):resolve()));await wired.close();await new Promise<void>((resolve,reject)=>next.close(error=>error?reject(error):resolve()));}
   },30000);
   it("routes registered Turn and independent pages using only the private task lease",async()=>{
     const t=`trip_route_${randomBytes(8).toString("hex")}`;
