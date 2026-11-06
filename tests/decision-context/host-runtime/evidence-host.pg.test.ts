@@ -107,6 +107,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     const a = await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)', [trip, a.user.id]);
     const workspace = await host.createWorkspace(trip, a.headers);
     const pid = (await owner.query<{ pid: number }>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    const observer = new Client({ connectionString: config!.migrationUrl }); await observer.connect();
     await owner.query("BEGIN");
     let committed = false;
     try {
@@ -116,7 +117,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
         .then(() => ({ code: "unexpected-success" }), error => ({ code: error?.code as string }));
       let blocked = false;
       for (let i = 0; i < 100; i++) {
-        const result = await owner.query<{ blocked: boolean }>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%authorize_trip_session%') AS blocked", [pid]);
+        const result = await observer.query<{ blocked: boolean }>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%authorize_trip_session%') AS blocked", [pid]);
         if (result.rows[0].blocked) { blocked = true; break; }
         await new Promise(resolve => setTimeout(resolve, 50));
       }
@@ -125,6 +126,6 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
       expect(await pending).toEqual({ code: "EVIDENCE_ACCESS_DENIED" });
       const records = await owner.query<{ count: string }>('SELECT count(*)::text AS count FROM public."HostEvidenceEvent" WHERE owner_id=$1 AND body=$2', [a.user.id, "never persisted"]);
       expect(records.rows[0].count).toBe("0");
-    } finally { if (!committed) await owner.query("ROLLBACK"); }
+    } finally { if (!committed) await owner.query("ROLLBACK"); await observer.end(); }
   }, 30000);
 });
