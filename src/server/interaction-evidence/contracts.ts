@@ -46,7 +46,9 @@ export class EvidenceBoundaryError extends Error {
 }
 // Recording success is not a Task interpretation or a current write grant.
 export type EventReceipt = EvidenceScope & { event_id:string; sequence:number; durable:true; recorded_at:string; replayed:boolean };
-export type EvidencePage = { events:Array<EvidenceEvent & {task_key:string;association_revision:number}>; cursor:string|null; complete:boolean; status:"complete"|"missing"|"deleted"|"expired"|"unlinked"|"pending"|"partial"; authority:"historical_evidence_only" };
+// Reader projection excludes Session references, input digests and client idempotency keys.
+export type EvidencePageEvent = Pick<EvidenceEvent,"event_id"|"text"|"entry"|"received_at"|"recorded_at"|"source_reference"|"owner_id"|"trip_id"|"workspace_key"|"sequence"> & {task_key:string;association_revision:number};
+export type EvidencePage = { events:EvidencePageEvent[]; cursor:string|null; complete:boolean; status:"complete"|"missing"|"deleted"|"expired"|"unlinked"|"pending"|"partial"; authority:"historical_evidence_only" };
 export const productionConfigSchema = z.strictObject({
   enabled:z.boolean(), backup_cleanup_days:z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable(),
   audit_retention_days:z.number().int().positive().max(Number.MAX_SAFE_INTEGER).nullable(),

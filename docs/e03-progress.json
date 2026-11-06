@@ -83,13 +83,15 @@
       "evidence": [
         "docs/E03-01工程交付与审核.md",
         "docs/E03-01-E11存储设计与后续接入.md",
-        "specs/e03-01-oracle-lock.json"
+        "specs/e03-01-oracle-lock.json",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/14",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42164424546"
       ],
       "execution_location": "独立 feat/e03-01-contract-foundation 分支；本地与 GitHub CI",
       "responsibilities": "执行工程师：实施/验证/提交；技术负责人：切片审核",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "等待当前head的GitHub CI及技术负责人E03-01切片验收"
+        "等待技术负责人E03-01切片验收；最终head的CI结果见PR #14"
       ]
     },
     {

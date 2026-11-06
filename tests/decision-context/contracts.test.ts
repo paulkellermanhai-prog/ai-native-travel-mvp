@@ -23,7 +23,7 @@ describe("E03-01 frozen DC contract boundaries",()=>{
  });
  it.each(["9007199254740993","1.00000000000000001","9007199254740990.1","1e999","-1"])("rejects unsafe/exact counter token %s",token=>{const body=JSON.stringify(ex.open_turn).replace('"expected_revision":0',`"expected_revision":${token}`);expect(()=>decodeDCContract("open-turn",body)).toThrow();});
  it("accepts exact integer exponent and safe maximum without narrowing source schemas",()=>{for(const token of ["1e2","1.0","9007199254740991"]){const body=JSON.stringify(ex.open_turn).replace('"expected_revision":0',`"expected_revision":${token}`);expect(decodeDCContract("open-turn",body).expected_revision).toBe(Number(token));}});
- it("rejects missing nulls, unknown fields, versions and dates without echoing raw input",()=>{
+ it("rejects unknown fields, versions and dates without echoing raw input",()=>{
   for(const value of [{...ex.open_turn,runtime_contract_version:"0.2.0"},{...ex.open_turn,owner_id:"forged"},{...ex.open_turn,event:{...ex.open_turn.event,received_at:"2030-02-31T00:00:00Z"}}])expect(()=>parseDCContract("open-turn",value)).toThrow();
   try{decodeDCContract("open-turn",'{"SECRET_RAW_TEXT":');}catch(e){expect(e).toMatchObject({code:"INVALID_JSON"});expect(String(e)).not.toContain("SECRET_RAW_TEXT");}
  });
