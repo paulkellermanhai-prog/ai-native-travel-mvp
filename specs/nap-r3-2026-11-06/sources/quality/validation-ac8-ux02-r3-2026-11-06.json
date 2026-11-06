@@ -1,0 +1,22 @@
+{
+  "date": "2026-11-06",
+  "scope": "R3 control-flag typing and status handoff; synthetic reference only",
+  "prior_review": "01a1af95-fd82-77ee-99d4-f9153d2c7011",
+  "results": {
+    "guard_tests": {
+      "status": "PASS",
+      "methods": 14,
+      "prior_red": "prior reference accepted missing and string true for seven flagged controls",
+      "current": "eight explicit boolean controls; conditional required proofs; unknown fields rejected"
+    },
+    "nap_package_check": "see execution evidence",
+    "source_diff_integrity": "see execution evidence",
+    "real_policy_model_tools_auth_ui_and_combined_http_pg": "NOT_RUN",
+    "original_policy_73_records": "NOT_RUN"
+  },
+  "status_observed_at": "2026-11-06T06:49:21Z",
+  "pr13_accepted_head": "a81e4461ba46d58d22e4a98491da0d4e33275efd",
+  "pr15_observed_head": "d736b1306f16f7619b0bbc3c3f360ebc4a927282",
+  "pr16_observed_head": "7cca5c792a15cf867d13124c3670a6fdd5c3e9a6",
+  "approval": "PENDING_INCREMENTAL_REVIEW"
+}

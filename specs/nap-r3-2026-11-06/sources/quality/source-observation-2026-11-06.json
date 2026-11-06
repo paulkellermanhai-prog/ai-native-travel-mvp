@@ -1,0 +1,187 @@
+{
+  "count": 69,
+  "missing": [],
+  "changed": [
+    {
+      "path": "../AI Native旅行产品｜PRD V0.1.md",
+      "old": "3cb1ed7e3f4522ac4ef0e46960ab801d5a7f5c93e5528c83c2e72933767ed62d",
+      "current": "19321a8f0e459d54fcff5e54f77ea3af06235035699dcc777a3d6cff7dd2c203"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/SPECIFICATION.md",
+      "old": "9516ecd29b93e56b3aa2458c62a8228da98f7374233c20f4c1a6009abd00f152",
+      "current": "0e97d946d12553cdf0a6cf181b3fc357e0d1d7f72711ffae2f7913e65efd5600"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/AUTHORITY_FINAL.md",
+      "old": "84ffda0b03e5055c0a39a3683dae68fe93ec60feebbb06a5011349917366283d",
+      "current": "8e72d7a20c1a2b8e4b30f75f4bd9789c3d8cc3cd768951903823634aa3e0c13f"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/STATE_TRANSITIONS_FINAL.md",
+      "old": "f5292d4c251e08937e0692ea79641c4bb0f5f7d27dff4888a44a3d29714a702b",
+      "current": "974b03d533c22345b5c19cf81e78b55e372c14ec12f065f6a49da068237c47de"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/PROPAGATION_FINAL.md",
+      "old": "0dd69fe4e0094de1c7b3e48a9d6d24709e05e830caf530e76445d572019eb11a",
+      "current": "adb8eb4b6afd46a2cfd0d523893cbcaff7bb50a224739d16b2dafc859239f073"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/INVARIANTS_FINAL.md",
+      "old": "f1f12447f06bef094a07a68d6af8c6111c8ac61d9646034cb7f987ff0f0e0c90",
+      "current": "e192493a7bf1c701648457d347f684394beedd7fee85c4f3e6fbee32279b3b77"
+    },
+    {
+      "path": "../decision-context-v0.1/00_从这里开始.md",
+      "old": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026",
+      "current": "bff5a687738a0b72597ca1a57d41582ef409d41f801d89df8fb48a03b6542745"
+    },
+    {
+      "path": "../decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "old": "a3a41431e1b1027474326198912d60434f7d79758aa6d0f32359cb4a33791d2f",
+      "current": "5d7d967334c656c973ef9fd71a8065a4c79ae897e5c540152886a3bc04e8e082"
+    },
+    {
+      "path": "../decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "old": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a",
+      "current": "9d507be901727b702da0c49e46c9c977b4540e8cbd68cac1ef445490a617978d"
+    },
+    {
+      "path": "../decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "old": "e58d328e0b5bde8c37069f5d196c2cdfc91ed79e80372efd79b58a3f41957522",
+      "current": "21c98ed7f4c0124afeedb6e6bba46c26026c51004df683bbed733e3c009dbdf8"
+    },
+    {
+      "path": "../decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "old": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
+      "current": "bbac21430dd4d43ae9a663551cef073ccf5265ea0beb5c1e33deaf7fd23bbeda"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "old": "029a0156dbd132d5c42e4912f59ff05390433eccc0b8906b86241df64f2f09b2",
+      "current": "12cefe8393194b427c27f13349dfb1a84b189d326f6a25a285b33ca8452b6e01"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/contracts.py",
+      "old": "2ba4b92efa2f7767b97b3a666da191a70c5a8ed71f24ef49fae7d0776b8f1821",
+      "current": "5f84a5fe2fb2a5ff94b8e16d01ecd6f16be0e627c97e083501a095d1ddb0960a"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/engine.py",
+      "old": "7c9d80611a0b08b06842967446bc7c8ff9f54ee2e13210d7fa978d210700c777",
+      "current": "900744763cecaa99830bd34ea11c439cbf2170acf23e21a1d6077c3e785a86ca"
+    }
+  ],
+  "additional_sources": [
+    {
+      "path": "../产品机制迭代/问题域：A｜用户理解与认知推断/P03｜用户当下意图理解与持续校准｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "c66f9e2320cb539736093080849dd22cbbc1519f0b2f055d4eafb74ac155f569",
+      "bytes": 12647,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：A｜用户理解与认知推断/P04｜冷启动状态下如何知道用户兴趣｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "12190f18a321215f4feabb48152042ca18285d9e2029e1e08d27ffea1820181a",
+      "bytes": 14191,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：A｜用户理解与认知推断/P05｜自然语言歧义与低成本澄清｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "36590dd46d7f0e4a64f9ae29afef82a571765996aa4fd27b310cfa8fc300d404",
+      "bytes": 17445,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P01｜下一步行动价值判断｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "09e8d70b1c438c20908e6953258aebf7a809d8f8134e6ac07c9ac9e0863870cf",
+      "bytes": 5893,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P10｜NAP 行动校验范围｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "c8e260127d6a47fcbd8009f05cf9425d3a30e2da3ddd5b36ae1811f2d789ee49",
+      "bytes": 7046,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P15｜当前行动相对适配性｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "9d00d394dc8a6c51c81241fbf998fb233d603e71f0ebd8e15975a83c6123d50a",
+      "bytes": 4579,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P16｜主动行为用户负担判断｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "c0efcac6910f912879b8035b5fa29bff47cc676dc08b0498868da96bb8cfd14a",
+      "bytes": 6348,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P19｜主动介入时机判断｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "8e455f65392b76c2858676d4df9b2f2374ea5302eaf159bf4f0a74733ac112ad",
+      "bytes": 5139,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/问题域 C｜行动价值决策与反馈闭环｜产品机制规范 V0.1.md",
+      "sha256": "0fc6b3851ae3efa4b7e922e1060feb3b3ac9e09b1329fd1d974d069bffb3326d",
+      "bytes": 34672,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/ANTU｜A-C 域跨模块工程影响交接矩阵 V0.1.md",
+      "sha256": "74adc90848fcb93c628ac75e673ffb80bdaca0d4075444f50d30889fa3e87e86",
+      "bytes": 10304,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/README.md",
+      "sha256": "d0b3ca0b770a75b6ddd23d25b1f57f635c84a3de88f499747eaa1d8bc50eec95",
+      "bytes": 9867,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/Core-UX-Flow-V0.1.md",
+      "sha256": "2a42c5c460af5452d681e73be9e315cc8218ce771b87db36afd13e100159b9a4",
+      "bytes": 19519,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/Engineering-Impact-Matrix-V0.1.md",
+      "sha256": "aa74180346ff6e396b744321fefc25643833b605eb7bd8be45ba8e63361b1d0b",
+      "bytes": 16761,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/UX-02-NAP-Impact-V0.1.md",
+      "sha256": "8311487f48233d87ac6f69ed29574c04968209ab88a1fdaf6ae7d000d42a77aa",
+      "bytes": 3691,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/UX-02-PRD-TS-DC-Review-V0.1.md",
+      "sha256": "a1ea703a646f8991803c14b83a78f8751a805ea67686eaf89d86f171ebcb1b30",
+      "bytes": 8147,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../decision-context-v0.1/03_评审与工程衔接/12_DC-AC8机制融合追踪与规格变更.md",
+      "sha256": "7fdb21bb68c23572b447e26c370b9fbe4aaac88473cca6b73b834661507c6b5d",
+      "bytes": 13006,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../decision-context-v0.1/03_评审与工程衔接/18_UX02行为落实与E03开发验收映射.md",
+      "sha256": "1f9f9b821b2c9ffb992bd63f49eace312ca9d84e3b760f469fc1091880e919bb",
+      "bytes": 17447,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/UX02工程落实与DC开发映射.md",
+      "sha256": "4ce7f5216df8676382e0b2fa2246e7b6f32bdbff3a11bab6fee9de2e7eca88db",
+      "bytes": 17442,
+      "status": "source_observed_not_automatic_engineering_approval"
+    }
+  ],
+  "interpretation": "Current local observations; preserve old digest as historical, no approval inferred. Semantic mapping: engineering/ac8-ux02-integration.md"
+}
