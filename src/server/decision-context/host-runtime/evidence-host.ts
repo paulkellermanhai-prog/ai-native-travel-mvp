@@ -16,7 +16,7 @@ import type { CheckpointPayload } from "../contracts.generated";
 import { classifyRecovery } from "../recovery-core";
 import { buildRestoredSceneCandidate } from "../integration/restored-scene-candidate";
 import { assembleContextSnapshot, validateContextSnapshot } from "../context-assembly";
-import { buildPacketCandidate, checkPacketTurn } from "../packet-core/packet";
+import { buildPacketCandidate, checkPacketTurn, type PacketCandidate } from "../packet-core/packet";
 import { parseStateReferences } from "../../trip-state/references";
 import { checkStateCounters } from "../../trip-state/numbers";
 
@@ -45,7 +45,7 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void }) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>)=>Promise<void> }) {
   if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
@@ -355,9 +355,16 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
             const candidate=buildPacketCandidate({request,packetId:`packet-${randomUUID().replaceAll("-","")}`,task,pending,assembly,state,now,
               recoveredInput:false,saveUnacknowledged:scope.pendingSaveSticky || scope.pendingSaves.size>0 || scope.inflightSaves>0});
             checkPacketTurn(candidate,turn,pending);
-            for (const [id,token] of registered.sources) await read(id,token,true);
-            try { await host.guard!(scope.tripId,headers,tx); } catch { return deny(); }
-            validateContextSnapshot(assembly,state,new Date());
+            const recheck=async()=> {
+              for (const [id,token] of registered.sources) await read(id,token,true);
+              try { await host.guard!(scope.tripId,headers,tx); } catch { return deny(); }
+              validateContextSnapshot(assembly,state,new Date());
+            };
+            await recheck();
+            // Test hook only: openEvidenceHost rejects all hooks outside the
+            // test environment. It is not a production delivery barrier.
+            if(testHooks?.onLivePacketCandidate) await testHooks.onLivePacketCandidate(structuredClone(candidate),recheck);
+            await recheck();
             return {state_revision:state.revision,selected_count:assembly.objects.length,body_count:candidate.packet.objects.length,
               deferred_count:candidate.packet.deferred_ids.length,coverage:candidate.packet.coverage};
           });

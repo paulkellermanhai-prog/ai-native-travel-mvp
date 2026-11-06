@@ -1,10 +1,13 @@
 import fs from "node:fs";
+import http from "node:http";
+import { once } from "node:events";
 import { spawnSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openIdentity, type Identity } from "../../../src/server/auth/config";
 import { openEvidenceHost } from "../../../src/server/decision-context/host-runtime/evidence-host";
+import { createPacketSocketDeliveryCandidate } from "../../../src/server/decision-context/host-runtime/packet-socket-delivery-candidate";
 import { issueInternalCapability, openInternalTripService } from "../../../src/server/auth/internal-service";
 import { base } from "../../support/bcg-fixtures";
 import { checkpointDigest, validateCheckpoint } from "../../../src/server/decision-context/checkpoint-core";
@@ -557,6 +560,52 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     await owner.query('UPDATE public."HostEvidenceTripLifecycle" SET source_revision=1 WHERE trip_id=$1',[egyptTrip]);
     await expect(host.inspectLivePacketCandidate(ticket,a.headers,turn.turn_id,key,4096,input)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
     await host.disposeWorkspace(ticket);
+  },30000);
+  it("hands a real Session and PostgreSQL Packet to a real socket in an isolated test host", async () => {
+    const egyptTrip=`trip_socket_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(egyptTrip,await issueInternalCapability(secret,egyptTrip,{role:"system",id:"socket-fixture"}));
+    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[egyptTrip]);
+    const a=await account(),b=await account();
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[egyptTrip,a.user.id,b.user.id]);
+    const egypt=structuredClone(base.objects.find(item=>item.id==="egypt")!),aswan=structuredClone(base.objects.find(item=>item.id==="aswan")!);
+    egypt.trip_id=egyptTrip; aswan.trip_id=egyptTrip;
+    await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}',$2::jsonb) WHERE "tripId"=$1`,[egyptTrip,JSON.stringify([egypt,aswan])]);
+    let response:http.ServerResponse|undefined, progress:{initial_sent:boolean;delivered_count:number;remaining_count:number}|undefined;
+    const wired=await openEvidenceHost(env,{onLivePacketCandidate:async(candidate,recheck)=> {
+      if(!response) throw new Error("test socket missing");
+      const transport=createPacketSocketDeliveryCandidate(candidate,recheck);
+      try { await transport.sendPacket(response,candidate); progress=transport.progress(); } finally { transport.invalidate(); }
+    }});
+    const ticket=await wired.createWorkspace(egyptTrip,a.headers),key=await wired.mintTaskKey(ticket,a.headers,"socket-task"),text="了解阿斯旺";
+    const event=await wired.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`socket_${randomUUID()}`});
+    const task={task_key:key,question:text,kind:"explore",target_ids:["aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null};
+    const input={expected_revision:0,tasks:[task],focus_keys:[key]},turn=await wired.registerTaskIdentity(ticket,a.headers,event,input);
+    let done:Promise<void>=Promise.resolve();
+    const server=http.createServer((req,res)=> {
+      response=res;
+      done=wired.inspectLivePacketCandidate(ticket,new Headers({cookie:req.headers.cookie??""}),turn.turn_id,key,4096,input)
+        .then(()=>undefined,()=>{if(!res.headersSent&&!res.destroyed){res.writeHead(403);res.end();}});
+    });
+    try {
+      server.listen(0,"127.0.0.1"); await once(server,"listening");
+      const address=server.address(); if(!address||typeof address==="string") throw new Error("test socket missing");
+      const origin=`http://127.0.0.1:${address.port}`;
+      const ok=await fetch(origin,{headers:{cookie:a.headers.get("cookie")??""}});
+      expect(ok.status).toBe(200); const packet=await ok.json() as {task:{task_key:string};pending_input:{event:{text:string}};objects:Array<{id:string}>};
+      await done;
+      expect(packet.task.task_key).toBe(key); expect(packet.pending_input.event.text).toBe(text);
+      expect(packet.objects.map(item=>item.id)).toEqual(["aswan"]);
+      expect(progress).toEqual({initial_sent:true,delivered_count:1,remaining_count:0});
+      expect((await fetch(origin,{headers:{cookie:b.headers.get("cookie")??""}})).status).toBe(403); await done;
+      await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[egyptTrip,a.user.id]);
+      expect((await fetch(origin,{headers:{cookie:a.headers.get("cookie")??""}})).status).toBe(403); await done;
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[egyptTrip,a.user.id]);
+      await owner.query(`UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval '1 second' WHERE id=$1`,[a.session.session.id]);
+      expect((await fetch(origin,{headers:{cookie:a.headers.get("cookie")??""}})).status).toBe(403); await done;
+    } finally {
+      if(server.listening) await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));
+      await wired.close();
+    }
   },30000);
   it("atomically records verified scene events and serializes their removal with deletion", async () => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
