@@ -147,6 +147,24 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     const unrelated={...continued,tasks:[{...continued.tasks[0],task_key:"independent",relation:"new"}],focus_keys:["independent"]};
     await expect(host.registerTaskIdentity(workspace,a.headers,next,unrelated)).resolves.toMatchObject({task_keys:["independent"]});
   },30000);
+  it("preserves same-turn and cross-turn identity guards while isolating identical keys by workspace",async()=>{
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const workspace=await host.createWorkspace(trip,a.headers), another=await host.createWorkspace(trip,a.headers);
+    const event=await host.record(workspace,a.headers,{entry:"dialogue",text:"one two",idempotency_key:`batch_${randomUUID()}`});
+    const one={task_key:"task-one",question:"one",kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:3,quote:"one"}],progress:"open",progress_evidence:null};
+    const two={...one,task_key:"task-two",question:"two",relation:"refine",related_task_keys:["task-one"],evidence:[{start:4,end:7,quote:"two"}]};
+    const batch={expected_revision:0,tasks:[one,two],focus_keys:["task-two"]};
+    const first=await host.registerTaskIdentity(workspace,a.headers,event,batch);
+    expect(first.task_keys).toEqual(["task-one","task-two"]);
+    expect(await host.registerTaskIdentity(workspace,a.headers,event,batch)).toEqual(first);
+    const next=await host.record(workspace,a.headers,{entry:"dialogue",text:"again",idempotency_key:`continue_${randomUUID()}`});
+    const continuation={expected_revision:0,tasks:[{...one,relation:"continue",evidence:[{start:0,end:5,quote:"again"}]}],focus_keys:["task-one"]};
+    expect((await host.registerTaskIdentity(workspace,a.headers,next,continuation)).task_keys).toEqual(["task-one"]);
+    const bad=await host.record(workspace,a.headers,{entry:"dialogue",text:"again",idempotency_key:`mismatch_${randomUUID()}`});
+    await expect(host.registerTaskIdentity(workspace,a.headers,bad,{...continuation,tasks:[{...continuation.tasks[0],branch:"hypothetical"}]})).rejects.toMatchObject({code:"TASK_IDENTITY"});
+    const other=await host.record(another,a.headers,{entry:"dialogue",text:"one",idempotency_key:`other_${randomUUID()}`});
+    await expect(host.registerTaskIdentity(another,a.headers,other,{expected_revision:0,tasks:[one],focus_keys:["task-one"]})).resolves.toMatchObject({task_keys:["task-one"]});
+  },30000);
   it("serializes replay publication with deletion and invalidates the returned proof",async()=>{
     const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
     const workspace=await host.createWorkspace(trip,a.headers), input={entry:"dialogue",text:"原话",idempotency_key:`serial_${randomUUID()}`};

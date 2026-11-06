@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assembleContextSnapshot, validateContextSnapshot } from "../../src/server/decision-context/context-assembly";
-import { buildPacketCandidate, checkConsumption, preparePage } from "../../src/server/decision-context/packet-core/packet";
+import { buildPacketCandidate, checkConsumption, emptyDeliveryLedger, preparePage } from "../../src/server/decision-context/packet-core/packet";
 import type { DecisionContextContracts } from "../../src/server/decision-context/contracts";
 import { base, object } from "../support/bcg-fixtures";
 
@@ -26,7 +26,7 @@ describe("millisecond clocks and microsecond expiry",()=>{
     expect(assembly.context.expires_at).toBe("2030-01-01T00:00:00.000500Z");
     expect(()=>validateContextSnapshot(assembly,state,before)).not.toThrow();
     expect(()=>validateContextSnapshot(assembly,state,uncertain)).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
-    expect(()=>checkConsumption(candidate,state,uncertain,[])).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
+    expect(()=>checkConsumption(candidate,state,uncertain,emptyDeliveryLedger(candidate))).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
     expect(()=>validateContextSnapshot(assembly,state,after)).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
   });
   it("rejects at equality and after an aligned deadline, while allowing the preceding millisecond",()=>{
@@ -52,8 +52,8 @@ describe("millisecond clocks and microsecond expiry",()=>{
     expect(()=>validateContextSnapshot(assembly,state,after)).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
   });
   it("rejects a page whose second check may cross the submillisecond deadline and leaves its ledger unchanged",()=>{
-    const {state,candidate}=setup("2030-01-01T00:00:00.000500Z"), ledger:string[]=[];
+    const {state,candidate}=setup("2030-01-01T00:00:00.000500Z"), ledger=emptyDeliveryLedger(candidate);
     expect(()=>preparePage(candidate,{runtime_contract_version:"0.1.0",packet_id:"packet-test",object_ids:candidate.packet.deferred_ids.slice(0,1)},ledger,{state,now:before},{state,now:uncertain})).toThrowError(expect.objectContaining({code:"PACKET_EXPIRED"}));
-    expect(ledger).toEqual([]);
+    expect(ledger.deliveredIds).toEqual([]);
   });
 });
