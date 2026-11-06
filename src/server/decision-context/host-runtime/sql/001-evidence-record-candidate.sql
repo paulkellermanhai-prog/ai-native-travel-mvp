@@ -357,7 +357,26 @@ BEGIN
   SELECT count(*) INTO v_unlinked FROM public."HostEvidenceEvent" e
     WHERE e.owner_id=p_owner AND e.trip_id=p_trip AND e.workspace_key=p_workspace AND e.deleted_at IS NULL
       AND NOT EXISTS (SELECT 1 FROM public."HostEvidenceTaskSource" b WHERE b.owner_id=p_owner AND b.trip_id=p_trip
-        AND b.workspace_key=p_workspace AND b.event_id=e.event_id);
+        AND b.workspace_key=p_workspace AND b.event_id=e.event_id)
+      -- A superseded event remains retained as audit history, but it is not an
+      -- unknown source after every one of its last Task-edge decisions is a
+      -- trusted replacement. Mixed unlink/supersede outcomes still fail
+      -- closed, as do events that have never had an association decision.
+      AND NOT (
+        EXISTS (SELECT 1 FROM public."HostEvidenceAssociationLog" l
+          WHERE l.owner_id=p_owner AND l.trip_id=p_trip AND l.workspace_key=p_workspace AND l.event_id=e.event_id
+            AND NOT EXISTS (SELECT 1 FROM public."HostEvidenceAssociationLog" later
+              WHERE later.owner_id=l.owner_id AND later.trip_id=l.trip_id AND later.workspace_key=l.workspace_key
+                AND later.task_token=l.task_token AND later.event_id=l.event_id
+                AND later.association_revision>l.association_revision))
+        AND NOT EXISTS (SELECT 1 FROM public."HostEvidenceAssociationLog" l
+          WHERE l.owner_id=p_owner AND l.trip_id=p_trip AND l.workspace_key=p_workspace AND l.event_id=e.event_id
+            AND NOT EXISTS (SELECT 1 FROM public."HostEvidenceAssociationLog" later
+              WHERE later.owner_id=l.owner_id AND later.trip_id=l.trip_id AND later.workspace_key=l.workspace_key
+                AND later.task_token=l.task_token AND later.event_id=l.event_id
+                AND later.association_revision>l.association_revision)
+            AND l.action IS DISTINCT FROM 'supersede')
+      );
   SELECT COALESCE(jsonb_agg(jsonb_build_object('event_id',s.event_id,'event_token',s.event_token,
     'sequence',s.sequence,'recorded_at',s.recorded_at) ORDER BY s.sequence),'[]'::jsonb) INTO v_sources FROM (
     SELECT b.event_id,MIN(b.event_token) AS event_token,e.sequence,e.recorded_at

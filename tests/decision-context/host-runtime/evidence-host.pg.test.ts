@@ -332,6 +332,31 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(rows.rows.some(row=>row.event_id===oldEvent.event_id&&row.superseded_by_event_id===newEvent.event_id&&
       row.superseded_from_turn_id===oldTurn.turn_id&&row.source_turn_id===newTurn.turn_id&&row.action==="supersede"&&row.association_revision==="3")).toBe(true);
     expect((await owner.query<{body:string}>('SELECT body FROM public."HostEvidenceEvent" WHERE event_id=$1',[oldEvent.event_id])).rows[0].body).toBe(oldText);
+    await host.unlinkTaskSourceCandidate(ticket,a.headers,{action:"unlink",task_key:keys[1],event_id:oldEvent.event_id,
+      source_turn_id:oldTurn.turn_id,expected_association_revision:1,idempotency_key:`replace_pace_unlink_${randomUUID()}`});
+    expect(await host.readTaskEvidenceCandidate(ticket,a.headers,keys[0],window))
+      .toMatchObject({status:"partial",complete:false,events:[]});
+  },30000);
+  it("does not classify a singly-linked trusted superseded event as an unknown source",async()=>{
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers),key=await host.mintTaskKey(ticket,a.headers,`single_replace_${randomUUID()}`);
+    const oldText="卢克索住两晚",oldEvent=await host.record(ticket,a.headers,
+      {entry:"dialogue",text:oldText,idempotency_key:`single_old_${randomUUID()}`});
+    const oldTask={task_key:key,question:oldText,kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",
+      evidence:[{start:0,end:Array.from(oldText).length,quote:oldText}],progress:"open",progress_evidence:null};
+    const oldInput={expected_revision:0,tasks:[oldTask],focus_keys:[key]},oldTurn=await host.registerTaskIdentity(ticket,a.headers,oldEvent,oldInput);
+    const newText="卢克索住三晚",newEvent=await host.record(ticket,a.headers,
+      {entry:"dialogue",text:newText,idempotency_key:`single_new_${randomUUID()}`});
+    const newTask={...oldTask,question:newText,relation:"continue",evidence:[{start:0,end:Array.from(newText).length,quote:newText}]};
+    const newInput={expected_revision:0,tasks:[newTask],focus_keys:[key]},newTurn=await host.registerTaskIdentity(ticket,a.headers,newEvent,newInput);
+    await host.supersedeTaskSourceCandidate(ticket,a.headers,{action:"supersede",task_key:key,old_event_id:oldEvent.event_id,
+      old_source_turn_id:oldTurn.turn_id,replacement_event_id:newEvent.event_id,replacement_source_turn_id:newTurn.turn_id,
+      expected_association_revision:2,idempotency_key:`single_replace_op_${randomUUID()}`});
+    const window={page_size:10,from:new Date(Date.now()-60_000).toISOString(),to:new Date(Date.now()+60_000).toISOString(),cursor:null};
+    expect(await host.readTaskEvidenceCandidate(ticket,a.headers,key,window)).toMatchObject({status:"complete",complete:true});
+    expect((await host.readTaskEvidenceCandidate(ticket,a.headers,key,window)).events.map(item=>item.text)).toEqual([newText]);
+    expect((await owner.query<{body:string}>('SELECT body FROM public."HostEvidenceEvent" WHERE event_id=$1',[oldEvent.event_id])).rows)
+      .toEqual([{body:oldText}]);
   },30000);
   it("extends an old source only through a verified related interaction, within its twelve-month cap",async()=>{
     const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
