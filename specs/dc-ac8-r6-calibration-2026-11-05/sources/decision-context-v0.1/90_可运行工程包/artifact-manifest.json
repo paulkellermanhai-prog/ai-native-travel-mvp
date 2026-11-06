@@ -11,14 +11,14 @@
   "04_工程规格/01_运行契约与任务定位.md": "061640ad2dd818b37b84040de26a29082d30262c521975ce6111d25cec66e614",
   "04_工程规格/02_读取组装与有效性规格.md": "3ea1acfea9528b179e9adfaca049cfa46c0a75ac84982ccb79ef08a99ef497f3",
   "04_工程规格/03_接口异常权限与兼容.md": "cab4ad45e838fce37f9ba3251f99dad3e8f9d8a5df606f090161a052ab8cb51c",
-  "04_工程规格/04_可执行验收与交付评审.md": "97b22c5d03a39fd61a9fbd9ff2409f268d85628477b60540c4e75f47a3d86c8f",
+  "04_工程规格/04_可执行验收与交付评审.md": "8587e196b3dc5b01da91680a03a5f67985b46694d888b8ccd2cb75788d32ed8c",
   "03_评审与工程衔接/09_工程收口结论与待审核项.md": "6c58e66eaddfee785d4358da2a16aabf4b945d81b369eeb2bfaf3fa75b19a746",
   "03_评审与工程衔接/10_首版跨会话恢复范围决策.md": "825d03aa51dcea5c88054459182c2bd90e25169f3ef8acd4cb8fedaea2b3dc7e",
-  "04_工程规格/05_持久检查点与跨会话恢复规格.md": "34a98cf823e23b2ca9843853cad8cd7b60705dbd035437f468df3f900d7e005b",
+  "04_工程规格/05_持久检查点与跨会话恢复规格.md": "29f5562d14dda5e47bde41350f24bb6c9ab3f72c6f6c0089f74099da2ac8ae0c",
   "03_评审与工程衔接/11_跨会话恢复工程收口报告.md": "12ae582c0e08174a4f5b62ce575288ce87679f8b26b18bab62a3edbd0aaf3ee7",
   "03_评审与工程衔接/12_DC-AC8机制融合追踪与规格变更.md": "7fdb21bb68c23572b447e26c370b9fbe4aaac88473cca6b73b834661507c6b5d",
-  "03_评审与工程衔接/13_DC八项机制融合｜E03工程能力增量与实施映射.md": "f47e886e2750f199c7d54affa8ae941623483e286869a4429cd695478dcb9036",
-  "03_评审与工程衔接/14_DC-AC8验证记录与跨模块交接.md": "825e0d0f332068d7fd514c7298f00fece1e57434d136465254d012c205ab8e0e",
+  "03_评审与工程衔接/13_DC八项机制融合｜E03工程能力增量与实施映射.md": "68ad1a3118e3d5c09bbd23a3ffdc381d3cdbb961c725d94449ad9a294a036c06",
+  "03_评审与工程衔接/14_DC-AC8验证记录与跨模块交接.md": "dc2fa11c6670d68cb563b4b7fe9e208ae7a15fc2d1549aa38a08e858e7cd0a6f",
   "03_评审与工程衔接/15_DC-AC8协议裁决与宿主证据接口交接.md": "879c1759ba52042ca089f59f223f45872e81b1ab308adaa32812709101bc0314",
   "03_评审与工程衔接/16_E11宿主交互证据数据契约与验收轨迹.md": "ed192c56c5ea3839ffed59f83ac2679892c471f137d2319d5ef72767e9f3b946",
   "03_评审与工程衔接/17_DC-AC8-PRIVACY-01_Owner裁决与执行边界.md": "05159c3f0aa0000f53316e8017f9052facbb7c5fe16ef4fd309c1922a624e6d1",
@@ -64,5 +64,5 @@
   "90_可运行工程包/update_package_index.py": "2c1bb4b18681884e91e62dbefbda39729cc849c4687648cd5a2d01a4626332fb",
   "90_可运行工程包/validation-output.txt": "de84ac7330c5ebaa12136f5df1d757153fd2297149c70a99ed24d319207690c1",
   "90_可运行工程包/validation-results.json": "9744f02bdddd61042f63b42e13f8c99ab06f3dba91f3666080a03ab0a22246da",
-  "package-index.json": "e15e14966819496898dfcdec1c9dd1f6356b26f4225e74013cee073d9452fe52"
+  "package-index.json": "c8d8bed48714c7aa646647223bcface46c76a60ef46920a31e372d0f275ffe74"
 }

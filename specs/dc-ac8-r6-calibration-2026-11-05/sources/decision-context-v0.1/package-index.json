@@ -342,7 +342,7 @@
         "未测",
         "开发与发布边界"
       ],
-      "sha256": "97b22c5d03a39fd61a9fbd9ff2409f268d85628477b60540c4e75f47a3d86c8f"
+      "sha256": "8587e196b3dc5b01da91680a03a5f67985b46694d888b8ccd2cb75788d32ed8c"
     },
     {
       "id": "DC-CLOSURE-01",
@@ -403,7 +403,7 @@
         "删除",
         "版本兼容"
       ],
-      "sha256": "34a98cf823e23b2ca9843853cad8cd7b60705dbd035437f468df3f900d7e005b"
+      "sha256": "29f5562d14dda5e47bde41350f24bb6c9ab3f72c6f6c0089f74099da2ac8ae0c"
     },
     {
       "id": "DC-RECOVERY-CLOSURE-01",
@@ -464,7 +464,7 @@
         "Deferred",
         "E03阶段"
       ],
-      "sha256": "f47e886e2750f199c7d54affa8ae941623483e286869a4429cd695478dcb9036"
+      "sha256": "68ad1a3118e3d5c09bbd23a3ffdc381d3cdbb961c725d94449ad9a294a036c06"
     },
     {
       "id": "DC-AC8-VALIDATION-01",
@@ -485,7 +485,7 @@
         "PR10差异",
         "技术负责人验收"
       ],
-      "sha256": "825e0d0f332068d7fd514c7298f00fece1e57434d136465254d012c205ab8e0e"
+      "sha256": "dc2fa11c6670d68cb563b4b7fe9e208ae7a15fc2d1549aa38a08e858e7cd0a6f"
     },
     {
       "id": "DC-AC8-PROTOCOL-01",

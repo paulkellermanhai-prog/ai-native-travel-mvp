@@ -12,7 +12,7 @@
   "ts_pr_head": "0078bb542fd4ac81343a602d5f0fe4e62a42620c",
   "ts_pr_merged_at_capture": false,
   "previous_selection_sha256": "96b610ea25408028afbb2becfc02aaad6bf9f95045ad4eb8634bd42a5f8aac22",
-  "dc_package_manifest_sha256": "cf14212de5a89b7f3fa73a887e455eccbe98e2076681682057117ebb6a9a9db1",
+  "dc_package_manifest_sha256": "0e03797ada46e0f0a0546f7237f0a630f49ee12369e1a081d9c2d98b1f514362",
   "files": [
     {
       "path": "sources/decision-context-v0.1/00_从这里开始.md",
@@ -95,14 +95,14 @@
     {
       "path": "sources/decision-context-v0.1/03_评审与工程衔接/13_DC八项机制融合｜E03工程能力增量与实施映射.md",
       "source_path": "decision-context-v0.1/03_评审与工程衔接/13_DC八项机制融合｜E03工程能力增量与实施映射.md",
-      "sha256": "f47e886e2750f199c7d54affa8ae941623483e286869a4429cd695478dcb9036",
-      "bytes": 11652
+      "sha256": "68ad1a3118e3d5c09bbd23a3ffdc381d3cdbb961c725d94449ad9a294a036c06",
+      "bytes": 11668
     },
     {
       "path": "sources/decision-context-v0.1/03_评审与工程衔接/14_DC-AC8验证记录与跨模块交接.md",
       "source_path": "decision-context-v0.1/03_评审与工程衔接/14_DC-AC8验证记录与跨模块交接.md",
-      "sha256": "825e0d0f332068d7fd514c7298f00fece1e57434d136465254d012c205ab8e0e",
-      "bytes": 10954
+      "sha256": "dc2fa11c6670d68cb563b4b7fe9e208ae7a15fc2d1549aa38a08e858e7cd0a6f",
+      "bytes": 10962
     },
     {
       "path": "sources/decision-context-v0.1/03_评审与工程衔接/15_DC-AC8协议裁决与宿主证据接口交接.md",
@@ -143,14 +143,14 @@
     {
       "path": "sources/decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
       "source_path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
-      "sha256": "97b22c5d03a39fd61a9fbd9ff2409f268d85628477b60540c4e75f47a3d86c8f",
-      "bytes": 8220
+      "sha256": "8587e196b3dc5b01da91680a03a5f67985b46694d888b8ccd2cb75788d32ed8c",
+      "bytes": 8228
     },
     {
       "path": "sources/decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
       "source_path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
-      "sha256": "34a98cf823e23b2ca9843853cad8cd7b60705dbd035437f468df3f900d7e005b",
-      "bytes": 16145
+      "sha256": "29f5562d14dda5e47bde41350f24bb6c9ab3f72c6f6c0089f74099da2ac8ae0c",
+      "bytes": 16153
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
@@ -173,7 +173,7 @@
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
       "source_path": "decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
-      "sha256": "cf14212de5a89b7f3fa73a887e455eccbe98e2076681682057117ebb6a9a9db1",
+      "sha256": "0e03797ada46e0f0a0546f7237f0a630f49ee12369e1a081d9c2d98b1f514362",
       "bytes": 8337
     },
     {
@@ -413,7 +413,7 @@
     {
       "path": "sources/decision-context-v0.1/package-index.json",
       "source_path": "decision-context-v0.1/package-index.json",
-      "sha256": "e15e14966819496898dfcdec1c9dd1f6356b26f4225e74013cee073d9452fe52",
+      "sha256": "c8d8bed48714c7aa646647223bcface46c76a60ef46920a31e372d0f275ffe74",
       "bytes": 26014
     }
   ],
@@ -441,12 +441,12 @@
     {
       "source_path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
       "previous_sha256": "78792ffdc71bf9fc338a625be9a6a59687ed0260d2ca43e35e02ea56c957134a",
-      "current_sha256": "97b22c5d03a39fd61a9fbd9ff2409f268d85628477b60540c4e75f47a3d86c8f"
+      "current_sha256": "8587e196b3dc5b01da91680a03a5f67985b46694d888b8ccd2cb75788d32ed8c"
     },
     {
       "source_path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
       "previous_sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
-      "current_sha256": "34a98cf823e23b2ca9843853cad8cd7b60705dbd035437f468df3f900d7e005b"
+      "current_sha256": "29f5562d14dda5e47bde41350f24bb6c9ab3f72c6f6c0089f74099da2ac8ae0c"
     },
     {
       "source_path": "decision-context-v0.1/90_可运行工程包/README.md",
@@ -456,7 +456,7 @@
     {
       "source_path": "decision-context-v0.1/package-index.json",
       "previous_sha256": "c1b784f07d12e72493fe1cf7bab51d0b1802acac1bb7f6339419a363b2665f94",
-      "current_sha256": "e15e14966819496898dfcdec1c9dd1f6356b26f4225e74013cee073d9452fe52"
+      "current_sha256": "c8d8bed48714c7aa646647223bcface46c76a60ef46920a31e372d0f275ffe74"
     }
   ],
   "nap_source_mismatches": [
@@ -513,7 +513,7 @@
     {
       "source_path": "../decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
       "recorded_sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
-      "current_sha256": "34a98cf823e23b2ca9843853cad8cd7b60705dbd035437f468df3f900d7e005b"
+      "current_sha256": "29f5562d14dda5e47bde41350f24bb6c9ab3f72c6f6c0089f74099da2ac8ae0c"
     },
     {
       "source_path": "../decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
