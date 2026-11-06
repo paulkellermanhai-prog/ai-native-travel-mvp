@@ -1,0 +1,20 @@
+{
+  "format": "antu-e03-slice-acceptance/v1",
+  "record": "E03-01-PR14-TECH-REVIEW-2026-11-06-02",
+  "status": "PASS",
+  "accepted_pr": 14,
+  "accepted_head": "213b274a0de35bb369caa750bbc09fa809735a83",
+  "review_location": "工程侧｜MVP开发计划",
+  "review_thread_id": "6adf1136-df44-83e8-9162-95dd261946e7",
+  "reviewer": "Owner-designated ChatGPT AI technical lead",
+  "github_review_published": false,
+  "accepted_e03_weight_percent": 18,
+  "e03_02": "CONDITIONALLY_AUTHORIZED_PURE_AND_AUTH_FIX",
+  "public_auth_issue": "E02-AUTH-OPBIND-01",
+  "real_ts_integration_requires": [
+    "auth-fix-incremental-acceptance",
+    "accepted-ts-application-commit",
+    "joint-same-head-verification"
+  ],
+  "merge_authorized": false
+}

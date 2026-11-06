@@ -4,9 +4,9 @@
   "generated_view": "docs/E03阶段看板.md",
   "candidate_pr": 12,
   "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
-  "accepted_weight_percent": 8,
-  "submitted_weight_percent": 10,
-  "scope": "E03-01 only; R6 fixed baseline; UX02/R7 pending incremental review",
+  "accepted_weight_percent": 18,
+  "submitted_weight_percent": 0,
+  "scope": "E03-02 conditionally authorized: pure context and public auth fix; no real TS integration before gates",
   "stages": [
     {
       "id": "E03-00",
@@ -56,28 +56,28 @@
       "id": "E03-01",
       "name": "契约与工程底座",
       "weight_percent": 10,
-      "status": "READY_FOR_REVIEW",
-      "accepted": false,
+      "status": "ACCEPTED",
+      "accepted": true,
       "subtasks": [
         {
           "id": "E03-01-1",
           "description": "Gate A通过后固化已批准DC机器契约和来源锁",
-          "status": "SUBMITTED_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-01-2",
           "description": "复用AJV/原始数字解码/错误与安全整数边界",
-          "status": "SUBMITTED_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-01-3",
           "description": "接入参考Oracle和契约正反例，不实现业务运行逻辑",
-          "status": "SUBMITTED_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-01-4",
           "description": "锁定宿主 E11 独立合同、Owner 已批准的 30 天/180 天/12 个月期限最早截止、主动删除/备份/最小审计/告知配置与隔离测试；生产启用仍受工程 Gate",
-          "status": "SUBMITTED_FOR_REVIEW"
+          "status": "ACCEPTED"
         }
       ],
       "evidence": [
@@ -86,44 +86,45 @@
         "specs/e03-01-oracle-lock.json",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/14",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42164424546",
-        "docs/E03-01-F01权限修复与复核.md"
+        "docs/E03-01-F01权限修复与复核.md",
+        "docs/e03-01-technical-acceptance.json"
       ],
       "execution_location": "独立 feat/e03-01-contract-foundation 分支；本地与 GitHub CI",
       "responsibilities": "执行工程师：实施/验证/提交；技术负责人：切片审核",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "E03-01-F01身份换绑修复后等待最终head CI与技术负责人增量复核；E03-02尚未放行"
+        "已通过 E03-01 增量技术复核；公共认证独立风险需另行处理"
       ]
     },
     {
       "id": "E03-02",
       "name": "权威状态读取与 Context 组装",
       "weight_percent": 15,
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "accepted": false,
       "subtasks": [
         {
           "id": "E03-02-1",
           "description": "接入已授权同版状态读取",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         },
         {
           "id": "E03-02-2",
           "description": "移植原只读Context对象选择与引用闭合",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         },
         {
           "id": "E03-02-3",
           "description": "校验保护集合、事实时效、未知与组装失败边界",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         }
       ],
       "evidence": [],
-      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
+      "execution_location": "feat/e03-02-context-integration 独立分支；纯计算与公共认证前置",
       "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+        "真实TS业务读取须公共认证修复复审、TS应用提交技术接受并集成、同一head联合验证"
       ]
     },
     {
