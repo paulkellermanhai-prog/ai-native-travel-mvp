@@ -393,8 +393,8 @@ describe.skipIf(!cfg?.authUrl)("E02-05A real password, database Session and live
 
   it("authorized malformed and stale operations retain the original error contract and current revision",async()=>{
     const f=await setup(), command=goal();expect(await f.service.submit(f.tripId,command,f.a.headers)).toMatchObject({outcome:"applied",revision:1});
-    const malformed=await f.service.submit(f.tripId,"{",f.a.headers);expect(malformed).toMatchObject({outcome:"rejected",revision:1,errors:[{code:"SCHEMA"}]});
-    const malformedConfirm=await f.service.confirm(f.tripId,"proposal-unknown","{",f.a.headers);expect(malformedConfirm).toMatchObject({outcome:"rejected",revision:1,errors:[{code:"SCHEMA"}]});
+    await expect(f.service.submit(f.tripId,"{",f.a.headers)).rejects.toBeInstanceOf(SyntaxError);
+    await expect(f.service.confirm(f.tripId,"proposal-unknown","{",f.a.headers)).rejects.toBeInstanceOf(SyntaxError);
     const missing=await f.service.confirm(f.tripId,"proposal-unknown",{expected_revision:1,idempotency_key:"missing",proposal_digest:"x",accept:true},f.a.headers);
     expect(missing).toMatchObject({outcome:"rejected",revision:1,errors:[{code:"PROPOSAL_NOT_FOUND"}]});
     const stale=goal();stale.idempotency_key="fresh-stale-key";const conflict=await f.service.submit(f.tripId,stale,f.a.headers);

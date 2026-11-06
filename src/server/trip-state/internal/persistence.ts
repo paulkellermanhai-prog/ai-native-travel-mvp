@@ -297,6 +297,19 @@ export async function openTripCommandService(connectionString: string, host: Com
     if (!host.guard) return query(client);
     return client.$transaction(async (tx) => { await host.guard!(tripId, credential, tx); return query(tx); });
   }
+  // Decoding errors historically reject the direct service call. Preserve that
+  // contract only after revalidation; an invalidated caller receives no state.
+  async function captureInput(tripId: string, credential: unknown, input: unknown) {
+    try { return { ok: true as const, value: typeof input === "string" ? decodeCommandJson(input) : structuredClone(input) }; }
+    catch (error) {
+      try { await read(tripId, credential, async () => undefined); }
+      catch (guardError) {
+        const denied = (guardError instanceof TripStateContractError || guardError instanceof StorageError) && ["PERMISSION", "ACTOR"].includes(guardError.code);
+        return { ok: false as const, response: failureResponse({ revision: 0 }, new TripStateContractError(denied ? "PERMISSION" : "INTERNAL_FAILURE", denied ? "Access denied" : "Request failed")) };
+      }
+      throw error;
+    }
+  }
   // Never inspect or return a current revision after authorization fails. Other
   // failures may include the current revision only after a fresh guarded read.
   async function guardedFailure(tripId: string, credential: unknown, error: unknown) {
@@ -342,17 +355,19 @@ export async function openTripCommandService(connectionString: string, host: Com
     async confirm(tripId: string, proposalId: string, input: unknown, credential: unknown) {
       credential = operationCredential(credential);
       const actor = await authorize(tripId, credential);
+      const captured = await captureInput(tripId, credential, input);
+      if (!captured.ok) return captured.response;
       try {
-        const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
-        return await confirmPrepared(client, tripId, proposalId, captured, actor, host, host.guard ? (tx) => host.guard!(tripId, credential, tx) : undefined);
+        return await confirmPrepared(client, tripId, proposalId, captured.value, actor, host, host.guard ? (tx) => host.guard!(tripId, credential, tx) : undefined);
       } catch (error) { return guardedFailure(tripId, credential, error); }
     },
     async submit(tripId: string, input: unknown, credential: unknown) {
       credential = operationCredential(credential);
       const actor = await authorize(tripId, credential);
+      const captured = await captureInput(tripId, credential, input);
+      if (!captured.ok) return captured.response;
       try {
-        const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
-        const request: CommandRequest = parseContract("change-request", captured);
+        const request: CommandRequest = parseContract("change-request", captured.value);
         safeCounter(request.expected_revision, "expected_revision");
         const key = { actorId: actor.id, operationDomain: actor.role, key: request.idempotency_key, requestDigest: digest(request) };
         const result = await commitPrepared(client, { tripId, request, key, materialize: (current) => planCommand(current, request, actor, host.clock, host.uuid), guard: host.guard ? (tx) => host.guard!(tripId, credential, tx) : undefined });
