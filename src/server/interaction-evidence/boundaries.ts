@@ -12,10 +12,14 @@ export function evidenceAuthorization(identity: Identity) {
       const result=taskScopeSchema.safeParse(trustedScope);
       if(!result.success) return denied();
       try {
-        const actor=await host.authorize(result.data.trip_id,credential);
+        if (!(credential instanceof Headers)) return denied();
+        // Each grant owns a private credential identity; callers cannot reuse or mutate
+        // the WeakMap key used by sessionHost for transaction-time revalidation.
+        const privateCredential = new Headers({ cookie: credential.get("cookie") ?? "" });
+        const actor=await host.authorize(result.data.trip_id,privateCredential);
         if(actor.actor.role!=="user" || actor.actor.id!==userActorId(result.data.owner_id)) return denied();
         const grant=Object.freeze({ ...result.data });
-        grants.set(grant,{scope:{...result.data},credential});
+        grants.set(grant,{scope:{...result.data},credential:privateCredential});
         return grant;
       } catch { return denied(); }
     },
