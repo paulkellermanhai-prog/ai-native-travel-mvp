@@ -609,6 +609,52 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(await host.restoreCheckpoint(ticket,a.headers,2)).toMatchObject({candidate_save_unacknowledged:true});
     expect(capturedWarnings).toContain("scene_save_unacknowledged_business_state_is_separate");
   },30000);
+  it("reports a save queued during recovery as unacknowledged before and after generation rotation", async () => {
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    let watch=false,entered!:()=>void,release!:()=>void,queued!:()=>void,warnings:string[]=[];
+    const inRestore=new Promise<void>(resolve=>{entered=resolve;}),allowRestore=new Promise<void>(resolve=>{release=resolve;}),saveQueued=new Promise<void>(resolve=>{queued=resolve;});
+    const candidate=await openEvidenceHost(env,{afterCandidateBeforeRecheck:async()=>{if(watch){entered();await allowRestore;}},
+      onSaveQueued:()=>{if(watch) queued();},onCandidatePacketWarnings:value=>{warnings=[...value];}});
+    try {
+      const ticket=await candidate.createWorkspace(trip,a.headers),key=await candidate.mintTaskKey(ticket,a.headers,"queue-key");
+      const event=await candidate.record(ticket,a.headers,{entry:"dialogue",text:"queue",idempotency_key:`queue_${randomUUID()}`});
+      const task={task_key:key,question:"queue",kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:5,quote:"queue"}],progress:"open",progress_evidence:null};
+      await candidate.registerTaskIdentity(ticket,a.headers,event,{expected_revision:0,tasks:[task],focus_keys:[key]});
+      const received=(await owner.query<{received_at:Date}>('SELECT received_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[event.event_id])).rows[0].received_at.toISOString();
+      const payload={checkpoint_format_version:1,trip_id:trip,captured_state_revision:0,captured_object_versions:[],tasks:[{task,event:{event_id:event.event_id,entry:"dialogue",text:"queue",reference:`host-interaction:${event.event_id}`,received_at:received},base_revision:0,processing_status:"unprocessed",result_revision:0,errors:[]}],focus_keys:[key],view:{entry:"dialogue",comparison_refs:[],selected_id:null,expanded_task_keys:[]},drafts:[],deferred_issue_ids:[]};
+      await candidate.saveCheckpoint(ticket,a.headers,payload,0,"first-save");
+      watch=true;const restoring=candidate.restoreCheckpoint(ticket,a.headers,2);await inRestore;
+      const saving=candidate.saveCheckpoint(ticket,a.headers,payload,0,"queued-save");
+      const rejected=expect(saving).rejects.toMatchObject({code:"RECOVERY_UNAVAILABLE"});
+      await saveQueued;release();
+      expect(await restoring).toMatchObject({candidate_save_unacknowledged:true});
+      expect(warnings).toContain("scene_save_unacknowledged_business_state_is_separate");
+      await rejected;watch=false;
+      expect(await candidate.restoreCheckpoint(ticket,a.headers,2)).toMatchObject({candidate_save_unacknowledged:true});
+    } finally {release();await candidate.close();}
+  },30000);
+  it.each([["conflicting",0,"CHECKPOINT_CONFLICT",true],["valid",1,2,false]] as const)("rejects a stale packet candidate and continues a %s save after the commit window", async (_label,expectedRevision,expectedResult,pendingAfter) => {
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    let watch=false,queued!:()=>void,lateSave:Promise<string|number>|undefined;
+    const saveQueued=new Promise<void>(resolve=>{queued=resolve;});
+    let ticket:object,payload:unknown;
+    const candidate:Awaited<ReturnType<typeof openEvidenceHost>>=await openEvidenceHost(env,{
+      onSaveQueued:()=>{if(watch) queued();},
+      afterRestoreCommit:async()=>{if(watch){lateSave=candidate.saveCheckpoint(ticket,a.headers,payload,expectedRevision,"late-save").then(ack=>ack.checkpoint_revision,(e:{code?:string})=>e.code||"unknown");await saveQueued;}},
+    });
+    try {
+      ticket=await candidate.createWorkspace(trip,a.headers);const key=await candidate.mintTaskKey(ticket,a.headers,"late-key");
+      const event=await candidate.record(ticket,a.headers,{entry:"dialogue",text:"late",idempotency_key:`late_${randomUUID()}`});
+      const task={task_key:key,question:"late",kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:4,quote:"late"}],progress:"open",progress_evidence:null};
+      await candidate.registerTaskIdentity(ticket,a.headers,event,{expected_revision:0,tasks:[task],focus_keys:[key]});
+      const received=(await owner.query<{received_at:Date}>('SELECT received_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[event.event_id])).rows[0].received_at.toISOString();
+      payload={checkpoint_format_version:1,trip_id:trip,captured_state_revision:0,captured_object_versions:[],tasks:[{task,event:{event_id:event.event_id,entry:"dialogue",text:"late",reference:`host-interaction:${event.event_id}`,received_at:received},base_revision:0,processing_status:"unprocessed",result_revision:0,errors:[]}],focus_keys:[key],view:{entry:"dialogue",comparison_refs:[],selected_id:null,expanded_task_keys:[]},drafts:[],deferred_issue_ids:[]};
+      await candidate.saveCheckpoint(ticket,a.headers,payload,0,"first-save");watch=true;
+      await expect(candidate.restoreCheckpoint(ticket,a.headers,2)).rejects.toMatchObject({code:"RECOVERY_UNAVAILABLE"});
+      expect(await lateSave).toBe(expectedResult);watch=false;
+      expect(await candidate.restoreCheckpoint(ticket,a.headers,2)).toMatchObject({candidate_save_unacknowledged:pendingAfter});
+    } finally {await candidate.close();}
+  },30000);
   it("replays a deletion without invalidating work created after its persisted cutoff", async () => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
     const ticket=await host.createWorkspace(trip,a.headers);

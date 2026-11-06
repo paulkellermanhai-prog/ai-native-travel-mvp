@@ -21,7 +21,7 @@ import { checkStateCounters } from "../../trip-state/numbers";
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
 type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>; incomplete: boolean; fingerprint: string; eventSequence: number; retentionRevision: number };
 type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string; capability: string; runtimeId: string;
-  recoveredEvents: Set<string>; recoveryWatermark: number | null; deletionRevision: number; pendingSaves: Set<string>; pendingSaveSticky: boolean; keyEpochs: Map<string,number>; tasks: Map<string, TaskMemory>;
+  recoveredEvents: Set<string>; recoveryWatermark: number | null; deletionRevision: number; pendingSaves: Set<string>; pendingSaveSticky: boolean; inflightSaves: number; keyEpochs: Map<string,number>; tasks: Map<string, TaskMemory>;
   turns: Map<string, { digest: string; result: Pick<Registration,"turn_id"|"revision">; sources: Map<string,string>; sequence: number }>;
   invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; disposed: boolean; tail: Promise<void> };
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
@@ -43,7 +43,7 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void }) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void }) {
   if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
@@ -116,7 +116,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
       const p = await authorized(tripId, credential);
-      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, deletionRevision:0, pendingSaves:new Set(), pendingSaveSticky:false, keyEpochs:new Map(), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), disposed:false, tail: Promise.resolve() };
+      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, deletionRevision:0, pendingSaves:new Set(), pendingSaveSticky:false, inflightSaves:0, keyEpochs:new Map(), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), disposed:false, tail: Promise.resolve() };
       try {
         await db.$transaction(async tx => {
           try { await host.guard!(tripId, p.headers, tx); } catch { return deny(); }
@@ -309,12 +309,21 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
      */
     async saveCheckpoint(ticket: object, credential: Headers, input: unknown, expectedRevision: number, operationKey: string) {
       const startingScope=ticket && typeof ticket === "object" ? workspaces.get(ticket) : undefined;
-      const startingRuntime=startingScope?.runtimeId;
+      const startingRuntime=startingScope?.runtimeId, startingRetention=startingScope?.deletionRevision;
       let snapshot: unknown, cloneFailed=false; try { snapshot=structuredClone(input); } catch { cloneFailed=true; }
       const { scope, headers } = await scoped(ticket, credential);
       if (scope!==startingScope) return deny();
-      return exclusive(scope, async () => {
-        if (scope.runtimeId!==startingRuntime) throw new CheckpointError("RECOVERY_UNAVAILABLE");
+      if (scope.inflightSaves>=256) { scope.pendingSaveSticky=true; throw new CheckpointError("RECOVERY_UNAVAILABLE"); }
+      scope.inflightSaves++; let entered=false;
+      try {
+        testHooks?.onSaveQueued?.();
+        return await exclusive(scope, async () => {
+          entered=true;
+          try {
+        if (scope.runtimeId!==startingRuntime) {
+          if (scope.deletionRevision===startingRetention) scope.pendingSaveSticky=true;
+          throw new CheckpointError("RECOVERY_UNAVAILABLE");
+        }
         let payload:CheckpointPayload;
         try {
           if (cloneFailed) throw new CheckpointError("CONTRACT_INVALID");
@@ -354,7 +363,9 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           if (error instanceof CheckpointError || error instanceof EvidenceBoundaryError) throw error;
           throw new CheckpointError(commitSent ? "CHECKPOINT_ACK_UNKNOWN" : "CHECKPOINT_STORAGE");
         }
-      });
+          } finally { scope.inflightSaves--; }
+        });
+      } finally { if (!entered) scope.inflightSaves--; }
     },
     /**
      * Internal same-process installation candidate. No original text, Packet,
@@ -389,28 +400,55 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
               installed.set(token,{kind:item.task.kind,branch:item.task.branch,progress:item.task.progress,sources,incomplete:false,fingerprint:taskFingerprint(scope,item.task),eventSequence:row.value.event_highwater!,retentionRevision:0});
             }
             const classified=classifyRecovery(payload,state);
-            let candidateCounts: {turns:number;packets:number} | undefined;
+            await testHooks?.beforeRestoreRecheck?.();
+            let candidate:ReturnType<typeof buildRestoredSceneCandidate> | undefined;
             if (bodyBudgetBytes!==undefined) {
               if (typeof row.value.saved_at!=="string") throw new CheckpointError("CHECKPOINT_CORRUPT");
               const [clock]=await tx.$queryRaw<Array<{now:Date}>>`SELECT clock_timestamp() AS now`;
               if (!clock?.now) throw new CheckpointError("RECOVERY_UNAVAILABLE");
               // Bodies remain inside this transaction; no delivery or ledger is
               // asserted by constructing them. Drafts are currently rejected.
-              const candidate=buildRestoredSceneCandidate({checkpoint:payload,currentState:state,workspaceKey:scope.workspaceKey,
-                checkpointRevision:row.value.revision!,savedAt:row.value.saved_at,runtimeId,bodyBudgetBytes,now:clock.now,saveUnacknowledged:scope.pendingSaveSticky || scope.pendingSaves.size>0});
-              testHooks?.onCandidatePacketWarnings?.(candidate.packets.flatMap(packet=>packet.packet.warnings));
-              candidateCounts={turns:candidate.turns.length,packets:candidate.packets.length};
+              candidate=buildRestoredSceneCandidate({checkpoint:payload,currentState:state,workspaceKey:scope.workspaceKey,
+                checkpointRevision:row.value.revision!,savedAt:row.value.saved_at,runtimeId,bodyBudgetBytes,now:clock.now,saveUnacknowledged:scope.pendingSaveSticky || scope.pendingSaves.size>0 || scope.inflightSaves>0});
             }
-            await testHooks?.beforeRestoreRecheck?.();
+            await testHooks?.afterCandidateBeforeRecheck?.();
             const [recheck]=await tx.$queryRaw<Array<{value:{fault?:string;revision?:number}}>>`SELECT public.host_checkpoint_inspect_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability}) AS value`;
             if (!recheck?.value) throw new CheckpointError("CHECKPOINT_STORAGE");
             if (recheck.value.fault) throw new CheckpointError(recheck.value.fault);
             if (recheck.value.revision!==row.value.revision) throw new CheckpointError("CHECKPOINT_CONFLICT");
+            // A save can queue while the final database check is awaited. It
+            // cannot clear until this exclusive action releases, so only add
+            // the warning; these candidates are not delivered or persisted.
+            const unacknowledged=scope.pendingSaveSticky || scope.pendingSaves.size>0 || scope.inflightSaves>0;
+            if (candidate && unacknowledged) {
+              let patched=false;
+              for (const packet of candidate.packets) {
+                if (!packet.packet.warnings.includes("scene_save_unacknowledged_business_state_is_separate")) {
+                  packet.packet.warnings.push("scene_save_unacknowledged_business_state_is_separate");
+                  packet.fingerprint=digest({packet:packet.packet,assembly:packet.assembly}); patched=true;
+                }
+              }
+              if (patched) {
+                candidate.scene.packets=candidate.packets.map(packet=>structuredClone(packet.packet));
+                parseDCContract("scene-restored",candidate.scene);
+                const [last]=await tx.$queryRaw<Array<{value:{fault?:string;revision?:number}}>>`SELECT public.host_checkpoint_inspect_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability}) AS value`;
+                if (!last?.value) throw new CheckpointError("CHECKPOINT_STORAGE");
+                if (last.value.fault) throw new CheckpointError(last.value.fault);
+                if (last.value.revision!==row.value.revision) throw new CheckpointError("CHECKPOINT_CONFLICT");
+              }
+            }
+            if (candidate) testHooks?.onCandidatePacketWarnings?.(candidate.packets.flatMap(packet=>packet.packet.warnings));
+            const candidateCounts=candidate ? {turns:candidate.turns.length,packets:candidate.packets.length} : undefined;
             return { installed,eventIds:payload.tasks.map(item=>item.event.event_id),checkpointRevision:row.value.revision!,
-              savedRevision:classified.saved_state_revision,currentRevision:classified.current_state_revision,taskCount:payload.tasks.length,watermark:row.value.event_highwater!,candidateCounts };
+              savedRevision:classified.saved_state_revision,currentRevision:classified.current_state_revision,taskCount:payload.tasks.length,watermark:row.value.event_highwater!,candidateCounts,candidateUnacknowledged:unacknowledged };
           });
           await testHooks?.afterRestoreCommit?.();
           if (closed || scope.disposed) return deny();
+          // A save may queue while COMMIT is awaited. Since no Packet has been
+          // delivered, refuse this stale candidate and let the caller retry.
+          if (restored.candidateCounts && !restored.candidateUnacknowledged &&
+              (scope.pendingSaveSticky || scope.pendingSaves.size>0 || scope.inflightSaves>0))
+            throw new CheckpointError("RECOVERY_UNAVAILABLE");
           // Atomic within this host's per-workspace executor. Cross-process
           // delivery and the real Packet/Grant host remain separately gated.
           for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
@@ -418,7 +456,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           scope.recoveredEvents=new Set(restored.eventIds); scope.recoveryWatermark=restored.watermark; scope.tasks=restored.installed; scope.runtimeId=runtimeId;
           return {runtime_id:runtimeId,checkpoint_revision:restored.checkpointRevision,saved_state_revision:restored.savedRevision,
             current_state_revision:restored.currentRevision,restored_task_count:restored.taskCount,
-            ...(restored.candidateCounts ? {candidate_turn_count:restored.candidateCounts.turns,candidate_packet_count:restored.candidateCounts.packets,candidate_save_unacknowledged:scope.pendingSaveSticky || scope.pendingSaves.size>0} : {})};
+            ...(restored.candidateCounts ? {candidate_turn_count:restored.candidateCounts.turns,candidate_packet_count:restored.candidateCounts.packets,candidate_save_unacknowledged:scope.pendingSaveSticky || scope.pendingSaves.size>0 || scope.inflightSaves>0} : {})};
         } catch(error) {
           if (error instanceof CheckpointError || error instanceof EvidenceBoundaryError) throw error;
           throw new CheckpointError("CHECKPOINT_STORAGE");
