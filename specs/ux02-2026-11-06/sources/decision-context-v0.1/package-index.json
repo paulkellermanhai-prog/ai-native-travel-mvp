@@ -28,7 +28,7 @@
       "id": "DC-ENTRY-01",
       "title": "决策上下文 V0.1 从这里开始",
       "path": "00_从这里开始.md",
-      "sha256": "c3ebf935c4f2814e242fa9ba142d54864c92d3b7f0d408e4c4e6c1420a6810e2",
+      "sha256": "bff5a687738a0b72597ca1a57d41582ef409d41f801d89df8fb48a03b6542745",
       "role": "entrypoint",
       "audience": [
         "product_owner",
@@ -569,7 +569,7 @@
         "E03映射",
         "待技术审核"
       ],
-      "sha256": "73919ba903ce2c429fad00ff87da21a2836e6ffe6b95014efcae5ed67b5dc2b4"
+      "sha256": "abdf8ce2a6e66c84e19358acd6d2c4cb741531ba802b1e8d4660ad2fc181ad55"
     }
   ],
   "compatibility_entries": [
@@ -609,7 +609,7 @@
     {
       "path": "90_可运行工程包/README.md",
       "role": "source_or_guide",
-      "sha256": "e0059747483dd3c0e31b1c64276eb088f0e69049f28c4fe6a7751602eec6e60c"
+      "sha256": "83b2a73723f2edbffa301ffd89a4f5457740d205fc013fdd9f379ba3d8a6ce8f"
     },
     {
       "path": "90_可运行工程包/VALIDATION_REPORT.md",
@@ -799,7 +799,7 @@
     {
       "path": "90_可运行工程包/update_package_index.py",
       "role": "source_or_guide",
-      "sha256": "a8cc18fca79f75a26acb74eb760f54fa209968521055130aab8d81c9e4ab8739"
+      "sha256": "160b39975aaa75bd8acd30fd23a228ab74ad0bc8395a4691e85b1dc3948d42da"
     },
     {
       "path": "90_可运行工程包/ux02-source-manifest.json",
@@ -835,5 +835,12 @@
       "document_id": "DC-AC8-PRIVACY-01"
     }
   },
-  "local_export": "LOCAL_EXPORT.json"
+  "local_export": "LOCAL_EXPORT.json",
+  "approved_r6_baseline": {
+    "head": "7b2a1b5a086544d1dba6f64cfa7a624750ce4072",
+    "review_url": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033",
+    "submitted_at": "2026-11-06T04:10:43Z",
+    "status": "GATE_A_PASS_E03_01_AUTHORIZED"
+  },
+  "ux02_incremental_review": "PENDING_TECH_REVIEW_NOT_COVERED_BY_R6_APPROVAL"
 }

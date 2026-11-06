@@ -229,7 +229,7 @@
       "canonical_path": "90_可运行工程包/UX02工程落实与DC开发映射.md",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "ed122f09ab2b0cf2d7190b5b68a8d601fbf44523583836aef02e754a28808814"
+      "sha256": "01b5720f860c941ee331cbc2fa2b4b909ddaf99454cf6f644bbdd8eaf7d04971"
     },
     {
       "source_path": "V1_READINESS.md",
@@ -250,7 +250,7 @@
       "canonical_path": "90_可运行工程包/artifact-manifest.json",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "0197c12bee52c27a96adaf2d188c1b0262850a5991aa6d34f88ccb4542c272a1"
+      "sha256": "c3450eeffe17c82b89409b4572c2b9d68336f43a2a73c5a86630f92b31727b3a"
     },
     {
       "source_path": "build.py",

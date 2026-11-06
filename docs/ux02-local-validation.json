@@ -36,10 +36,26 @@
     "references": 285,
     "unresolved": 0
   },
-  "source_snapshot_sha256": "34f4f73fc60cdcac8443875c4f8e231481ff99d9418ee187a928e6b8fbc35761",
+  "source_snapshot_sha256": "4b48e12e0dd391579c71804af86e85c416928bda95bb01720c7c4db13613d56a",
   "limitations": [
     "Local skip is not PG/HTTP acceptance; require CI at exact PR head",
     "No production DC runtime/NAP/UI/real provider/LLM evaluation",
     "No merge/deployment"
-  ]
+  ],
+  "first_head_ci": {
+    "head": "c9bee15905131c3fb477e9b40e9d023c9455d933",
+    "run": 42162087965,
+    "conclusion": "success",
+    "url": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42162087965",
+    "scope": "includes real PG and actual Next HTTP; later amendment is Gate documentation/source metadata only",
+    "vitest_passed": 839,
+    "vitest_skipped": 0,
+    "reference_total": 243,
+    "http_node_tests": 22,
+    "http_child_scenarios": 21,
+    "http_skipped": 0,
+    "http_artifact": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42162087965/artifacts/13477243468"
+  },
+  "r6_gate": "PASS_E03_01_AUTHORIZED",
+  "ux02_delta": "PENDING_INCREMENTAL_TECH_REVIEW"
 }

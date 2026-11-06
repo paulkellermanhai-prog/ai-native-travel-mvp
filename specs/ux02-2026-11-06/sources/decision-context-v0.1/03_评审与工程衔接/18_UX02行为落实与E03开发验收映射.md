@@ -2,7 +2,7 @@
 
 状态：Owner 已授权本轮实施；本修订为待技术审核候选，不改写 AC8 或 E03 旧批准记录。逐项来源是 UX/UX-02/Engineering-Impact-Matrix-V0.1.md 的 E01–E32、Core-UX-Flow-V0.1.md、KB-01–10 与 2026-11-05 已同步 PRD §5.3/PRD-008/A08。UX 原归档内“PRD待同步”是旧记录，现以 PRD 正文为准；不倒推原始聊天全量取回。
 
-Existing=原合同/运行能力可复用；New-composition=新增既有命令组合；Enhancement=守卫/恢复呈现补强；Host/External=编排、真实语义/数据/前端必须另实现；Deferred=非TS/DC的职责。表中 E03 子任务是待开发映射，不表示 Gate A 已通过或生产 Runtime 已实现。
+Existing=原合同/运行能力可复用；New-composition=新增既有命令组合；Enhancement=守卫/恢复呈现补强；Host/External=编排、真实语义/数据/前端必须另实现；Deferred=非TS/DC的职责。表中 E03 子任务是待开发映射。R6 Gate A 已通过并放行 E03-01；本轮 UX02 增量尚待差异审核，不表示生产 Runtime 已实现。
 
 | UX ID | 已验收行为 | 判定 | TS本地与实际代码承接 | DC后续E03子任务 | DC/宿主责任和边界 | 验收断言 |
 |---|---|---|---|---|---|---|
@@ -53,7 +53,7 @@ HTTP 增量：`POST /trips/{id}/restorations/preview`，严格请求字段为 so
 
 ## DC 后续开发位置与依赖
 
-E03-01-1/2/3：锁定本修订来源与20份原Schema、解码错误及参考Oracle；版本仍0.1.0，Checkpoint格式1不变。Gate A仍待独立审核，工程不能仅因该表就启动后续Runtime。
+E03-01-1/2/3：锁定本修订来源与20份原Schema、解码错误及参考Oracle；版本仍0.1.0，Checkpoint格式1不变。R6 Gate A 已通过（PR12 review 5795631033，2026-11-06T04:10:43Z）；E03-01可按其既有批准继续。只有切换本轮UX02新来源/Oracle、预览封装、写桥语义或新恢复守卫需补审实际差异；不能用本表提前启动E03-02～07业务Runtime。
 
 E03-02：建议 `src/server/decision-context/assembly.ts` 与 validity 层，接当前TS、保护集合、事实有效期和分页；历史只是只读比较，不使用旧verified结论作当前事实。
 
@@ -72,3 +72,11 @@ E03-07：真实Session/PG/HTTP/新进程串联F1→F3→F4→F5→F6→恢复；
 ## 未决与跨模块出口
 
 未发现需要Owner新增MVP取舍的必停冲突。恢复位置缺失通过必要澄清处理，不猜测。数据源时效/合法性、真实比较与体验代价、完整成本、模型意图、具体UI/自动保存时机以及NAP介入价值仍需各自阶段验收。NAP仅记录影响，不在本轮修改包或代码。正式技术审核应评估新增预览HTTP封装、体验城市守卫的行为收紧及本地包来源锁；不自动批准Schema升级、合并或部署。
+
+## 已批准 R6 与本轮 UX02 增量的审核边界
+
+已核验[真实 Gate A 回执](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033)：获准 head `7b2a1b5a086544d1dba6f64cfa7a624750ce4072`，selection SHA `eaff06a085946c3a55ddd395169a534b12d8b896e7c4f5dd2b4bde08a46bca77`，包 manifest SHA `0e03797ada46e0f0a0546f7237f0a630f49ee12369e1a081d9c2d98b1f514362`。批准者为 Owner 指定的 ChatGPT AI 技术负责人；GitHub review 类型为 COMMENTED，是项目技术 Gate 决定，不冒称原生 APPROVED 或人类审核。旧R6快照与批准记录保留。
+
+E03-01原获批的合同注册/解码/类型/宿主边界和隔离测试底座可继续，不需重新申请开工。本轮只补审：UX02来源及Oracle锁切换、TS恢复编译/新增HTTP封装和体验城市守卫、DC新保存草稿目标校验及历史/假设恢复提示、三入口草稿/历史焦点/新actual授权的跨模块语义。20份DC机器合同/格式1、E11独立边界与Owner已批准隐私策略不重开。E03-02当前依据、03任务/异步归属、04写桥/恢复授权、05草稿ACK/CAS、06只读恢复、07真实联测按本表分别承接，既有阶段权重不变；未获增量接受前不能静默用本地R7替换获准R6或将R6批准说成R7已通过。
+
+确切文件差异与旧/新SHA另列在本轮工程交接的 `ux02-dc-r6-delta.json` 和 `UX02-DC已通过GateA的增量评审范围.md`。本任务没有实现E03-01生产代码，也不改写并行工程分支的看板或AGENTS；仅交接给既有执行者。
