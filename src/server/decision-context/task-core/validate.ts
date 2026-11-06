@@ -3,6 +3,8 @@ import type { DecisionContextContracts } from "../contracts.generated";
 
 type OpenTurn = DecisionContextContracts["open-turn"];
 type Task = OpenTurn["tasks"][number];
+/** Only identity fields are needed from previously registered tasks. */
+export type TaskCorePrior = Pick<Task, "task_key" | "kind" | "branch" | "progress">;
 type Span = Task["evidence"][number];
 
 // Internal diagnostics only; these are not additions to the DC wire error contract.
@@ -30,7 +32,7 @@ function checkSpan(span: Span, text: string): void {
  * must be the caller's already verified, complete same-session task snapshot.
  * A successful result is not a validated open-turn, registration or authorization.
  */
-function checkTaskCore(body: OpenTurn, priorTasks: readonly Task[], nowMs: number): void {
+function checkTaskCore(body: OpenTurn, priorTasks: readonly TaskCorePrior[], nowMs: number): void {
   requireCondition(Number.isSafeInteger(nowMs), "CLOCK");
   const receivedMs = Date.parse(body.event.received_at);
   const fraction = body.event.received_at.match(/\.(\d+)(?:Z|[+-]\d\d:\d\d)$/i)?.[1] ?? "";
@@ -69,12 +71,12 @@ function checkTaskCore(body: OpenTurn, priorTasks: readonly Task[], nowMs: numbe
 }
 
 /** Contract parsing is mandatory before the pure rules; all other prerequisites remain unchecked. */
-export function parseAndCheckTaskCore(value: unknown, priorTasks: readonly Task[], nowMs: number): OpenTurn {
+export function parseAndCheckTaskCore(value: unknown, priorTasks: readonly TaskCorePrior[], nowMs: number): OpenTurn {
   const body = parseDCContract("open-turn", value);
   checkTaskCore(body, priorTasks, nowMs);
   return body;
 }
-export function decodeAndCheckTaskCore(text: string, priorTasks: readonly Task[], nowMs: number): OpenTurn {
+export function decodeAndCheckTaskCore(text: string, priorTasks: readonly TaskCorePrior[], nowMs: number): OpenTurn {
   const body = decodeDCContract("open-turn", text);
   checkTaskCore(body, priorTasks, nowMs);
   return body;

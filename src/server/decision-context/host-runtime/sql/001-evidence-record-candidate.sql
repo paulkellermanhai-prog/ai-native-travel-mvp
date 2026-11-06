@@ -10,6 +10,14 @@ CREATE TABLE public."HostEvidenceWorkspace" (
   PRIMARY KEY (owner_id,trip_id,workspace_key)
 );
 REVOKE ALL ON public."HostEvidenceWorkspace" FROM PUBLIC;
+-- Written only by a future trusted lifecycle adapter; no writer is granted in
+-- this candidate. Missing/stale lifecycle evidence must close event reads.
+CREATE TABLE public."HostEvidenceTripLifecycle" (
+  trip_id TEXT PRIMARY KEY,
+  source_revision BIGINT NOT NULL CHECK (source_revision BETWEEN 0 AND 9007199254740991),
+  ended_at TIMESTAMPTZ(6)
+);
+REVOKE ALL ON public."HostEvidenceTripLifecycle" FROM PUBLIC;
 CREATE TABLE public."HostEvidenceEvent" (
   sequence BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY CHECK (sequence <= 9007199254740991),
   owner_id TEXT NOT NULL CHECK (char_length(owner_id) BETWEEN 1 AND 256),
@@ -91,6 +99,34 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT) FROM PUBLIC;
+
+-- Internal, proof-bound read. There is no association implementation yet;
+-- this function does not prove that an event is unlinked or single-use.
+-- No lifecycle writer exists yet; absent/stale evidence fails closed.
+CREATE FUNCTION public.host_evidence_for_turn_candidate(p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_event TEXT,p_token TEXT,p_metadata_only BOOLEAN)
+RETURNS TABLE(allowed BOOLEAN, out_entry TEXT, out_body TEXT, out_received_at TIMESTAMPTZ)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
+DECLARE e public."HostEvidenceEvent"%ROWTYPE; l public."HostEvidenceTripLifecycle"%ROWTYPE; v_revision BIGINT;
+BEGIN
+  SELECT "revision" INTO v_revision FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
+  IF NOT FOUND THEN RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN; END IF;
+  IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
+  END IF;
+  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND session_ref=p_session FOR SHARE;
+  IF NOT FOUND THEN RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN; END IF;
+  SELECT * INTO l FROM public."HostEvidenceTripLifecycle" WHERE trip_id=p_trip AND source_revision=v_revision FOR SHARE;
+  IF NOT FOUND OR (l.ended_at IS NOT NULL AND (l.ended_at > clock_timestamp() OR clock_timestamp() >= l.ended_at + interval '30 days')) THEN
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
+  END IF;
+  SELECT * INTO e FROM public."HostEvidenceEvent" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND event_id=p_event FOR SHARE;
+  IF NOT FOUND OR e.key_token IS DISTINCT FROM p_token OR e.deleted_at IS NOT NULL OR e.body IS NULL OR e.recorded_at > clock_timestamp() OR clock_timestamp() >= e.recorded_at + interval '180 days' OR clock_timestamp() >= e.recorded_at + interval '12 months' THEN
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
+  END IF;
+  RETURN QUERY SELECT TRUE,CASE WHEN p_metadata_only THEN NULL ELSE e.entry END,CASE WHEN p_metadata_only THEN NULL ELSE e.body END,CASE WHEN p_metadata_only THEN NULL ELSE e.received_at END;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN) FROM PUBLIC;
 
 -- Serializes deletion with writes in the same workspace. A committed marker
 -- always precedes physical cleanup; repeat requests do not advance revision.
