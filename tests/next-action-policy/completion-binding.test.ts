@@ -65,4 +65,21 @@ describe("in-memory tool completion bindings", () => {
     // All records may be fabricated; a real host must establish origin, current state and time independently.
     expect(() => validateCompletionBinding(plan, record, fake, invocation)).not.toThrow();
   });
+  it("cannot detect a newer authoritative revision when all supplied records still claim an old running revision", () => {
+    const authoritativeRevision = 5; // Not passed to this pure comparison; host must independently read it.
+    expect(basis.state_revision).toBe(4);
+    expect(authoritativeRevision).toBeGreaterThan(basis.state_revision);
+    expect(record.phase).toBe("running");
+    expect(() => validateCompletionBinding(plan, record, completion, invocation)).not.toThrow();
+  });
+  it("does not deduplicate repeated completion IDs or reject same-ID content changes", () => {
+    const repeated = structuredClone(completion);
+    const differentContent = {...completion, result_status: "partial", raw_result_ref: "different-result"};
+    expect(repeated.completion_id).toBe(differentContent.completion_id);
+    expect(repeated.raw_result_ref).not.toBe(differentContent.raw_result_ref);
+    // No host storage or prior receipt is available here: all three comparisons can pass.
+    for (const value of [completion, repeated, differentContent]) {
+      expect(() => validateCompletionBinding(plan, record, value, invocation)).not.toThrow();
+    }
+  });
 });
