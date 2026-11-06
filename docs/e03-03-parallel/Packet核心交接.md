@@ -34,3 +34,5 @@
 - 首次全量运行：727 通过、3 失败、243 跳过；其中数据库连接失败，另两项既有 TS 测试超时。超时文件单独复跑 52/52 通过；首次失败仍保留，不宣称根因确定。该次运行中代码仍在修改，不计为最终 head 的全量通过。最终重跑及本机 `db:check` 结果以交付说明为准；本机 localhost PostgreSQL 连接曾 EPERM，不以跳过视作真实 PG 测试通过。
 - 尚无真实 Task/Packet Session、真实 PG/HTTP 页交付或接线测试；任何集成验收应在真实依赖到位后在同一提交执行。
 - 当前代码再次执行 `npm run check`：规格、合同、Prisma、类型和 lint 通过，但 Vitest 708 通过、23 失败、243 跳过；日志显示数据库连接失败及多项默认 5 秒超时，未确定超时根因。之后启动 `vitest run --maxWorkers=2` 复跑，其结果另报。两次全量失败均不能改写成通过。
+- `npx vitest run --maxWorkers=2` 复跑结束：726 通过、5 失败、243 跳过；失败包括 1 项数据库连接、4 项既有测试默认 5 秒超时。不能据此断定超时原因或将复跑记为通过。日志位于 `/tmp/e03-03-packet-check.log`、`/tmp/e03-03-packet-check-final.log`、`/tmp/e03-03-packet-vitest-two-workers.log`；结果与代码提交 `21924c72875737f932764aa3eb83ca829536604b` 对应，集成环境须复跑并保存其自身证据。
+- 代码提交后再次单独 `npm run build`：通过。真实 PG/HTTP 连接测试仍未执行；本机 `npm run db:check` 因 localhost 网络 EPERM 失败。
