@@ -6,6 +6,7 @@ import { napMessageNames, validateNapMessage, type NapMessageName } from "../../
 const dc = JSON.parse(fs.readFileSync("tests/decision-context/fixtures/r6-contracts.json", "utf8")) as Array<{schema: string; value: Record<string, unknown>}>;
 const packet = dc.find(v => v.schema === "packet")!.value;
 const event = dc.find(v => v.schema === "open-turn")!.value.event;
+const changeRequest = dc.find(v => v.schema === "change")!.value.request as Record<string, unknown>;
 const date = "2030-01-01T00:00:00Z", hash = "a".repeat(64), version = "0.1.0";
 const fixtures: Record<NapMessageName, Record<string, unknown>> = {
   DecisionRequest: {nap_contract_version: version, decision_id: "decision", runtime_id: "runtime", trigger: {kind: "user_event", reference: "event"}, packets: [packet]},
@@ -34,6 +35,20 @@ describe("E04 NAP candidate message structures", () => {
     expect(() => validateNapMessage("DecisionRequest", {...fixtures.DecisionRequest, packets: [badPacket]})).toThrow();
     expect(() => validateNapMessage("UIFeedback", {...fixtures.UIFeedback, event: {...event as object, forged: true}})).toThrow();
   });
+  it("accepts a DecisionPlan action containing a valid pinned TS change request without mutation", () => {
+    const plan = planWithChangeRequest(changeRequest);
+    const before = structuredClone(plan);
+    expect(() => validateNapMessage("DecisionPlan", plan)).not.toThrow();
+    expect(plan).toEqual(before);
+  });
+  it("rejects a forged actor inside the nested TS change request", () => {
+    const request = {...changeRequest, actor: {role: "user", id: "forged"}};
+    expect(() => validateNapMessage("DecisionPlan", planWithChangeRequest(request))).toThrow();
+  });
+  it("rejects a negative revision inside the nested TS change request", () => {
+    const request = {...changeRequest, expected_revision: -1};
+    expect(() => validateNapMessage("DecisionPlan", planWithChangeRequest(request))).toThrow();
+  });
   it("rejects invalid formats, enums and missing fields", () => {
     expect(() => validateNapMessage("RequestObservation", {...fixtures.RequestObservation, created_at: "2030-02-31T00:00:00Z"})).toThrow();
     expect(() => validateNapMessage("ToolCompletion", {...fixtures.ToolCompletion, result_status: "success"})).toThrow();
@@ -46,3 +61,13 @@ describe("E04 NAP candidate message structures", () => {
     finally { fetch.mockRestore(); }
   });
 });
+
+function planWithChangeRequest(request: unknown) {
+  return {...fixtures.DecisionPlan, actions: [{
+    action_id: "action", task_key: "task", packet_id: "packet", request_ids: [],
+    goal: "D1", attention: "primary", reason: "reason", steps: [{
+      step_id: "step", kind: "change", depends_on: [], capability_id: null,
+      arguments: {}, change_request: request, user_message: null,
+    }],
+  }]};
+}
