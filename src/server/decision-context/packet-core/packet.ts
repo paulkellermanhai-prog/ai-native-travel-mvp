@@ -123,3 +123,18 @@ export function checkConsumption(candidate: PacketCandidate, state: State, now: 
   validateContextSnapshot(candidate.assembly, state, now);
   return { remainingIds: sorted(candidate.assembly.context.selected_object_ids.filter(id => !ledger.has(id))) };
 }
+
+/**
+ * Compare a candidate with its original turn snapshot. The caller must first
+ * obtain that turn from the authenticated host; this comparison creates no
+ * ownership proof, does not register a task and does not authorize delivery.
+ */
+export function checkPacketTurn(candidate: PacketCandidate, turnValue: unknown): void {
+  checkCandidate(candidate);
+  const turn = parseDCContract("turn", turnValue);
+  if (turn.turn_id !== candidate.packet.turn_id) fail("TASK_MISMATCH");
+  const keys = turn.tasks.map(task => task.task_key);
+  if (new Set(keys).size !== keys.length) fail("TASK_MISMATCH");
+  const task = turn.tasks.find(item => item.task_key === candidate.packet.task.task_key);
+  if (!task || !equal(task, candidate.packet.task)) fail("TASK_MISMATCH");
+}
