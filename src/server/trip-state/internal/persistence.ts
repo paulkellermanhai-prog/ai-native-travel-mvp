@@ -270,6 +270,12 @@ export type CommandHost = {
   uuid?: () => string;
 };
 
+// Each asynchronous operation owns its credential key. Non-Cookie internal capabilities
+// retain their original type and identity; session hosts still recheck live access in SQL.
+function operationCredential(credential: unknown): unknown {
+  return credential instanceof Headers ? new Headers(credential) : credential;
+}
+
 /** Internal command-only channel. No arbitrary snapshot, journal, Actor or patch is accepted from a caller. */
 export async function openTripCommandService(connectionString: string, host: CommandHost) {
   rule(host && typeof host.authorize === "function", "ACTOR", "A trusted host authorization integration is required");
@@ -289,6 +295,7 @@ export async function openTripCommandService(connectionString: string, host: Com
   }
   return {
     async createTrip(tripId: string, credential: unknown) {
+      credential = operationCredential(credential);
       const actor = await authorize(tripId, credential);
       rule(actor.role === "system", "PERMISSION", "Only the trusted host system may initialize an empty trip");
       const state = validateStateSemantics({ schema_version: "0.1.0", trip_id: tripId, revision: 0, effective_skeleton_id: null, objects: [] });
@@ -296,6 +303,7 @@ export async function openTripCommandService(connectionString: string, host: Com
       return state;
     },
     async preview(tripId: string, input: unknown, credential: unknown) {
+      credential = operationCredential(credential);
       const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
       const actor = await authorize(tripId, credential);
       return read(tripId, credential, async (tx) => {
@@ -307,6 +315,7 @@ export async function openTripCommandService(connectionString: string, host: Com
       });
     },
     async confirm(tripId: string, proposalId: string, input: unknown, credential: unknown) {
+      credential = operationCredential(credential);
       const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
       const actor = await authorize(tripId, credential);
       try { return await confirmPrepared(client, tripId, proposalId, captured, actor, host, host.guard ? (tx) => host.guard!(tripId, credential, tx) : undefined); }
@@ -319,6 +328,7 @@ export async function openTripCommandService(connectionString: string, host: Com
       }
     },
     async submit(tripId: string, input: unknown, credential: unknown) {
+      credential = operationCredential(credential);
       const captured = typeof input === "string" ? decodeCommandJson(input) : structuredClone(input);
       const actor = await authorize(tripId, credential);
       const [row] = await client.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${tripId}`;
@@ -339,6 +349,7 @@ export async function openTripCommandService(connectionString: string, host: Com
       }
     },
     async state(tripId: string, credential: unknown) {
+      credential = operationCredential(credential);
       await authorize(tripId, credential);
       return read(tripId, credential, async (tx) => {
       const [row] = await tx.$queryRaw<Array<{ snapshot: string }>>`SELECT "snapshot"::text AS "snapshot" FROM "TripStateDocument" WHERE "tripId" = ${tripId}`;
@@ -346,6 +357,7 @@ export async function openTripCommandService(connectionString: string, host: Com
       });
     },
     async history(tripId: string, credential: unknown) {
+      credential = operationCredential(credential);
       await authorize(tripId, credential);
       return read(tripId, credential, async (tx) => {
       const rows = await tx.$queryRaw<Array<{ intent: string; change: string }>>`SELECT "intent"::text AS "intent", "change"::text AS "change" FROM "TripStateHistory" WHERE "tripId" = ${tripId} ORDER BY "sequence"`;

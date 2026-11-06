@@ -298,4 +298,58 @@ describe.skipIf(!cfg?.authUrl)("E02-05A real password, database Session and live
     await expect(db.$transaction(tx=>authorize.guard(other,scope,tx))).resolves.toBeUndefined();
   });
 
+  it.each(["state","history","preview","submit","confirm","replay","confirm-replay"] as const)("operation-scoped credential rejects revoked first user after interleaved second user: %s", async kind => {
+    const f=await setup(), b=await account(f.identity);
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const command=goal();
+    if(kind==="replay") expect(await f.service.submit(f.tripId,command,f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+    let proposalId="proposal-unknown"; const confirmation={expected_revision:0,idempotency_key:"confirm-x",proposal_digest:"x",accept:true};
+    if(kind==="confirm-replay") {
+      const token=await issueInternalCapability(f.secret,f.tripId,{role:"model",id:"model-replay"});const proposal=await f.internal.submit(f.tripId,command,token);
+      expect(proposal.outcome).toBe("pending_confirmation");proposalId=proposal.proposal_id!;confirmation.proposal_digest=proposal.proposal_digest!;
+      expect(await f.service.confirm(f.tripId,proposalId,confirmation,f.a.headers)).toMatchObject({outcome:"applied"});
+    }
+    const before=await owner.query('SELECT "revision", (SELECT count(*)::int FROM "TripStateHistory" h WHERE h."tripId"=$1) AS n FROM "TripStateDocument" WHERE "tripId"=$1',[f.tripId]);
+    let notify!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{notify=r;}),resume=new Promise<void>(r=>{release=r;});let calls=0;
+    const host={...f.host,guard:async (...args:Parameters<NonNullable<typeof f.host.guard>>)=>{if(calls++===0){notify();await resume;}return f.host.guard!(...args);}};
+    const service=await openTripCommandService(cfg!.runtimeUrl,host);resources.push(service);
+    const shared=new Headers({cookie:f.a.headers.get("cookie")!});
+    const pending=kind==="state"?service.state(f.tripId,shared):kind==="history"?service.history(f.tripId,shared):kind==="preview"?service.preview(f.tripId,command,shared):(kind==="confirm"||kind==="confirm-replay")?service.confirm(f.tripId,proposalId,confirmation,shared):service.submit(f.tripId,command,shared);
+    // Attach a handler immediately: the rejected first operation is observed after unblocking.
+    const observed=pending.then(value=>({value,error:null}),error=>({value:null,error}));
+    try {
+      await entered;shared.set("cookie",b.headers.get("cookie")!);
+      expect(await service.state(f.tripId,shared)).toBeTruthy();
+      await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+      release();const result=await observed;
+      if(kind==="submit"||kind==="confirm"||kind==="replay"||kind==="confirm-replay")expect(result.value).toMatchObject({outcome:"rejected",errors:[{code:"PERMISSION"}]});
+      else expect(result.error).toMatchObject({code:"PERMISSION"});
+      const after=await owner.query('SELECT "revision" FROM "TripStateDocument" WHERE "tripId"=$1',[f.tripId]);
+      const history=await owner.query('SELECT count(*)::int AS n FROM "TripStateHistory" WHERE "tripId"=$1',[f.tripId]);
+      expect(after.rows[0].revision).toBe(before.rows[0].revision);expect(history.rows[0].n).toBe(before.rows[0].n);
+    } finally {release();await observed;}
+  },15000);
+  it("operation-scoped credentials cannot borrow another live session of the same user",async()=>{
+    const f=await setup(),login=await f.identity.auth.api.signInEmail({body:{email:f.a.email,password:f.a.password},headers:new Headers({origin:f.identity.config.origin}),asResponse:true});
+    expect(login.status).toBe(200);const cookie=login.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
+    const second=await f.identity.auth.api.getSession({headers:new Headers({cookie})});expect(second?.session.id).not.toBe(f.a.session.session.id);
+    let notify!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{notify=r;}),resume=new Promise<void>(r=>{release=r;});let calls=0;
+    const host={...f.host,guard:async (...args:Parameters<NonNullable<typeof f.host.guard>>)=>{if(calls++===0){notify();await resume;}return f.host.guard!(...args);}};
+    const service=await openTripCommandService(cfg!.runtimeUrl,host);resources.push(service);
+    const shared=new Headers({cookie:f.a.headers.get("cookie")!}),pending=service.state(f.tripId,shared).then(value=>({value,error:null}),error=>({value:null,error}));
+    try {await entered;shared.set("cookie",cookie);expect(await service.state(f.tripId,shared)).toBeTruthy();
+      await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);release();expect((await pending).error).toMatchObject({code:"PERMISSION"});
+    } finally {release();await pending;}
+  },15000);
+  it("a failed interleaved authentication does not contaminate an active service operation",async()=>{
+    const f=await setup(),b=await account(f.identity); // B deliberately has no membership.
+    let notify!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{notify=r;}),resume=new Promise<void>(r=>{release=r;});let calls=0;
+    const host={...f.host,guard:async (...args:Parameters<NonNullable<typeof f.host.guard>>)=>{if(calls++===0){notify();await resume;}return f.host.guard!(...args);}};
+    const service=await openTripCommandService(cfg!.runtimeUrl,host);resources.push(service);
+    const shared=new Headers({cookie:f.a.headers.get("cookie")!}),pending=service.state(f.tripId,shared).then(value=>({value,error:null}),error=>({value:null,error}));
+    try {await entered;shared.set("cookie",b.headers.get("cookie")!);await expect(service.state(f.tripId,shared)).rejects.toMatchObject({code:"PERMISSION"});
+      release();expect((await pending).value).toMatchObject({revision:0});
+    } finally {release();await pending;}
+  },15000);
+
 });
