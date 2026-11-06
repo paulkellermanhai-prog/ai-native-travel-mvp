@@ -40,7 +40,8 @@ describe("E03-02 C12 temporal and composite condition consumption", () => {
     selectedEvidence(packet, factId, oppositeId);
     expect(packet.context.stale_fact_ids).not.toContain(factId);
     expect(prefApplicability(packet)).toBe("applicable");
-    expect(() => validateContextSnapshot(packet, state, at("2030-01-01T00:00:01.000Z"))).not.toThrow();
+    expect(() => validateContextSnapshot(packet, state, at("2030-01-01T00:00:00.999Z"))).not.toThrow();
+    expect(() => validateContextSnapshot(packet, state, at("2030-01-01T00:00:01.000Z"))).toThrowError(expect.objectContaining({ code: "EVIDENCE_CHANGED" }));
     expect(() => validateContextSnapshot(packet, state, at("2030-01-01T00:00:01.001Z"))).toThrowError(expect.objectContaining({ code: "EVIDENCE_CHANGED" }));
     const fresh = read(state, at("2030-01-01T00:00:01.001Z"));
     selectedEvidence(fresh, factId, oppositeId);
@@ -58,7 +59,8 @@ describe("E03-02 C12 temporal and composite condition consumption", () => {
     expect(prefApplicability(packet)).toBe("unknown");
     // The unselected fact does not cap the original selected-fact TTL.
     expect(packet.context.expires_at).toBe("2030-01-01T00:05:00Z");
-    expect(() => validateContextSnapshot(packet, state, at("2030-01-01T00:00:01.000Z"))).not.toThrow();
+    expect(() => validateContextSnapshot(packet, state, at("2030-01-01T00:00:00.999Z"))).not.toThrow();
+    expect(() => validateContextSnapshot(packet, state, at("2030-01-01T00:00:01.000Z"))).toThrowError(expect.objectContaining({ code: "EVIDENCE_CHANGED" }));
     expect(() => validateContextSnapshot(packet, state, at("2030-01-01T00:00:01.001Z"))).toThrowError(expect.objectContaining({ code: "EVIDENCE_CHANGED" }));
     const fresh = read(state, at("2030-01-01T00:00:01.001Z"));
     selectedEvidence(fresh, factId, oppositeId);
@@ -120,6 +122,73 @@ describe("E03-02 C12 temporal and composite condition consumption", () => {
     expect(factUsable(object(state, oppositeId, "ExternalFact"), before)).toBe(true);
     expect(factUsable(object(state, oppositeId, "ExternalFact"), point)).toBe(false);
     expect(state.revision).toBe(old.context.state_revision); expect(state).toEqual(original);
+  });
+
+  it("does not reject a submillisecond transition when an unrelated fact changes no selected evidence", () => {
+    const { state, oppositeId } = fixture("2029-12-31T23:59:00Z", "2030-01-01T00:00:01.000500Z");
+    object(state, oppositeId, "ExternalFact").query.parameters.push({name:"unrelated-route",value:"different"});
+    const old=read(state,initial);
+    expect(() => validateContextSnapshot(old,state,at("2030-01-01T00:00:01.000Z"))).not.toThrow();
+  });
+
+  it("rejects a transient same-millisecond conflict even when both bucket endpoints agree", () => {
+    const { state }=fixture("2030-01-01T00:00:01.000200Z","2030-01-01T00:00:01.000800Z"), old=read(state,initial);
+    expect(prefApplicability(old)).toBe("applicable");
+    expect(prefApplicability(read(state,at("2030-01-01T00:00:01.001Z")))).toBe("applicable");
+    expect(() => validateContextSnapshot(old,state,at("2030-01-01T00:00:01.000Z"))).toThrowError(expect.objectContaining({code:"EVIDENCE_CHANGED"}));
+  });
+  it.each([
+    ["2030-01-01t00:00:01.000200z","2030-01-01t00:00:01.000800z"],
+    ["2030-01-01T02:00:01.000200+0200","2030-01-01T02:00:01.000800+0200"],
+    ["2030-01-01T02:00:01.000200+02","2030-01-01T02:00:01.000800+02"],
+  ])("recognizes a transient conflict with alternate legal timezone spelling", (observed,expires) => {
+    const {state}=fixture(observed,expires), old=read(state,initial);
+    expect(() => validateContextSnapshot(old,state,at("2030-01-01T00:00:01.000Z"))).toThrowError(expect.objectContaining({code:"EVIDENCE_CHANGED"}));
+  });
+
+  it("does not let an unrelated seventh digit invalidate a newly stable result", () => {
+    const { state, oppositeId }=fixture("2030-01-01T00:00:01.0000001Z","2030-01-01T00:10:00Z");
+    object(state,oppositeId,"ExternalFact").query.parameters.push({name:"unrelated-route",value:"different"});
+    object(state,"fact-cairo-luxor","ExternalFact").observed_at="2030-01-01T00:00:01.000Z";
+    const bucket=at("2030-01-01T00:00:01.000Z"), fresh=read(state,bucket);
+    expect(() => validateContextSnapshot(fresh,state,bucket)).not.toThrow();
+  });
+
+  it("fails closed when a current-bucket timestamp exceeds supported precision", () => {
+    const {state}=fixture("2030-01-01T00:00:01.0000000000000000001Z","2030-01-01T00:10:00Z");
+    const bucket=at("2030-01-01T00:00:01.000Z"), fresh=read(state,bucket);
+    expect(() => validateContextSnapshot(fresh,state,bucket)).toThrowError(expect.objectContaining({code:"EVIDENCE_CHANGED"}));
+  });
+
+  it("fails closed before evaluating an excessively dense transition bucket", () => {
+    const {state,oppositeId}=fixture("2029-12-31T23:59:00Z","2030-01-01T00:10:00Z");
+    const original=object(state,oppositeId,"ExternalFact");
+    original.query.parameters.push({name:"unrelated-route",value:"different"});
+    for(let i=1;i<=128;i++) {
+      const extra=structuredClone(original); extra.id=`extra-${i}`;
+      extra.observed_at=`2030-01-01T00:00:01.${String(i).padStart(6,"0")}Z`;
+      state.objects.push(extra);
+    }
+    const bucket=at("2030-01-01T00:00:01.000Z"), fresh=read(state,bucket);
+    expect(() => validateContextSnapshot(fresh,state,bucket)).toThrowError(expect.objectContaining({code:"EVIDENCE_CHANGED"}));
+  });
+  it("fails closed when the boundary-by-fact evaluation budget would be exceeded", () => {
+    const {state,oppositeId}=fixture("2029-12-31T23:59:00Z","2030-01-01T00:10:00Z");
+    const original=object(state,oppositeId,"ExternalFact"); original.query.parameters.push({name:"unrelated-route",value:"different"});
+    for(let i=1;i<=800;i++) {
+      const extra=structuredClone(original); extra.id=`many-${i}`;
+      extra.observed_at=`2030-01-01T00:00:01.${String(i%63+1).padStart(6,"0")}Z`;
+      state.objects.push(extra);
+    }
+    const bucket=at("2030-01-01T00:00:01.000Z"), fresh=read(state,bucket);
+    expect(() => validateContextSnapshot(fresh,state,bucket)).toThrowError(expect.objectContaining({code:"EVIDENCE_CHANGED"}));
+  });
+
+  it("does not treat a seventh-decimal future observation as already safely usable", () => {
+    const { state } = fixture("2030-01-01T00:00:01.0000001Z", "2030-01-01T00:10:00Z");
+    const bucket=at("2030-01-01T00:00:01.000Z"), fresh=read(state,bucket);
+    expect(() => validateContextSnapshot(fresh,state,bucket)).toThrowError(expect.objectContaining({code:"EVIDENCE_CHANGED"}));
+    expect(() => validateContextSnapshot(fresh,state,at("2030-01-01T00:00:01.001Z"))).not.toThrow();
   });
 
   it.each([

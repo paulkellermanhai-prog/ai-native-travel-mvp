@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { digest } from "../trip-state/command-json";
 import { stampTime } from "../trip-state/commands";
-import { conflictingFactIds, factUsable } from "../trip-state/conditions";
+import { conflictingFactIds, factUsable, instantAttoseconds } from "../trip-state/conditions";
 import { parseContract, TripStateContractError } from "../trip-state/contracts";
 import type { DecisionContext, State } from "../trip-state/contracts.generated";
-import { instantMicros } from "../trip-state/semantics";
+import { instantMicros, timestampParts } from "../trip-state/semantics";
 import type { Annotation } from "./contracts.generated";
 import { scopeApplicability, selectContextObjects } from "./context-selection";
 
@@ -20,7 +20,7 @@ const fail = (code: string): never => { throw new TripStateContractError(code, "
 const equal = (a: unknown, b: unknown) => digest(a) === digest(b);
 
 /** R6 baseline annotations with the accepted E03-02-C12-APPLICABILITY-2026-11-06-01 difference. */
-function annotate(selected: Item[], targets: readonly string[], now: Date, stale: ReadonlySet<string>, contested: ReadonlySet<string>): Annotation[] {
+function annotate(selected: Item[], targets: readonly string[], now: Date | bigint, stale: ReadonlySet<string>, contested: ReadonlySet<string>): Annotation[] {
   const objects = new Map(selected.map(o => [o.id, o]));
   const windows = selected.filter((o): o is Extract<Item, {type:"Constraint"}> => o.type === "Constraint" && o.status === "active" && o.scope.kind === "trip" && o.value.kind === "date_window")
     .map(o => o.value).filter((v): v is Extract<typeof v, {kind:"date_window"}> => v.kind === "date_window");
@@ -85,7 +85,12 @@ export function assembleContextSnapshot(state: State, taskId: string, targetIds:
 export function validateContextSnapshot(assembled: ContextAssembly, state: State, now: Date): void {
   const context = parseContract("DecisionContext", assembled.context);
   if (context.trip_id !== state.trip_id || context.status !== "active" || context.state_revision !== state.revision || assembled.snapshot_digest !== digest(state)) fail("PACKET_STALE");
-  if (!Number.isFinite(now.getTime()) || BigInt(now.getTime()) * 1000n >= instantMicros(context.expires_at)) fail("PACKET_EXPIRED");
+  if (!Number.isFinite(now.getTime())) fail("PACKET_EXPIRED");
+  // Date carries only the start of a millisecond; the real observation can be
+  // anywhere within that millisecond. Refuse if expiration might already have
+  // occurred rather than pretend that Date contains a microsecond clock.
+  const earliest = BigInt(now.getTime()) * 1000n, latest = earliest + 999n;
+  if (latest >= instantMicros(context.expires_at)) fail("PACKET_EXPIRED");
   const atCreation = new Date(context.assembled_at);
   const original = assembleContextSnapshot(state, context.task_id, assembled.target_ids, atCreation);
   const current = assembleContextSnapshot(state, context.task_id, assembled.target_ids, now);
@@ -95,4 +100,33 @@ export function validateContextSnapshot(assembled: ContextAssembly, state: State
   }
   if (instantMicros(context.expires_at) !== instantMicros(original.context.expires_at) || !equal(assembled.objects, original.objects) || !equal(assembled.annotations, original.annotations)) fail("SNAPSHOT_MISMATCH");
   if (!equal(assembled.annotations, current.annotations)) fail("EVIDENCE_CHANGED");
+  // Check every fact transition in the uncertain millisecond, not just its
+  // endpoints: a dispute can appear and disappear before the next tick.
+  const start = BigInt(now.getTime()) * 1_000_000_000_000_000n;
+  const end = start + 999_999_999_999_999n;
+  const boundaries = new Set<bigint>([start]);
+  let factCount = 0;
+  for (const item of state.objects) if (item.type === "ExternalFact") for (const value of [item.observed_at,item.expires_at]) {
+    factCount++;
+    const tick = instantAttoseconds(value), { fraction } = timestampParts(value);
+    if (tick >= start && tick <= end) {
+      // Precision beyond 18 decimal places cannot be represented here safely.
+      if (/[1-9]/.test(fraction.slice(18))) fail("EVIDENCE_CHANGED");
+      boundaries.add(tick);
+    }
+  }
+  // With no transition inside the bucket, the baseline's millisecond
+  // observation has the same evidence state throughout the bucket.
+  if (boundaries.size === 1) return;
+  // Bound work on adversarial inputs; a dense transition bucket fails closed.
+  const estimatedObjects = factCount + state.objects.length + assembled.objects.length + assembled.objects.length * assembled.target_ids.length;
+  const estimatedBytes = Buffer.byteLength(JSON.stringify(state), "utf8");
+  if (boundaries.size > 128 || boundaries.size * estimatedObjects > 100_000 || boundaries.size * estimatedBytes > 64 * 1024 * 1024) fail("EVIDENCE_CHANGED");
+  const index = new Map(state.objects.map(o => [o.id,o]));
+  const facts = assembled.objects.filter((o): o is Extract<Item,{type:"ExternalFact"}> => o.type === "ExternalFact");
+  for (const tick of boundaries) {
+    const contested = conflictingFactIds(index,tick);
+    const stale = facts.filter(o => contested.has(o.id) || !factUsable(o,tick)).map(o => o.id);
+    if (!equal(stale,current.context.stale_fact_ids) || !equal(annotate(assembled.objects,assembled.target_ids,tick,new Set(stale),contested),current.annotations)) fail("EVIDENCE_CHANGED");
+  }
 }
