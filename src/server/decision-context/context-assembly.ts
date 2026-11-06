@@ -20,12 +20,12 @@ const fail = (code: string): never => { throw new TripStateContractError(code, "
 const equal = (a: unknown, b: unknown) => digest(a) === digest(b);
 
 /** The R6 read-only annotations over one closed, selected snapshot. */
-function annotate(selected: Item[], targets: readonly string[], now: Date, stale: ReadonlySet<string>): Annotation[] {
+function annotate(selected: Item[], targets: readonly string[], now: Date, stale: ReadonlySet<string>, contested: ReadonlySet<string>): Annotation[] {
   const objects = new Map(selected.map(o => [o.id, o]));
   const windows = selected.filter((o): o is Extract<Item, {type:"Constraint"}> => o.type === "Constraint" && o.status === "active" && o.scope.kind === "trip" && o.value.kind === "date_window")
     .map(o => o.value).filter((v): v is Extract<typeof v, {kind:"date_window"}> => v.kind === "date_window");
   return selected.map(o => {
-    let applicability = scopeApplicability(o, targets, objects, now);
+    let applicability = scopeApplicability(o, targets, objects, now, contested);
     let restriction: Annotation["restriction"] = "none", reasons: string[] = [];
     if (o.type === "ExternalFact") {
       applicability = o.applicability;
@@ -78,7 +78,7 @@ export function assembleContextSnapshot(state: State, taskId: string, targetIds:
     ...selection, relevant_facts: facts.map(o => o.id), stale_fact_ids: stale,
   };
   parseContract("DecisionContext", context);
-  return { context, objects: selected, annotations: annotate(selected, targets, now, new Set(stale)), snapshot_digest: digest(state), target_ids: targets };
+  return { context, objects: selected, annotations: annotate(selected, targets, now, new Set(stale), contested), snapshot_digest: digest(state), target_ids: targets };
 }
 
 /** Revalidate the original manifest, body, protections and evidence at the moment of consumption. */

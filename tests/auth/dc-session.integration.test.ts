@@ -1,12 +1,14 @@
 import fs from "node:fs";
 import crypto from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { Client } from "pg";
-import { beforeAll, afterAll, afterEach, describe, expect, it } from "vitest";
+import { beforeAll, afterAll, afterEach, describe, expect, it, vi } from "vitest";
 import { openIdentity, type Identity } from "../../src/server/auth/config";
 import { sessionHost } from "../../src/server/auth/authorization";
 import { issueInternalCapability, openInternalTripService } from "../../src/server/auth/internal-service";
 import { openSyntheticStorageHarness, openTripCommandService } from "../../src/server/trip-state/internal/persistence";
 import { openSessionContextService } from "../../src/server/decision-context/session-context";
+import * as assembly from "../../src/server/decision-context/context-assembly";
 import { requestAt } from "../support/command-fixtures";
 import { base, change, object } from "../support/bcg-fixtures";
 import { ingest } from "../support/fact-fixtures";
@@ -139,6 +141,61 @@ describe.skipIf(!cfg?.authUrl)("DC Session-bound read and consumption using Post
     expect(stale.context.state_revision).toBe(initial.revision);expect(stale.context.stale_fact_ids).toContain("fact-cairo-luxor");
     expect(stale.annotations.find(a=>a.id==="fact-cairo-luxor")?.reason_codes).toContain("fact_unusable");
     expect(await fingerprint(trip)).toBe(before);
+  },30000);
+
+  it.each(["revoke", "expire", "advance"] as const)("revalidates after deterministic between-checks %s through real PostgreSQL",async mode=>{
+    const f=await setup();
+    expect(await f.trips.submit(f.trip,goal(),f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+    const ticket=await f.dc.assemble(f.trip,f.a.headers,"task-delivery-race",[]);
+    const baseline=await fingerprint(f.trip), original=assembly.validateContextSnapshot;
+    let checks=0, afterMutation="";
+    // The child receives secrets over stdin only. The test synchronously waits for a
+    // real DB operation between the first and final validation; production has no hook.
+    const child=`
+      import fs from "node:fs";
+      import crypto from "node:crypto";
+      import pg from "pg";
+      import {openIdentity} from "./src/server/auth/config.ts";
+      import {sessionHost} from "./src/server/auth/authorization.ts";
+      import {openTripCommandService} from "./src/server/trip-state/internal/persistence.ts";
+      const p=JSON.parse(fs.readFileSync(0,"utf8"));
+      const owner=new pg.Client({connectionString:p.migrationUrl}); await owner.connect();
+      try {
+        if(p.mode==="revoke") {
+          const r=await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[p.trip,p.user]);
+          if(r.rowCount!==1)throw Error("membership was not revoked");
+        } else if(p.mode==="expire") {
+          const r=await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-make_interval(secs => 1) WHERE id=$1',[p.session]);
+          if(r.rowCount!==1)throw Error("session was not expired");
+        } else {
+          const identity=await openIdentity(p.env);let service;
+          try {
+            service=await openTripCommandService(p.env.DATABASE_URL,sessionHost(identity));
+            const r=await service.submit(p.trip,p.command,new Headers({cookie:p.cookie}));
+            if(r.outcome!=="applied"||r.revision!==2)throw Error("member did not advance revision");
+          } finally {if(service)await service.close();await identity.close();}
+        }
+        const rows=[];
+        for(const table of ["TripStateDocument","TripStateHistory","TripStateProposal","TripStateIdempotency"])
+          rows.push((await owner.query('SELECT row_to_json(t)::text AS row FROM "'+table+'" t WHERE "tripId"=$1 ORDER BY row_to_json(t)::text',[p.trip])).rows);
+        process.stdout.write(crypto.createHash("sha256").update(JSON.stringify(rows)).digest("hex"));
+      } finally {await owner.end();}
+    `;
+    const env={DATABASE_URL:cfg!.runtimeUrl,AUTH_DATABASE_URL:cfg!.authUrl,BETTER_AUTH_URL:f.identity.config.origin,BETTER_AUTH_SECRET:f.identity.config.secret};
+    const payload={mode,migrationUrl:cfg!.migrationUrl,trip:f.trip,user:f.a.user.id,session:f.a.session.session.id,env,cookie:f.b.headers.get("cookie"),command:requestAt(2,1,`dc-between-${crypto.randomUUID()}`)};
+    const spy=vi.spyOn(assembly,"validateContextSnapshot").mockImplementation((...args)=>{
+      checks++;original(...args);
+      if(checks===1) {
+        try { afterMutation=execFileSync(process.execPath,["--import","tsx","--input-type=module","-e",child],{input:JSON.stringify(payload),encoding:"utf8",timeout:15000,stdio:["pipe","pipe","pipe"]}).trim(); }
+        catch { throw new Error("Isolated PostgreSQL mutation subprocess failed; details suppressed"); }
+      }
+    });
+    try {
+      await expect(f.dc.consume(f.trip,f.a.headers,ticket)).rejects.toMatchObject({code:mode==="advance"?"PACKET_STALE":"PERMISSION"});
+      expect(checks).toBe(mode==="advance"?2:1);expect(afterMutation).toMatch(/^[a-f0-9]{64}$/);
+      expect(await fingerprint(f.trip)).toBe(afterMutation);
+      if(mode==="advance")expect(afterMutation).not.toBe(baseline);else expect(afterMutation).toBe(baseline);
+    } finally {spy.mockRestore();}
   },30000);
 
 });

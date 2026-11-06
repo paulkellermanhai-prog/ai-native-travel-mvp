@@ -77,6 +77,23 @@ describe("E03-02 same-snapshot context assembly and consumption", () => {
     expect(result.annotations.find(a => a.id === "cost-transport")).toMatchObject({ restriction:"none" });
   });
 
+  it("keeps conditions unknown when an unselected opposite fact contests their evidence", () => {
+    const state = clone(), fact = object(state, "fact-cairo-luxor", "ExternalFact"), pref = object(state, "pref-culture", "Preference");
+    pref.condition = { op:"eq", object_id:fact.id, path:"/value/service_exists", value:true };
+    const opposite = structuredClone(fact); opposite.id = "unselected-opposite"; opposite.query_status = "no_service";
+    if (opposite.value?.kind !== "transport") throw new Error("transport fixture");
+    Object.assign(opposite.value, {service_exists:false,departure:null,arrival:null,duration_minutes:null});
+    state.objects.push(opposite);
+    const contested = assemble(state);
+    expect(contested.context.selected_object_ids).not.toContain(opposite.id);
+    expect(contested.context.stale_fact_ids).toContain(fact.id);
+    expect(contested.annotations.find(a => a.id === pref.id)).toMatchObject({ applicability:"unknown" });
+    opposite.status = "contradicted";
+    const resolved = assemble(state);
+    expect(resolved.annotations.find(a => a.id === pref.id)).toMatchObject({ applicability:"applicable" });
+    expect(resolved.context.stale_fact_ids).not.toContain(fact.id);
+  });
+
   it("does not convert unknown conditions to false or silently substitute missing references", () => {
     const state = clone(), pref = object(state, "pref-culture", "Preference");
     pref.condition = { op:"lt", object_id:"constraint-budget", path:"/value/minimum_minor", value:100 };

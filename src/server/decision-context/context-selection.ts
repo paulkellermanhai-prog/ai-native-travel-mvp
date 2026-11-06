@@ -50,7 +50,7 @@ export function selectContextObjects(value: unknown, targetIds: readonly string[
 }
 
 /** R6 local scope with the integrated TS three-valued condition rules. */
-export function scopeApplicability(object: Item, targetIds: readonly string[], objects: ReadonlyMap<string,Item>, now: Date): Applicability {
+export function scopeApplicability(object: Item, targetIds: readonly string[], objects: ReadonlyMap<string,Item>, now: Date, contested?: ReadonlySet<string>): Applicability {
   const targets=new Set(targetIds);
   if (object.type==="Decision" && !targets.has(object.subject_id)) return "unknown";
   if (object.type==="OpenIssue" && !object.affected_ids.some(id=>targets.has(id))) return "unknown";
@@ -69,7 +69,7 @@ export function scopeApplicability(object: Item, targetIds: readonly string[], o
     result=object.scope.ids.some(id=>entities.has(id))?"applicable":entities.size?"not_applicable":"unknown";
   }
   if ("condition" in object) {
-    const condition=conditionValue(object.condition,objects,now);
+    const condition=conditionValue(object.condition,objects,now,contested);
     if (condition===false) result="not_applicable";
     else if (condition===null && result!=="not_applicable") result="unknown";
   }
