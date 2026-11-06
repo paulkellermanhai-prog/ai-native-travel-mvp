@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { ServerResponse } from "node:http";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { z } from "zod";
@@ -27,10 +27,11 @@ type Registration = { turn_id: string; revision: number; task_keys: string[]; fo
 type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>; incomplete: boolean; fingerprint: string; eventSequence: number; retentionRevision: number };
 type PacketMemory = { packetId:string; turnId:string; taskHash:string; budget:number; at:number; contextId:string; expiresAt:number; warning:boolean;
   runtimeId:string; tracker:ReturnType<typeof createShortPacketHandoffCandidate>; postflight:(()=>Promise<void>)|null; invalidate:()=>void };
+type TurnLease = { id:string; cipher:Buffer; iv:Buffer; tag:Buffer; expiresAt:number; timer:NodeJS.Timeout };
 type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string; capability: string; runtimeId: string;
   recoveredEvents: Set<string>; recoveryWatermark: number | null; deletionRevision: number; pendingSaves: Set<string>; pendingSaveSticky: boolean; inflightSaves: number; keyEpochs: Map<string,number>; tasks: Map<string, TaskMemory>;
   turns: Map<string, { digest: string; result: Pick<Registration,"turn_id"|"revision">; sources: Map<string,string>; sequence: number }>;
-  invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; packetInvalidators:Set<()=>void>; packets:Map<string,PacketMemory>; disposed: boolean; tail: Promise<void> };
+  invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; packetInvalidators:Set<()=>void>; packets:Map<string,PacketMemory>; leaseKey:Buffer; turnLeases:Map<string,TurnLease>; disposed: boolean; tail: Promise<void> };
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
 type DeleteRow = { disposition: string; deletion_revision: bigint | null; accepted_at: Date | null; cleanup_pending: boolean | null; event_highwater: bigint | null };
 type EventRow = { allowed: boolean; out_entry: "dialogue" | "map" | "timeline" | "comparison" | null; out_body: string | null; out_received_at: Date | null; out_retention_revision: bigint | null; out_valid_for_ms:bigint|null };
@@ -92,6 +93,28 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   // Task keys may contain user text; retain only a keyed, scope-bound index.
   const taskIndex = (scope: Scope, key: string) => createHmac("sha256",keySecret).update("task-identity\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,key]),"utf8").digest("hex");
   const taskFingerprint = (scope: Scope, task: unknown) => createHmac("sha256",keySecret).update("task-value\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,task]),"utf8").digest("hex");
+  function clearTurnLeases(scope:Scope) {
+    for(const lease of scope.turnLeases.values()){clearTimeout(lease.timer);lease.cipher.fill(0);lease.iv.fill(0);lease.tag.fill(0);}
+    scope.turnLeases.clear();scope.leaseKey.fill(0);
+  }
+  function rememberTurn(scope:Scope,turnId:string,input:unknown) {
+    const bytes=Buffer.from(JSON.stringify(input),"utf8");
+    try {
+      if(bytes.length>1_048_576)return unavailable();
+      const old=scope.turnLeases.get(turnId);if(old){for(const packet of scope.packets.values())if(packet.turnId===turnId)packet.invalidate();clearTimeout(old.timer);old.cipher.fill(0);old.iv.fill(0);old.tag.fill(0);}
+      const iv=randomBytes(12),cipher=createCipheriv("aes-256-gcm",scope.leaseKey,iv),encrypted=Buffer.concat([cipher.update(bytes),cipher.final()]);
+      const expiresAt=Date.now()+300_000,id=randomUUID();
+      const timer=setTimeout(()=>{const current=scope.turnLeases.get(turnId);if(current?.id===id){for(const packet of scope.packets.values())if(packet.turnId===turnId)packet.invalidate();current.cipher.fill(0);current.iv.fill(0);current.tag.fill(0);scope.turnLeases.delete(turnId);}},300_000);timer.unref();
+      scope.turnLeases.set(turnId,{id,cipher:encrypted,iv,tag:cipher.getAuthTag(),expiresAt,timer});
+    } finally {bytes.fill(0);}
+  }
+  function turnInput(scope:Scope,turnId:string) {
+    const lease=scope.turnLeases.get(turnId);if(!lease||lease.expiresAt<=Date.now())return unavailable();
+    const decipher=createDecipheriv("aes-256-gcm",scope.leaseKey,lease.iv);decipher.setAuthTag(lease.tag);
+    const plaintext=Buffer.concat([decipher.update(lease.cipher),decipher.final()]);
+    try {return {value:JSON.parse(plaintext.toString("utf8")) as unknown,id:lease.id};} finally {plaintext.fill(0);}
+  }
+  function checkTurnLease(scope:Scope,turnId:string,id:string) {const current=scope.turnLeases.get(turnId);if(!current||current.id!==id||current.expiresAt<=Date.now())return unavailable();}
   function invalidatePackets(scope:Scope) { for(const invalidate of scope.packetInvalidators) { try { invalidate(); } catch { /* durable deletion must not be undone by local cleanup */ } } scope.packetInvalidators.clear(); scope.packets.clear(); }
   async function exclusive<T>(scope: Scope, action: () => Promise<T>): Promise<T> {
     const previous = scope.tail; let release!: () => void;
@@ -189,7 +212,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
       const p = await authorized(tripId, credential);
-      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, deletionRevision:0, pendingSaves:new Set(), pendingSaveSticky:false, inflightSaves:0, keyEpochs:new Map(), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), packetInvalidators:new Set(), packets:new Map(), disposed:false, tail: Promise.resolve() };
+      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, deletionRevision:0, pendingSaves:new Set(), pendingSaveSticky:false, inflightSaves:0, keyEpochs:new Map(), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), packetInvalidators:new Set(), packets:new Map(), leaseKey:randomBytes(32),turnLeases:new Map(), disposed:false, tail: Promise.resolve() };
       try {
         await db.$transaction(async tx => {
           try { await host.guard!(tripId, p.headers, tx); } catch { return deny(); }
@@ -275,6 +298,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         const cutoff=counter(row.event_highwater), revision=counter(row.deletion_revision);
         if (revision>scope.deletionRevision) {
           invalidatePackets(scope);
+          clearTurnLeases(scope);scope.leaseKey=randomBytes(32);
           scope.runtimeId=`runtime-${randomUUID().replaceAll("-","")}`;
           scope.pendingSaves.clear(); scope.pendingSaveSticky=false;
         }
@@ -300,6 +324,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       const proof = receipt && typeof receipt === "object" ? eventProofs.get(receipt) : undefined;
       if (!proof || proof.scope !== scope) return deny();
       const parsed = identityInput.safeParse(snapshot); if (!parsed.success) return unavailable();
+      if(Buffer.byteLength(JSON.stringify(parsed.data),"utf8")>1_048_576)return unavailable();
       return exclusive(scope, async () => {
         if (eventProofs.get(receipt) !== proof) return deny();
         if (scope.recoveredEvents.has(proof.eventId) || (scope.recoveryWatermark!==null && receipt.sequence<=scope.recoveryWatermark))
@@ -361,7 +386,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           return { replay: null, body: checked, fingerprint, retentionRevision };
         });
         if (closed) return unavailable();
-        if (result.replay) return { ...structuredClone(result.replay), runtime_id: scope.runtimeId };
+        if (result.replay) {rememberTurn(scope,result.replay.turn_id,parsed.data);return { ...structuredClone(result.replay), runtime_id: scope.runtimeId };}
         const checked = result.body!;
         const registration: Registration = { turn_id:`turn_${randomUUID()}`, revision:checked.expected_revision, task_keys:checked.tasks.map(task => task.task_key), focus_keys:[...checked.focus_keys] };
         const sources = new Map<string,string>([[proof.eventId,proof.token]]);
@@ -373,6 +398,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           scope.tasks.set(taskIndex(scope,task.task_key),{ kind:task.kind, branch:task.branch, progress:task.progress, sources:taskSources, incomplete:false, fingerprint:taskFingerprint(scope,task), eventSequence:receipt.sequence, retentionRevision:result.retentionRevision });
         }
         scope.turns.set(proof.eventId,{ digest:result.fingerprint, result:{turn_id:registration.turn_id,revision:registration.revision}, sources, sequence:receipt.sequence });
+        rememberTurn(scope,registration.turn_id,parsed.data);
         return { ...registration, runtime_id: scope.runtimeId };
       });
     },
@@ -452,12 +478,14 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     async sendLivePacketCandidate(ticket:object,credential:Headers,turnId:string,taskKey:string,bodyBudgetBytes:number,raw:unknown,response:ServerResponse) {
       let input:unknown;try {input=structuredClone(raw);} catch {return unavailable();}
       const {scope,headers}=await scoped(ticket,credential),credentialCopy=new Headers({cookie:headers.get("cookie")??""});
+      const lease=raw===undefined?turnInput(scope,turnId):undefined;if(lease)input=lease.value;
       if(!(response instanceof ServerResponse))return unavailable();
       const taskHash=taskIndex(scope,taskKey);let record:PacketMemory|undefined;
       try {
         const handoff=await exclusive(scope,async()=>db.$transaction(async tx=> {
           for(const item of scope.packets.values())if(item.expiresAt<=Date.now())item.invalidate();
           if(scope.packets.size>=256)return unavailable();
+          if(lease)checkTurnLease(scope,turnId,lease.id);
           const built=await packetFromCurrent(tx,scope,headers,input,turnId,taskHash,bodyBudgetBytes);
           const holder:{value?:PacketMemory}={};
           const tracker=createShortPacketHandoffCandidate(built.candidate,async()=>{if(!holder.value?.postflight)return unavailable();await holder.value.postflight();});
@@ -468,10 +496,12 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           record=memory;scope.packets.set(memory.packetId,memory);scope.packetInvalidators.add(invalidate);
           memory.postflight=async()=> {
             const next=await scoped(ticket,credentialCopy);if(next.scope!==scope||scope.packets.get(memory.packetId)!==memory)return deny();
+            if(lease)checkTurnLease(scope,turnId,lease.id);
             await exclusive(scope,async()=>db.$transaction(async postTx=>{const current=await packetFromCurrent(postTx,scope,next.headers,input,turnId,taskHash,bodyBudgetBytes,memory);await current.recheck();}));
           };
           await testHooks?.beforePacketHandoff?.(); await built.recheck();
           if(testHooks?.afterFinalPacketCheck)await testHooks.afterFinalPacketCheck();
+          if(lease)checkTurnLease(scope,turnId,lease.id);
           return tracker.beginPacket(response,built.candidate,built.deadline());
         }));
         try {await testHooks?.afterPacketHandoffCommit?.();await handoff.afterCommit();return {packet_id:record!.packetId};} finally {if(record)record.postflight=null;}
@@ -488,18 +518,27 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           record=scope.packets.get(page.packet_id);
           const memory=record;if(!memory||memory.runtimeId!==scope.runtimeId||memory.expiresAt<=Date.now()||memory.postflight)return unavailable();
           ownsPostflight=true;
+          const lease=raw===undefined?turnInput(scope,memory.turnId):undefined;if(lease)input=lease.value;
           const built=await packetFromCurrent(tx,scope,headers,input,memory.turnId,memory.taskHash,memory.budget,memory);
           memory.postflight=async()=> {
             const next=await scoped(ticket,credentialCopy);if(next.scope!==scope||scope.packets.get(memory.packetId)!==memory)return deny();
+            if(lease)checkTurnLease(scope,memory.turnId,lease.id);
             await exclusive(scope,async()=>db.$transaction(async postTx=>{const current=await packetFromCurrent(postTx,scope,next.headers,input,memory.turnId,memory.taskHash,memory.budget,memory);await current.recheck();}));
           };
           await testHooks?.beforePacketHandoff?.();await built.recheck();const now=new Date();
           if(testHooks?.afterFinalPacketCheck)await testHooks.afterFinalPacketCheck();
+          if(lease)checkTurnLease(scope,memory.turnId,lease.id);
           return memory.tracker.beginPage(response,built.candidate,page,{state:built.state,now},{state:built.state,now},built.deadline());
         }));
         try {await testHooks?.afterPacketHandoffCommit?.();await handoff.afterCommit();return {packet_id:record!.packetId};} finally {if(record)record.postflight=null;}
       } catch(error) {if(ownsPostflight)record?.invalidate();if(error instanceof EvidenceBoundaryError)throw error;return unavailable();}
     },
+    /** Routing hint only. It grants no read and is checked again by sendLivePacketPageCandidate. */
+    hasLocalPacketCandidate(ticket:object,packetId:string) {
+      const scope=ticket&&typeof ticket==="object"?workspaces.get(ticket):undefined;
+      return !!scope&&!scope.disposed&&!closed&&scope.packets.has(packetId);
+    },
+    async authorizeTicketCandidate(ticket:object,credential:Headers) {await scoped(ticket,credential);},
     /**
      * Internal bounded save only. Drafts, errors and non-unprocessed states
      * require sources/host state not yet available and are rejected, not trimmed.
@@ -650,7 +689,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           // Atomic within this host's per-workspace executor. Cross-process
           // delivery and the real Packet/Grant host remain separately gated.
           for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
-          invalidatePackets(scope); scope.receipts.clear(); scope.replayReceipts.clear(); scope.turns.clear(); scope.invalidTurns.clear();
+          invalidatePackets(scope);clearTurnLeases(scope);scope.leaseKey=randomBytes(32); scope.receipts.clear(); scope.replayReceipts.clear(); scope.turns.clear(); scope.invalidTurns.clear();
           scope.recoveredEvents=new Set(restored.eventIds); scope.recoveryWatermark=restored.watermark; scope.tasks=restored.installed; scope.runtimeId=runtimeId;
           return {runtime_id:runtimeId,checkpoint_revision:restored.checkpointRevision,saved_state_revision:restored.savedRevision,
             current_state_revision:restored.currentRevision,restored_task_count:restored.taskCount,
@@ -685,7 +724,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       const scope = ticket && typeof ticket === "object" ? workspaces.get(ticket) : undefined;
       if (!scope) return;
       await exclusive(scope,async()=> {
-        scope.disposed=true; scope.capability=""; invalidatePackets(scope);
+        scope.disposed=true; scope.capability=""; invalidatePackets(scope);clearTurnLeases(scope);
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
         scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
         workspaces.delete(ticket); activeScopes.delete(scope);
@@ -694,7 +733,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     async close() {
       if (closed) return; closed = true;
       for (const scope of activeScopes) {
-        scope.disposed=true; scope.capability=""; invalidatePackets(scope);
+        scope.disposed=true; scope.capability=""; invalidatePackets(scope);clearTurnLeases(scope);
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
         scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
       }

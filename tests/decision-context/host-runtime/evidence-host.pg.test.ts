@@ -7,6 +7,7 @@ import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openIdentity, type Identity } from "../../../src/server/auth/config";
 import { openEvidenceHost } from "../../../src/server/decision-context/host-runtime/evidence-host";
+import { createPacketHttpCandidate } from "../../../src/server/decision-context/host-runtime/packet-http-candidate";
 import { createPacketSocketDeliveryCandidate } from "../../../src/server/decision-context/host-runtime/packet-socket-delivery-candidate";
 import { createShortPacketHandoffCandidate } from "../../../src/server/decision-context/host-runtime/packet-short-handoff-candidate";
 import type { PacketCandidate } from "../../../src/server/decision-context/packet-core/packet";
@@ -689,6 +690,43 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
       expect(()=>tracker?.progress()).toThrow("DELIVERY_UNAVAILABLE");
       expect((await fetch(`${origin}/page`,{headers:{cookie}})).status).toBe(403);await done;
     } finally {tracker?.invalidate();if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await wired.close();}
+  },30000);
+  it("routes registered Turn and independent pages using only the private task lease",async()=>{
+    const t=`trip_route_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"packet-route-test"}));
+    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    const a=await account(),b=await account();
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[t,a.user.id,b.user.id]);
+    const objects=structuredClone(base.objects.filter(item=>["egypt","aswan"].includes(item.id)));
+    for(const item of objects)item.trip_id=t;
+    await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}',$2::jsonb) WHERE "tripId"=$1`,[t,JSON.stringify(objects)]);
+    const wired=await openEvidenceHost(env),ticket=await wired.createWorkspace(t,a.headers);
+    const key=await wired.mintTaskKey(ticket,a.headers,"route-task"),text="阿斯旺体验";
+    const event=await wired.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`route_${randomUUID()}`});
+    const raw={expected_revision:0,tasks:[{task_key:key,question:text,kind:"explore",target_ids:["aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null}],focus_keys:[key]};
+    const turn=await wired.registerTaskIdentity(ticket,a.headers,event,raw);
+    let adapter!:ReturnType<typeof createPacketHttpCandidate>;
+    const server=http.createServer((req,res)=>{void adapter.handle(req,res);});
+    try {
+      server.listen(0,"127.0.0.1");await once(server,"listening");
+      const address=server.address();if(!address||typeof address==="string")throw new Error("missing socket");
+      const origin=`http://127.0.0.1:${address.port}`;adapter=createPacketHttpCandidate(wired,origin);adapter.bindTurn(t,turn.turn_id,ticket);
+      const endpoint=(operation:string)=>`${origin}/runtime/trips/${t}/${operation}`;
+      const post=(operation:string,body:unknown,cookie=a.headers.get("cookie")??"")=>fetch(endpoint(operation),{method:"POST",headers:{cookie,origin,"content-type":"application/json"},body:JSON.stringify(body)});
+      const assemble={runtime_contract_version:"0.1.0",turn_id:turn.turn_id,task_key:key,body_budget_bytes:2};
+      const denied=await post("assemble",assemble,b.headers.get("cookie")??"");expect(denied.status).toBe(403);expect(await denied.text()).not.toContain(text);
+      const noOrigin=await fetch(endpoint("assemble"),{method:"POST",headers:{cookie:a.headers.get("cookie")??"","content-type":"application/json"},body:JSON.stringify(assemble)});
+      expect(noOrigin.status).toBe(403);expect(await noOrigin.text()).not.toContain(text);
+      const opened=await post("assemble",assemble);expect(opened.status).toBe(200);
+      const packet=await opened.json() as {packet_id:string;deferred_ids:string[]};expect(packet.deferred_ids).toEqual(["aswan"]);
+      const page={runtime_contract_version:"0.1.0",packet_id:packet.packet_id,object_ids:["aswan"]};
+      const delivered=await post("pages",page);expect(delivered.status).toBe(200);
+      expect((await delivered.json() as {objects:Array<{id:string}>}).objects.map(item=>item.id)).toEqual(["aswan"]);
+      const forged=await post("pages",{...page,delivered_ids:["aswan"]});expect(forged.status).toBe(422);
+      await wired.deleteEvent(ticket,a.headers,event.event_id);
+      const stale=await post("pages",page);expect(stale.status).toBe(403);expect(await stale.text()).not.toContain(text);
+      const reopen=await post("assemble",assemble);expect(reopen.status).not.toBe(200);expect(await reopen.text()).not.toContain(text);
+    } finally {adapter?.forgetWorkspace(ticket);if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await wired.close();}
   },30000);
   it("uses host-owned packet and page state across separate real Session/PG/socket requests", async()=> {
     const t=`trip_formal_${randomBytes(8).toString("hex")}`;
