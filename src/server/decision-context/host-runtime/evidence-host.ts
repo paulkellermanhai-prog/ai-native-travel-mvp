@@ -15,6 +15,8 @@ import { CheckpointError, checkpointDigest, validateCheckpoint } from "../checkp
 import type { CheckpointPayload } from "../contracts.generated";
 import { classifyRecovery } from "../recovery-core";
 import { buildRestoredSceneCandidate } from "../integration/restored-scene-candidate";
+import { assembleContextSnapshot, validateContextSnapshot } from "../context-assembly";
+import { buildPacketCandidate, checkPacketTurn } from "../packet-core/packet";
 import { parseStateReferences } from "../../trip-state/references";
 import { checkStateCounters } from "../../trip-state/numbers";
 
@@ -300,6 +302,68 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         }
         scope.turns.set(proof.eventId,{ digest:result.fingerprint, result:{turn_id:registration.turn_id,revision:registration.revision}, sources, sequence:receipt.sequence });
         return { ...registration, runtime_id: scope.runtimeId };
+      });
+    },
+    /**
+     * Assemble a registered live Turn against the authorized current TS
+     * snapshot, returning metadata only. No Packet, text, delivery proof,
+     * grant or authorization to write leaves this internal candidate.
+     */
+    async inspectLivePacketCandidate(ticket: object, credential: Headers, turnId: string, taskKey: string, bodyBudgetBytes: number, raw: unknown) {
+      let snapshot:unknown; try { snapshot=structuredClone(raw); } catch { return unavailable(); }
+      const {scope,headers}=await scoped(ticket,credential);
+      const request=parseDCContract("assemble",{runtime_contract_version:"0.1.0",turn_id:turnId,task_key:taskKey,body_budget_bytes:bodyBudgetBytes});
+      const input=identityInput.safeParse(snapshot); if (!input.success) return unavailable();
+      return exclusive(scope,async()=> {
+        const found=[...scope.turns.entries()].find(([,entry])=>entry.result.turn_id===request.turn_id);
+        if (!found || closed || scope.disposed) return deny();
+        const [eventId,registered]=found;
+        const eventToken=registered.sources.get(eventId); if (!eventToken) return unavailable();
+        try {
+          const result=await db.$transaction(async tx=> {
+            const [document]=await tx.$queryRaw<Array<{revision:bigint;snapshot:string}>>`SELECT "revision", "snapshot"::text AS snapshot FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+            try { await host.guard!(scope.tripId,headers,tx); } catch { return deny(); }
+            if (!document) return deny();
+            const read=async(id:string,token:string,metadata:boolean)=> {
+              const [row]=await tx.$queryRaw<EventRow[]>`SELECT * FROM public.host_evidence_for_turn_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${id},${token},${metadata})`;
+              if (!row?.allowed || counter(row.out_retention_revision)!==scope.deletionRevision) return unavailable();
+              return row;
+            };
+            const source=await read(eventId,eventToken,false);
+            if (!source.out_entry || !source.out_body || !source.out_received_at) return unavailable();
+            for (const [id,token] of registered.sources) await read(id,token,true);
+            const state=parseStateReferences(decodeCommandJson(document.snapshot)); checkStateCounters(state);
+            // Until the real write bridge tracks this input's processing, do
+            // not label it unprocessed against a newer business revision.
+            if (state.trip_id!==scope.tripId || BigInt(state.revision)!==document.revision || state.revision!==registered.result.revision) return unavailable();
+            // Reconstruct the original registration from the stored event and
+            // caller's candidate, then authenticate its full content against
+            // the host-held keyed digest. No raw Task snapshot is retained.
+            const body=parseDCContract("open-turn",{runtime_contract_version:"0.1.0",trip_id:scope.tripId,expected_revision:input.data.expected_revision,
+              event:{event_id:eventId,entry:source.out_entry,text:source.out_body,reference:`host-interaction:${eventId}`,received_at:source.out_received_at.toISOString()},
+              tasks:input.data.tasks,focus_keys:input.data.focus_keys});
+            if (body.expected_revision!==registered.result.revision ||
+                createHmac("sha256",keySecret).update(canonicalJson(body),"utf8").digest("hex")!==registered.digest) return unavailable();
+            const task=body.tasks.find(item=>item.task_key===request.task_key),current=scope.tasks.get(taskIndex(scope,request.task_key));
+            if (!task || !current || current.incomplete || current.retentionRevision!==scope.deletionRevision ||
+                current.fingerprint!==taskFingerprint(scope,task)) return unavailable();
+            const turn=parseDCContract("turn",{runtime_contract_version:"0.1.0",runtime_id:scope.runtimeId,turn_id:registered.result.turn_id,
+              revision:registered.result.revision,tasks:body.tasks,focus_keys:body.focus_keys,checkpoint_ack:null});
+            const pending={event:{event_id:eventId,entry:source.out_entry,text:source.out_body,reference:`host-interaction:${eventId}`,received_at:source.out_received_at.toISOString()},
+              base_revision:registered.result.revision,processing_status:"unprocessed" as const,proposal_id:null,result_revision:registered.result.revision,errors:[]};
+            const now=new Date(),assembly=assembleContextSnapshot(state,task.task_key,task.target_ids,now);
+            const candidate=buildPacketCandidate({request,packetId:`packet-${randomUUID().replaceAll("-","")}`,task,pending,assembly,state,now,
+              recoveredInput:false,saveUnacknowledged:scope.pendingSaveSticky || scope.pendingSaves.size>0 || scope.inflightSaves>0});
+            checkPacketTurn(candidate,turn,pending);
+            for (const [id,token] of registered.sources) await read(id,token,true);
+            try { await host.guard!(scope.tripId,headers,tx); } catch { return deny(); }
+            validateContextSnapshot(assembly,state,new Date());
+            return {state_revision:state.revision,selected_count:assembly.objects.length,body_count:candidate.packet.objects.length,
+              deferred_count:candidate.packet.deferred_ids.length,coverage:candidate.packet.coverage};
+          });
+          if (closed || scope.disposed) return deny();
+          return result;
+        } catch(error) { if (error instanceof EvidenceBoundaryError) throw error; return unavailable(); }
       });
     },
     /**

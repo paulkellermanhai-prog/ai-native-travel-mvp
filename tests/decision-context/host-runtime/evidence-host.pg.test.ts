@@ -485,6 +485,79 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect((await owner.query('SELECT 1 FROM public."HostEvidenceSceneEventWitness" WHERE event_id=$1',[ea.event_id])).rowCount).toBe(0);
     expect((await owner.query('SELECT 1 FROM public."HostEvidenceTaskSource" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3 AND event_id=$4',[a.user.id,trip,ea.workspace_key,ea.event_id])).rowCount).toBe(0);
   },30000);
+  it("assembles registered Egypt exploration Tasks against real Session and current PG state without delivering a Packet", async () => {
+    const a=await account(),b=await account();
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[trip,a.user.id,b.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers),other=await host.createWorkspace(trip,b.headers);
+    const key=await host.mintTaskKey(ticket,a.headers,"egypt-task"), firstText="想去埃及";
+    const first=await host.record(ticket,a.headers,{entry:"dialogue",text:firstText,idempotency_key:`egypt_${randomUUID()}`});
+    const task={task_key:key,question:firstText,kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(firstText).length,quote:firstText}],progress:"open",progress_evidence:null};
+    const firstInput={expected_revision:0,tasks:[task],focus_keys:[key]};
+    const firstTurn=await host.registerTaskIdentity(ticket,a.headers,first,firstInput);
+    const candidate=await host.inspectLivePacketCandidate(ticket,a.headers,firstTurn.turn_id,key,4096,firstInput);
+    expect(candidate).toEqual({state_revision:0,selected_count:0,body_count:0,deferred_count:0,coverage:"complete"});
+    expect(JSON.stringify(candidate)).not.toContain(firstText);
+    await expect(host.inspectLivePacketCandidate(ticket,b.headers,firstTurn.turn_id,key,4096,firstInput)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(host.inspectLivePacketCandidate(other,b.headers,firstTurn.turn_id,key,4096,firstInput)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    const forged={...firstInput,tasks:[{...task,question:"伪造"}]};
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,firstTurn.turn_id,key,4096,forged)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    const secondText="还想了解阿斯旺";
+    const second=await host.record(ticket,a.headers,{entry:"dialogue",text:secondText,idempotency_key:`egypt_${randomUUID()}`});
+    const nextTask={...task,question:secondText,relation:"continue",evidence:[{start:0,end:Array.from(secondText).length,quote:secondText}]};
+    const nextInput={expected_revision:0,tasks:[nextTask],focus_keys:[key]};
+    const next=await host.registerTaskIdentity(ticket,a.headers,second,nextInput);
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,firstTurn.turn_id,key,4096,firstInput)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    expect(await host.inspectLivePacketCandidate(ticket,a.headers,next.turn_id,key,4096,nextInput)).toMatchObject({state_revision:0,selected_count:0});
+    const prior=(await owner.query<{recorded_at:Date}>('SELECT recorded_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[first.event_id])).rows[0].recorded_at;
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '180 days' WHERE event_id=$1`,[first.event_id]);
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,next.turn_id,key,4096,nextInput)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    await owner.query('UPDATE public."HostEvidenceEvent" SET recorded_at=$2 WHERE event_id=$1',[first.event_id,prior]);
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,a.user.id]);
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,next.turn_id,key,4096,nextInput)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const cap=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,first.workspace_key])).rows[0].capability_token;
+    const watcher=new Client({connectionString:config!.migrationUrl}); await watcher.connect();
+    const pid=(await owner.query<{pid:number}>('SELECT pg_backend_pid() AS pid')).rows[0].pid;
+    await owner.query('BEGIN'); let committed=false;
+    try {
+      await owner.query('SELECT 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3 FOR UPDATE',[a.user.id,trip,first.workspace_key]);
+      const pending=host.inspectLivePacketCandidate(ticket,a.headers,next.turn_id,key,4096,nextInput).then(()=>"unexpected",(error:{code?:string})=>error.code); let blocked=false;
+      for(let i=0;i<100;i++) {
+        const row=await watcher.query<{blocked:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_evidence_for_turn_candidate%') AS blocked",[pid]);
+        if(row.rows[0].blocked){blocked=true;break;} await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      expect(blocked).toBe(true);
+      const deleted=await owner.query('SELECT * FROM public.host_checkpoint_delete_event_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,first.workspace_key,cap,first.event_id]);
+      expect(deleted.rows).toMatchObject([{disposition:"deleted"}]);
+      await owner.query('COMMIT'); committed=true;
+      expect(await pending).toBe("EVIDENCE_UNAVAILABLE");
+    } finally { if(!committed) await owner.query('ROLLBACK'); await watcher.end(); }
+    await host.deleteEvent(ticket,a.headers,first.event_id);
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,next.turn_id,key,4096,nextInput)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+  },30000);
+  it("selects a real PG-held Egypt fixture for a registered target without business writes", async () => {
+    const egyptTrip=`trip_egypt_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(egyptTrip,await issueInternalCapability(secret,egyptTrip,{role:"system",id:"egypt-fixture"}));
+    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[egyptTrip]);
+    const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[egyptTrip,a.user.id]);
+    const aswan=structuredClone(base.objects.find(item=>item.id==="aswan")!); aswan.trip_id=egyptTrip;
+    const egypt=structuredClone(base.objects.find(item=>item.id==="egypt")!); egypt.trip_id=egyptTrip;
+    // Owner fixture: this is synthetic destination data, not a supplier or
+    // an accepted TS write. The Packet path must only read this held state.
+    await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}',$2::jsonb) WHERE "tripId"=$1`,[egyptTrip,JSON.stringify([egypt,aswan])]);
+    const before=(await owner.query<{snapshot:unknown;revision:string}>('SELECT snapshot,"revision" FROM public."TripStateDocument" WHERE "tripId"=$1',[egyptTrip])).rows[0];
+    const ticket=await host.createWorkspace(egyptTrip,a.headers),key=await host.mintTaskKey(ticket,a.headers,"aswan-task");
+    const text="了解阿斯旺",event=await host.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`aswan_${randomUUID()}`});
+    const task={task_key:key,question:text,kind:"explore",target_ids:["aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null};
+    const input={expected_revision:0,tasks:[task],focus_keys:[key]};
+    const turn=await host.registerTaskIdentity(ticket,a.headers,event,input);
+    expect(await host.inspectLivePacketCandidate(ticket,a.headers,turn.turn_id,key,4096,input)).toEqual({state_revision:0,selected_count:1,body_count:1,deferred_count:0,coverage:"complete"});
+    expect((await owner.query<{snapshot:unknown;revision:string}>('SELECT snapshot,"revision" FROM public."TripStateDocument" WHERE "tripId"=$1',[egyptTrip])).rows[0]).toEqual(before);
+    await owner.query(`UPDATE public."TripStateDocument" SET "revision"=1,snapshot=jsonb_set(snapshot,'{revision}','1'::jsonb) WHERE "tripId"=$1`,[egyptTrip]);
+    await owner.query('UPDATE public."HostEvidenceTripLifecycle" SET source_revision=1 WHERE trip_id=$1',[egyptTrip]);
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,turn.turn_id,key,4096,input)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    await host.disposeWorkspace(ticket);
+  },30000);
   it("atomically records verified scene events and serializes their removal with deletion", async () => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
     const ticket=await host.createWorkspace(trip,a.headers);
