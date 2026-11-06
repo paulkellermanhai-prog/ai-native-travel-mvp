@@ -6,7 +6,7 @@
   "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
   "accepted_weight_percent": 33,
   "submitted_weight_percent": 0,
-  "scope": "E03-02 accepted at fixed PR #18 head; E03-03 limited parallel authorization only; no automatic production Task, pagination, E11 or later stages",
+  "scope": "E03-02 accepted at fixed PR #18 head; E03-03–07 parallel implementation released with actual dependency and production boundaries; accepted weight remains 33%",
   "stages": [
     {
       "id": "E03-00",
@@ -165,13 +165,12 @@
       ],
       "evidence": [],
       "execution_location": "独立工作区本地候选 8b3c0c4313dd3962ce81f143cb97ae81fd006882 基于授权 G；尚无远程 PR、真实 PostgreSQL CI 或阶段验收",
-      "responsibilities": "E03-02／PR #18 主实施与集成执行者负责 AGENTS、唯一看板、授权及共享接口；独立 E03-03 执行者负责获准纯函数、合成测试和专属交接",
+      "responsibilities": "主集成人负责真实 Turn/Task 宿主、E11、共享接口及单一集成；原03任务负责 task-core 与 packet-core",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "仅 -1/-2 的有限纯函数与合成测试已形成本地候选；直接锁源 R6 逐规则对照、真实 PostgreSQL 全量 CI 和正式审核待完成",
-        "独立只读发现 received_at 第七位小数边界与 R6 有差异；须以同输入原参考回归并经技术负责人明确处置，不能直接认定等价",
-        "自动审批曾拒绝向 GitHub 目标仓库上传该独立候选，当前未创建 PR；不得绕过该拒绝",
-        "生产 Task 接线仍须明确授权；-3 分页与 -4 真实 E11 继续按对应前置等待"
+        "原03候选 received_at 第七位差异须锁源 R6 对照或技术裁定，仅阻断相关时间路径等价",
+        "任务关联须真实 Task 归属；实际写桥须可信 Packet 与交付记录；E11 生产启用仍须对应条件",
+        "旧候选 GitHub 上传曾遭自动审批拒绝，不绕过该拒绝"
       ]
     },
     {
@@ -198,11 +197,11 @@
         }
       ],
       "evidence": [],
-      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
-      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "execution_location": "基于 450f994 的隔离并行工作区；授权已放行，具体实施与验证状态待执行者报告",
+      "responsibilities": "04/07 写桥及 HTTP 任务，05/06 保存恢复任务；共享文件、迁移链和单一集成由主集成人维护",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+        "真实写桥接线等待当前 Turn/Task/Packet、精确授权和事务内复验；TS 适配无需等待05/06"
       ]
     },
     {
@@ -229,11 +228,11 @@
         }
       ],
       "evidence": [],
-      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
-      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "execution_location": "基于 450f994 的隔离并行工作区；授权已放行，具体实施与验证状态待执行者报告",
+      "responsibilities": "04/07 写桥及 HTTP 任务，05/06 保存恢复任务；共享文件、迁移链和单一集成由主集成人维护",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+        "真实运行现场采集等待03，E11副本协调等待删除屏障；PG Repository 可独立实现"
       ]
     },
     {
@@ -265,11 +264,11 @@
         }
       ],
       "evidence": [],
-      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
-      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "execution_location": "基于 450f994 的隔离并行工作区；授权已放行，具体实施与验证状态待执行者报告",
+      "responsibilities": "04/07 写桥及 HTTP 任务，05/06 保存恢复任务；共享文件、迁移链和单一集成由主集成人维护",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+        "完整恢复等待实际存储、任务注册和当前权限；涉及原话须 E11 删除/到期屏障；不等待04"
       ]
     },
     {
@@ -301,11 +300,11 @@
         }
       ],
       "evidence": [],
-      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
-      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "execution_location": "基于 450f994 的隔离并行工作区；授权已放行，具体实施与验证状态待执行者报告",
+      "responsibilities": "04/07 写桥及 HTTP 任务，05/06 保存恢复任务；共享文件、迁移链和单一集成由主集成人维护",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "前置阶段尚未开发/验收；不是新增产品资料缺口"
+        "各端点联测等待自身真实服务；完整 Gate 等待全链路与真实 HTTP/PG/新进程证据"
       ]
     }
   ],
@@ -317,6 +316,17 @@
       "subtask_ids": [
         "E03-03-1",
         "E03-03-2"
+      ]
+    },
+    {
+      "stage_id": "E03-03",
+      "description": "按实际依赖并行实现指定核心、真实PG存储与HTTP适配；尚缺可信证明或删除屏障的接线关闭，不构成阶段验收",
+      "approval_evidence": "工程侧｜MVP开发计划 AI 技术负责人，E03-03-07-PARALLEL-TECH-RELEASE-2026-11-06-01；docs/E03-03-07并行技术放行回执-2026-11-06.md",
+      "subtask_ids": [
+        "E03-03-1",
+        "E03-03-2",
+        "E03-03-3",
+        "E03-03-4"
       ]
     }
   ],
