@@ -74,7 +74,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           OR has_table_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
           OR has_any_column_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')) OR EXISTS (
         SELECT 1 FROM pg_proc f JOIN pg_namespace n ON n.oid=f.pronamespace CROSS JOIN principals p
-        WHERE n.nspname='public' AND f.proname IN ('host_evidence_delete_candidate','host_evidence_cleanup_candidate')
+        WHERE n.nspname='public' AND f.proname IN ('host_evidence_delete_candidate','host_evidence_cleanup_candidate',
+          'host_checkpoint_expire_event_candidate','host_checkpoint_expire_batch_candidate')
           AND (f.proowner=p.oid OR has_function_privilege(p.oid,f.oid,'EXECUTE'))) AS denied`;
     // Checkpoint primitives are not E11-safe yet, including their Session
     // wrappers. Do not start this host under a role that can bypass the E11

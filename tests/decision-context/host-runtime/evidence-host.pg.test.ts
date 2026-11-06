@@ -9,6 +9,7 @@ import { openIdentity, type Identity } from "../../../src/server/auth/config";
 import { openEvidenceHost, type ControlledInterpreter } from "../../../src/server/decision-context/host-runtime/evidence-host";
 import { createPacketHttpCandidate } from "../../../src/server/decision-context/host-runtime/packet-http-candidate";
 import { createSameOriginE03Gateway } from "../../../src/server/decision-context/host-runtime/same-origin-gateway-candidate";
+import { runEvidenceMaintenanceCandidate } from "../../../src/server/decision-context/host-runtime/expiry-maintenance-candidate";
 import { createPacketSocketDeliveryCandidate } from "../../../src/server/decision-context/host-runtime/packet-socket-delivery-candidate";
 import { createShortPacketHandoffCandidate } from "../../../src/server/decision-context/host-runtime/packet-short-handoff-candidate";
 import type { PacketCandidate } from "../../../src/server/decision-context/packet-core/packet";
@@ -68,7 +69,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   afterAll(async () => {
     await host?.close(); await internal?.close(); await identity?.close(); await runtime?.end();
     if (created) {
-      await owner.query('DROP FUNCTION public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,BOOLEAN), public.host_checkpoint_view_valid_candidate(TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
+      await owner.query('DROP FUNCTION public.host_checkpoint_expire_batch_candidate(BIGINT,INTEGER), public.host_checkpoint_expire_event_candidate(TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,BOOLEAN), public.host_checkpoint_view_valid_candidate(TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
       await owner.query('DROP FUNCTION public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
       await owner.query('DROP TABLE public."HostEvidenceSceneEventWitness", public."HostEvidenceScene", public."HostEvidenceTaskKey", public."HostEvidenceTaskSource", public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
     }
@@ -184,11 +185,74 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     await host.registerTaskIdentity(ticket,a.headers,related,{expected_revision:0,tasks:[task(nextText,"continue")],focus_keys:[key]});
     await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '181 days' WHERE event_id=$1`,[first.event_id]);
     expect(await read()).toBe(true);
+    expect((await owner.query<{disposition:string}>('SELECT public.host_checkpoint_expire_event_candidate($1) AS disposition',[first.event_id])).rows[0].disposition).toBe("retained");
     await owner.query(`UPDATE public."HostEvidenceEvent" SET deleted_at=clock_timestamp() WHERE event_id=$1`,[related.event_id]);
     expect(await read()).toBe(false); // a deleted peer cannot renew the old source
     await owner.query(`UPDATE public."HostEvidenceEvent" SET deleted_at=NULL WHERE event_id=$1`,[related.event_id]);
     await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '13 months' WHERE event_id=$1`,[first.event_id]);
     expect(await read()).toBe(false); // the event's own twelve-month cap remains absolute
+    expect((await owner.query<{disposition:string}>('SELECT public.host_checkpoint_expire_event_candidate($1) AS disposition',[first.event_id])).rows[0].disposition).toBe("expired");
+  },30000);
+  it("marks natural expiry before physical cleanup and invalidates a live host across the database boundary",async()=>{
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers),key=await host.mintTaskKey(ticket,a.headers,"expiry-maintenance-task");
+    const text="阿斯旺原话",event=await host.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`expiry_maintenance_${randomUUID()}`});
+    const task={task_key:key,question:text,kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null};
+    const input={expected_revision:0,tasks:[task],focus_keys:[key]};
+    const turn=await host.registerTaskIdentity(ticket,a.headers,event,input);
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,turn.turn_id,key,4096,input)).resolves.toMatchObject({state_revision:0});
+    await expect(runtime.query('SELECT public.host_checkpoint_expire_event_candidate($1)',[event.event_id])).rejects.toThrow();
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '181 days' WHERE event_id=$1`,[event.event_id]);
+    const scope=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rows[0].capability_token;
+    const token=(await owner.query<{key_token:string}>('SELECT key_token FROM public."HostEvidenceEvent" WHERE event_id=$1',[event.event_id])).rows[0].key_token;
+    const read=async()=> (await runtime.query<{allowed:boolean}>('SELECT allowed FROM public.host_evidence_for_turn_candidate($1,$2,$3,$4,$5,$6,$7,FALSE)',[a.session.session.id,a.user.id,trip,event.workspace_key,scope,event.event_id,token])).rows[0].allowed;
+    expect(await read()).toBe(false); // strict DB-clock stop-read precedes the scheduled sweep
+    const scanned=await owner.query<{out_sequence:string;out_event_id:string;disposition:string}>('SELECT * FROM public.host_checkpoint_expire_batch_candidate($1,$2)',[event.sequence-1,1]);
+    expect(scanned.rows).toEqual([{out_sequence:String(event.sequence),out_event_id:event.event_id,disposition:"expired"}]);
+    expect((await owner.query('SELECT body,deleted_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[event.event_id])).rows[0]).toMatchObject({body:text,deleted_at:expect.any(Date)});
+    expect((await owner.query('SELECT completed_at,cutoff_sequence FROM public."HostEvidenceCleanup" WHERE event_id=$1',[event.event_id])).rows[0]).toMatchObject({completed_at:null,cutoff_sequence:String(event.sequence)});
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,turn.turn_id,key,4096,input)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    expect(await read()).toBe(false);
+    await owner.query('SELECT public.host_evidence_cleanup_candidate($1)',[event.event_id]);
+    expect((await owner.query('SELECT body,input_digest,session_ref FROM public."HostEvidenceEvent" WHERE event_id=$1',[event.event_id])).rows[0]).toEqual({body:null,input_digest:null,session_ref:null});
+    expect((await owner.query('SELECT completed_at FROM public."HostEvidenceCleanup" WHERE event_id=$1',[event.event_id])).rows[0].completed_at).toBeInstanceOf(Date);
+    expect((await owner.query<{disposition:string}>('SELECT public.host_checkpoint_expire_event_candidate($1) AS disposition',[event.event_id])).rows[0].disposition).toBe("already_deleted");
+  },30000);
+  it("uses a matching trusted trip lifecycle for the thirty-day expiry cutoff",async()=>{
+    const t=`trip_expiry_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"expiry-test"}));
+    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle"(trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[t,a.user.id]);
+    const ticket=await host.createWorkspace(t,a.headers),event=await host.record(ticket,a.headers,{entry:"dialogue",text:"旅行原话",idempotency_key:`trip_expiry_${randomUUID()}`});
+    await owner.query(`UPDATE public."HostEvidenceTripLifecycle" SET source_revision=1,ended_at=clock_timestamp()-interval '31 days' WHERE trip_id=$1`,[t]);
+    expect((await owner.query<{disposition:string}>('SELECT public.host_checkpoint_expire_event_candidate($1) AS disposition',[event.event_id])).rows[0].disposition).toBe("retained");
+    await owner.query('UPDATE public."HostEvidenceTripLifecycle" SET source_revision=0 WHERE trip_id=$1',[t]);
+    expect((await owner.query<{disposition:string}>('SELECT public.host_checkpoint_expire_event_candidate($1) AS disposition',[event.event_id])).rows[0].disposition).toBe("expired");
+    const row=(await owner.query<{deleted_at:Date;completed_at:Date|null}>('SELECT e.deleted_at,c.completed_at FROM public."HostEvidenceEvent" e JOIN public."HostEvidenceCleanup" c USING(event_id) WHERE e.event_id=$1',[event.event_id])).rows[0];
+    expect(row.deleted_at).toBeInstanceOf(Date);expect(row.completed_at).toBeNull();
+  },30000);
+  it("runs a bounded maintenance pass with separate durable marker and physical cleanup statements",async()=>{
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers),event=await host.record(ticket,a.headers,{entry:"dialogue",text:"自动清理原话",idempotency_key:`auto_expiry_${randomUUID()}`});
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '181 days' WHERE event_id=$1`,[event.event_id]);
+    await owner.query(`CREATE FUNCTION public.e11_cleanup_failure_test() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN
+      IF NEW.event_id=current_setting('e11.cleanup_test_event',true) AND NEW.body IS NULL THEN RAISE EXCEPTION 'injected cleanup failure'; END IF;
+      RETURN NEW; END $$`);
+    await owner.query('CREATE TRIGGER e11_cleanup_failure_test BEFORE UPDATE ON public."HostEvidenceEvent" FOR EACH ROW EXECUTE FUNCTION public.e11_cleanup_failure_test()');
+    try {
+      await owner.query("SELECT set_config('e11.cleanup_test_event',$1,FALSE)",[event.event_id]);
+      const failed=await runEvidenceMaintenanceCandidate(owner,event.sequence-1,1);
+      expect(failed).toMatchObject({scanned:1,expired:1,cleaned:0,cleanupFailed:1,nextSequence:event.sequence});
+      expect((await owner.query('SELECT body,deleted_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[event.event_id])).rows[0]).toMatchObject({body:"自动清理原话",deleted_at:expect.any(Date)});
+    } finally {
+      await owner.query('DROP TRIGGER e11_cleanup_failure_test ON public."HostEvidenceEvent"');
+      await owner.query('DROP FUNCTION public.e11_cleanup_failure_test()');
+    }
+    const retried=await runEvidenceMaintenanceCandidate(owner,event.sequence,256);
+    expect(retried.expired).toBe(0);expect(retried.cleaned).toBeGreaterThanOrEqual(1);expect(retried.cleanupFailed).toBe(0);
+    const row=(await owner.query<{body:string|null;deleted_at:Date;completed_at:Date}>('SELECT e.body,e.deleted_at,c.completed_at FROM public."HostEvidenceEvent" e JOIN public."HostEvidenceCleanup" c USING(event_id) WHERE e.event_id=$1',[event.event_id])).rows[0];
+    expect(row).toMatchObject({body:null,deleted_at:expect.any(Date),completed_at:expect.any(Date)});
+    expect((await runEvidenceMaintenanceCandidate(owner,event.sequence-1,1)).expired).toBe(0);
   },30000);
   it("rechecks deletion revision after waiting for the workspace lock", async () => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);

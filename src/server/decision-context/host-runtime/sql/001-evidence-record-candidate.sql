@@ -318,8 +318,15 @@ REVOKE ALL ON FUNCTION public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT
 -- leaves the committed deletion marker and pending job intact.
 CREATE FUNCTION public.host_evidence_cleanup_candidate(p_event TEXT) RETURNS BOOLEAN
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-DECLARE c public."HostEvidenceCleanup"%ROWTYPE;
+DECLARE c public."HostEvidenceCleanup"%ROWTYPE; e public."HostEvidenceEvent"%ROWTYPE;
 BEGIN
+  -- Match deletion/expiry lock order before touching the cleanup job. A
+  -- concurrent retry must not deadlock by holding the job before the event.
+  SELECT * INTO e FROM public."HostEvidenceEvent" WHERE event_id=p_event;
+  IF NOT FOUND THEN RETURN FALSE; END IF;
+  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=e.owner_id AND trip_id=e.trip_id
+    AND workspace_key=e.workspace_key FOR UPDATE;
+  IF NOT FOUND THEN RETURN FALSE; END IF;
   SELECT * INTO c FROM public."HostEvidenceCleanup" WHERE event_id=p_event FOR UPDATE;
   IF NOT FOUND THEN RETURN FALSE; END IF;
   IF c.completed_at IS NOT NULL THEN RETURN TRUE; END IF;

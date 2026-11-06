@@ -311,3 +311,90 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
+
+-- Maintenance-only natural expiry. It uses the same workspace/Checkpoint lock
+-- order as an active deletion, and persists a tombstone before a separate
+-- physical cleanup transaction. No Session is needed for a retention job.
+-- This candidate must be called by a privileged maintenance worker only.
+CREATE FUNCTION public.host_checkpoint_expire_event_candidate(p_event TEXT)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
+DECLARE hint public."HostEvidenceEvent"%ROWTYPE; e public."HostEvidenceEvent"%ROWTYPE;
+  l public."HostEvidenceTripLifecycle"%ROWTYPE; v_revision BIGINT; v_highwater BIGINT;
+  related_at TIMESTAMPTZ; deadline TIMESTAMPTZ; checked_at TIMESTAMPTZ;
+BEGIN
+  SELECT * INTO hint FROM public."HostEvidenceEvent" WHERE event_id=p_event;
+  IF NOT FOUND THEN RETURN 'missing'; END IF;
+  SELECT "revision" INTO v_revision FROM public."TripStateDocument" WHERE "tripId"=hint.trip_id FOR SHARE;
+  IF NOT FOUND THEN RETURN 'unavailable'; END IF;
+  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=hint.owner_id AND trip_id=hint.trip_id
+    AND workspace_key=hint.workspace_key FOR UPDATE;
+  IF NOT FOUND THEN RETURN 'unavailable'; END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('user-'||hint.owner_id,hint.trip_id,hint.workspace_key)::text,0));
+  PERFORM 1 FROM e03_checkpoint.heads WHERE owner_id='user-'||hint.owner_id AND trip_id=hint.trip_id
+    AND workspace=hint.workspace_key FOR UPDATE;
+  SELECT * INTO e FROM public."HostEvidenceEvent" WHERE event_id=p_event AND owner_id=hint.owner_id
+    AND trip_id=hint.trip_id AND workspace_key=hint.workspace_key FOR UPDATE;
+  IF NOT FOUND THEN RETURN 'unavailable'; END IF;
+  IF e.deleted_at IS NOT NULL THEN RETURN 'already_deleted'; END IF;
+  SELECT * INTO l FROM public."HostEvidenceTripLifecycle" WHERE trip_id=e.trip_id AND source_revision=v_revision FOR SHARE;
+  SELECT MAX(peer_event.recorded_at) INTO related_at
+    FROM public."HostEvidenceTaskSource" anchor
+    JOIN public."HostEvidenceTaskSource" peer ON peer.owner_id=anchor.owner_id AND peer.trip_id=anchor.trip_id
+      AND peer.workspace_key=anchor.workspace_key AND peer.task_token=anchor.task_token
+    JOIN public."HostEvidenceEvent" peer_event ON peer_event.event_id=peer.event_id
+      AND peer_event.owner_id=peer.owner_id AND peer_event.trip_id=peer.trip_id AND peer_event.workspace_key=peer.workspace_key
+    WHERE anchor.owner_id=e.owner_id AND anchor.trip_id=e.trip_id AND anchor.workspace_key=e.workspace_key
+      AND anchor.event_id=e.event_id AND peer_event.deleted_at IS NULL AND peer_event.recorded_at<=clock_timestamp();
+  related_at:=GREATEST(e.recorded_at,COALESCE(related_at,e.recorded_at));
+  deadline:=LEAST(related_at+interval '180 days',e.recorded_at+interval '12 months',
+    CASE WHEN l.trip_id IS NOT NULL AND l.ended_at IS NOT NULL AND l.ended_at<=clock_timestamp()
+      THEN l.ended_at+interval '30 days' ELSE 'infinity'::timestamptz END);
+  checked_at:=clock_timestamp();
+  IF e.recorded_at>checked_at OR checked_at<deadline THEN RETURN 'retained'; END IF;
+  UPDATE public."HostEvidenceWorkspace" SET retention_revision=retention_revision+1
+    WHERE owner_id=e.owner_id AND trip_id=e.trip_id AND workspace_key=e.workspace_key;
+  UPDATE public."HostEvidenceEvent" SET deleted_at=checked_at WHERE event_id=e.event_id;
+  INSERT INTO public."HostEvidenceCleanup"(event_id,deletion_revision,requested_at)
+    SELECT e.event_id,retention_revision,checked_at FROM public."HostEvidenceWorkspace"
+    WHERE owner_id=e.owner_id AND trip_id=e.trip_id AND workspace_key=e.workspace_key;
+  -- Unknown free-text provenance makes the workspace scene and prior Task
+  -- associations unsafe after one source expires. Later independent events
+  -- remain in the store, but earlier candidate context is invalidated.
+  DELETE FROM public."HostEvidenceScene" WHERE owner_id=e.owner_id AND trip_id=e.trip_id AND workspace_key=e.workspace_key;
+  DELETE FROM e03_checkpoint.receipts WHERE owner_id='user-'||e.owner_id AND trip_id=e.trip_id AND workspace=e.workspace_key;
+  UPDATE e03_checkpoint.heads SET payload=NULL,payload_digest=NULL,deleted=TRUE
+    WHERE owner_id='user-'||e.owner_id AND trip_id=e.trip_id AND workspace=e.workspace_key;
+  DELETE FROM public."HostEvidenceTaskSource" WHERE owner_id=e.owner_id AND trip_id=e.trip_id AND workspace_key=e.workspace_key;
+  DELETE FROM public."HostEvidenceTaskKey" WHERE owner_id=e.owner_id AND trip_id=e.trip_id AND workspace_key=e.workspace_key;
+  SELECT COALESCE(MAX(sequence),0) INTO v_highwater FROM public."HostEvidenceEvent"
+    WHERE owner_id=e.owner_id AND trip_id=e.trip_id AND workspace_key=e.workspace_key;
+  UPDATE public."HostEvidenceWorkspace" SET invalid_before_sequence=GREATEST(invalid_before_sequence,v_highwater)
+    WHERE owner_id=e.owner_id AND trip_id=e.trip_id AND workspace_key=e.workspace_key;
+  UPDATE public."HostEvidenceCleanup" SET cutoff_sequence=v_highwater WHERE event_id=e.event_id;
+  RETURN 'expired';
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_checkpoint_expire_event_candidate(TEXT) FROM PUBLIC;
+
+-- Bounded cursor for one external maintenance sweep. Each later sweep must
+-- restart at zero so previously retained events are reconsidered at expiry;
+-- HostEvidenceCleanup jobs are retried in separate transactions. No timer or
+-- production maintenance credential is installed by this candidate.
+CREATE FUNCTION public.host_checkpoint_expire_batch_candidate(p_after BIGINT,p_limit INTEGER)
+RETURNS TABLE(out_sequence BIGINT,out_event_id TEXT,disposition TEXT)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+DECLARE item RECORD;
+BEGIN
+  IF p_after IS NULL OR p_after<0 OR p_limit IS NULL OR p_limit<1 OR p_limit>256 THEN
+    RAISE EXCEPTION 'invalid maintenance batch' USING ERRCODE='22023';
+  END IF;
+  FOR item IN SELECT sequence,event_id FROM public."HostEvidenceEvent"
+    WHERE sequence>p_after AND deleted_at IS NULL ORDER BY sequence LIMIT p_limit LOOP
+    out_sequence:=item.sequence;
+    out_event_id:=item.event_id;
+    disposition:=public.host_checkpoint_expire_event_candidate(item.event_id);
+    RETURN NEXT;
+  END LOOP;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_checkpoint_expire_batch_candidate(BIGINT,INTEGER) FROM PUBLIC;
