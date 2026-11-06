@@ -138,4 +138,22 @@ describe.skipIf(!run)("E03 checkpoint isolated PostgreSQL repository candidate",
       expect(await repo.save(s,0,"initial",sample,now)).toEqual(initial);
     } finally { await locker.query("ROLLBACK").catch(() => undefined); locker.release(); }
   }, 15000);
+  it("rejects a save whose deadline passes while an administrative row lock is held", async () => {
+    const s = scope(), repo = new PgCheckpointRepository(runtime,2);
+    const initial = await repo.save(s,0,"initial-row-lock",sample,now);
+    const locker = await admin.connect();
+    try {
+      await locker.query("BEGIN");
+      const pid = (await locker.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+      await locker.query("SELECT revision FROM e03_checkpoint.heads WHERE owner_id=$1 AND trip_id=$2 AND workspace=$3 FOR UPDATE",[s.owner,s.trip,s.workspace]);
+      const pending = repo.save(s,1,"after-row-lock",sample,now).then((value) => ({value}), (error) => ({error}));
+      await waitFor(async () => (await admin.query<{waiting:boolean}>(
+        "SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock' AND $2=ANY(pg_blocking_pids(pid)) AND query LIKE '%write_scene%') AS waiting",[role,pid])).rows[0].waiting,"checkpoint row lock");
+      await waitFor(() => expiredAt(initial.expires_at!),"checkpoint deadline while row is locked");
+      await locker.query("COMMIT");
+      expect(await pending).toMatchObject({error:{code:"CHECKPOINT_EXPIRED"}});
+      expect(await repo.revision(s,now)).toBe(1);
+      expect(await repo.save(s,0,"initial-row-lock",sample,now)).toEqual(initial);
+    } finally { await locker.query("ROLLBACK").catch(() => undefined); locker.release(); }
+  },15000);
 });
