@@ -258,11 +258,13 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
         const invalid = await http("POST", `/trips/${trip}/restorations/preview`, numericBody(version, position), a);
         assert.equal(invalid.status, 422); assert.equal(invalid.body.errors[0].code, "INTEGER_REPRESENTATION"); assert.equal("request" in invalid.body, false);
         assert.equal(await fingerprint(), beforeHistoricalPreview);
+        evidence.push({ scenario: "UX02-R2 invalid synthetic numeric tokens", source_version_token: version, insert_at_token: position, status: invalid.status, code: invalid.body.errors[0].code, four_table_fingerprint_unchanged: true });
       }
       for (const [version, position, expected] of [["1.0", "1.0", 1], ["1e0", "2e0", 2], ["1", "0e999", 0]] as const) {
         const legal = await http("POST", `/trips/${trip}/restorations/preview`, numericBody(version, position), a);
         assert.equal(legal.status, 200); assert.equal(legal.body.request.commands[0].data.stops[expected].entity_id, "aswan");
         assert.equal(await fingerprint(), beforeHistoricalPreview);
+        evidence.push({ scenario: "UX02-R2 valid synthetic numeric tokens", source_version_token: version, insert_at_token: position, status: legal.status, expected_position: expected, four_table_fingerprint_unchanged: true });
       }
       const integerButMissing = await http("POST", `/trips/${trip}/restorations/preview`, numericBody("1e2", "1"), a);
       assert.equal(integerButMissing.status, 422); assert.equal(integerButMissing.body.errors[0].code, "RESTORE_SOURCE_VERSION");
