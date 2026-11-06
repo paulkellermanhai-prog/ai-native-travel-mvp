@@ -6,11 +6,13 @@ import { conditionValue } from "../../src/server/trip-state/conditions";
 import type { State } from "../../src/server/trip-state/contracts.generated";
 import { base, object, change } from "../support/bcg-fixtures";
 import { clock, uuids, oracle, traces, type Audit } from "../support/command-fixtures";
+
+const approvedSource = "specs/ts-ac8-stage-a-2026-11-03/trip-state-schema-v0.1/90_可运行工程包";
 import { ingest, booking, cancellation, factActors as actors, factSegments, type FactResult, type FactOperation, type Ingest } from "../support/fact-fixtures";
 
 const evidence: unknown[] = [];
 function compare(initial: State, operations: FactOperation[], uuidStart = 3000) {
-  const python = oracle<FactResult[]>({ initial, operations, uuidStart }), uuid = uuids(uuidStart), audit: Audit = { intents: [], changes: [] }, actual: FactResult[] = [];
+  const python = oracle<FactResult[]>({ initial, operations, uuidStart }, approvedSource), uuid = uuids(uuidStart), audit: Audit = { intents: [], changes: [] }, actual: FactResult[] = [];
   let state = structuredClone(initial);
   for (const [i, op] of operations.entries()) {
     let response;
