@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { assembleContextSnapshot } from "../../../src/server/decision-context/context-assembly";
-import { buildPacketCandidate, preparePage, recordDelivery } from "../../../src/server/decision-context/packet-core/packet";
+import { buildPacketCandidate, emptyDeliveryLedger, preparePage, recordDelivery } from "../../../src/server/decision-context/packet-core/packet";
 import type { State } from "../../../src/server/trip-state/contracts.generated";
 import type { DecisionContextContracts } from "../../../src/server/decision-context/contracts";
 
@@ -50,7 +50,7 @@ describe("R6 packet budget and page reference",()=>{
    expect(candidate.packet.objects).toEqual(row.objects);
    expect(candidate.packet.deferred_ids).toEqual(row.deferred);
    expect(candidate.packet.coverage).toBe(row.coverage); expect(candidate.packet.support).toBe(row.support);
-   let delivered=recordDelivery(candidate,[],candidate.packet.objects.map(o=>o.id));
+   let delivered=recordDelivery(candidate,emptyDeliveryLedger(candidate),candidate.packet.objects.map(o=>o.id));
    for(let i=0;i<row.pages.length;i++){
     const ids=row.deferred.slice(i*2,i*2+2);
     const page=preparePage(candidate,{runtime_contract_version:"0.1.0",packet_id:"packet-test",object_ids:ids},delivered,{state:output.state,now},{state:output.state,now});

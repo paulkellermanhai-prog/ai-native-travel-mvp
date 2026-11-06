@@ -1,4 +1,4 @@
-import { canonicalJson } from "../../trip-state/command-json";
+import { canonicalJson, digest } from "../../trip-state/command-json";
 import type { State } from "../../trip-state/contracts.generated";
 import { validateContextSnapshot, type ContextAssembly } from "../context-assembly";
 import { parseDCContract, type DecisionContextContracts } from "../contracts";
@@ -11,7 +11,9 @@ type Pending = Packet["pending_input"];
 type Item = Packet["objects"][number];
 
 /** Internal working values, not credentials or proof of ownership/delivery. */
-export type PacketCandidate = { packet: Packet; assembly: ContextAssembly };
+export type PacketCandidate = { packet: Packet; assembly: ContextAssembly; fingerprint: string };
+/** A transport value only: host must privately bind the ledger to session, owner, trip and runtime. */
+export type DeliveryLedger = { packetId: string; deliveredIds: string[] };
 export class PacketCoreError extends Error {
   constructor(readonly code: "TASK_MISMATCH" | "SNAPSHOT_MISMATCH" | "PAGE_SCOPE" | "DELIVERY_SCOPE" | "PACKET_MISMATCH" | "SCENE_STATUS_UNAVAILABLE") {
     super(`Packet core: ${code}`); this.name = "PacketCoreError";
@@ -70,12 +72,15 @@ export function buildPacketCandidate(input: {
     evidence_checked_at: now.toISOString(), snapshot_digest: assembly.snapshot_digest, annotations: assembly.annotations,
     support: complete ? "decision_support" : "information_only", warnings,
   });
-  return { packet: structuredClone(packet), assembly: structuredClone(assembly) };
+  const result = { packet: structuredClone(packet), assembly: structuredClone(assembly) };
+  return { ...result, fingerprint: digest(result) };
 }
 
 /** Detect altered packet bodies/manifest; a valid shape is not an authorization. */
 function checkCandidate(candidate: PacketCandidate): void {
   const packet = parseDCContract("packet", candidate.packet), { assembly } = candidate;
+  // Integrity check detects accidental mutation; a recomputable hash is not a credential.
+  if (typeof candidate.fingerprint !== "string" || candidate.fingerprint !== digest({ packet, assembly })) fail("PACKET_MISMATCH");
   if (!equal(packet.context, assembly.context) || !equal(packet.annotations, assembly.annotations) ||
       packet.snapshot_digest !== assembly.snapshot_digest || packet.task.task_key !== assembly.context.task_id ||
       !equal(sorted(packet.task.target_ids), sorted(assembly.target_ids))) fail("PACKET_MISMATCH");
@@ -87,21 +92,27 @@ function checkCandidate(candidate: PacketCandidate): void {
   const expected = packet.deferred_ids.length === 0 ? "complete" : initial.length ? "layered" : "limited";
   if (packet.coverage !== expected || packet.support !== (expected === "complete" ? "decision_support" : "information_only")) fail("PACKET_MISMATCH");
 }
-function checkedDelivered(candidate: PacketCandidate, delivered: readonly string[]): Set<string> {
-  const result = new Set(delivered), allowed = new Set(candidate.assembly.context.selected_object_ids);
-  if (result.size !== delivered.length || delivered.some(id => !allowed.has(id))) fail("DELIVERY_SCOPE");
+function checkedDelivered(candidate: PacketCandidate, ledger: DeliveryLedger): Set<string> {
+  if (!ledger || ledger.packetId !== candidate.packet.packet_id || !Array.isArray(ledger.deliveredIds)) fail("DELIVERY_SCOPE");
+  const result = new Set(ledger.deliveredIds), allowed = new Set(candidate.assembly.context.selected_object_ids);
+  if (result.size !== ledger.deliveredIds.length || ledger.deliveredIds.some(id => !allowed.has(id))) fail("DELIVERY_SCOPE");
   return result;
 }
-/** A host must retain its own private ledger; caller-supplied IDs are not evidence of actual delivery. */
-export function recordDelivery(candidate: PacketCandidate, delivered: readonly string[], objectIds: readonly string[]): string[] {
+/** Only a trusted host may create and retain a ledger. It is not evidence of actual delivery. */
+export function emptyDeliveryLedger(candidate: PacketCandidate): DeliveryLedger {
+  checkCandidate(candidate);
+  return { packetId: candidate.packet.packet_id, deliveredIds: [] };
+}
+/** Call only after successful delivery, with an authorized private ledger and atomic host update. */
+export function recordDelivery(candidate: PacketCandidate, delivered: DeliveryLedger, objectIds: readonly string[]): DeliveryLedger {
   checkCandidate(candidate);
   const ledger = checkedDelivered(candidate, delivered), allowed = new Set(candidate.assembly.context.selected_object_ids);
   if (objectIds.some(id => !allowed.has(id))) fail("DELIVERY_SCOPE");
   for (const id of objectIds) ledger.add(id);
-  return sorted(ledger);
+  return { packetId: candidate.packet.packet_id, deliveredIds: sorted(ledger) };
 }
 /** Two independently read snapshots are required; host rechecks real Session and ownership around delivery. */
-export function preparePage(candidate: PacketCandidate, requestValue: unknown, delivered: readonly string[],
+export function preparePage(candidate: PacketCandidate, requestValue: unknown, delivered: DeliveryLedger,
   before: { state: State; now: Date }, after: { state: State; now: Date }): Page {
   checkCandidate(candidate);
   const request = parseDCContract("page-request", requestValue);
@@ -117,7 +128,7 @@ export function preparePage(candidate: PacketCandidate, requestValue: unknown, d
     remaining_ids: sorted([...items.keys()].filter(id => !proposed.has(id))), delivery_only_not_model_comprehension: true }));
 }
 /** Revalidates candidate/authority data supplied by the host; this does not authenticate the host or ledger. */
-export function checkConsumption(candidate: PacketCandidate, state: State, now: Date, delivered: readonly string[]): { remainingIds: string[] } {
+export function checkConsumption(candidate: PacketCandidate, state: State, now: Date, delivered: DeliveryLedger): { remainingIds: string[] } {
   checkCandidate(candidate);
   const ledger = checkedDelivered(candidate, delivered);
   validateContextSnapshot(candidate.assembly, state, now);
@@ -129,10 +140,13 @@ export function checkConsumption(candidate: PacketCandidate, state: State, now: 
  * obtain that turn from the authenticated host; this comparison creates no
  * ownership proof, does not register a task and does not authorize delivery.
  */
-export function checkPacketTurn(candidate: PacketCandidate, turnValue: unknown): void {
+export function checkPacketTurn(candidate: PacketCandidate, turnValue: unknown, trustedPendingValue: unknown): void {
   checkCandidate(candidate);
   const turn = parseDCContract("turn", turnValue);
-  if (turn.turn_id !== candidate.packet.turn_id) fail("TASK_MISMATCH");
+  if (turn.turn_id !== candidate.packet.turn_id || turn.revision !== candidate.packet.pending_input.base_revision) fail("TASK_MISMATCH");
+  // Validates the same frozen nested shape; the host must retrieve it from its trusted registry.
+  const trustedPending = parseDCContract("packet", { ...candidate.packet, pending_input: trustedPendingValue }).pending_input;
+  if (!equal(candidate.packet.pending_input, trustedPending)) fail("TASK_MISMATCH");
   const keys = turn.tasks.map(task => task.task_key);
   if (new Set(keys).size !== keys.length) fail("TASK_MISMATCH");
   const task = turn.tasks.find(item => item.task_key === candidate.packet.task.task_key);
