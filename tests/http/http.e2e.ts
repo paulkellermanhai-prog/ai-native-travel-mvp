@@ -1,3 +1,4 @@
+import { parseRestorationHttpResponse } from "../../src/server/trip-state/restoration";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -62,6 +63,7 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
     const response = await fetch(origin + route, { method, headers: h, ...(body === undefined ? {} : { body: typeof body === "string" ? body : JSON.stringify(body) }), redirect: "manual" });
     const text = await response.text(), value = text ? JSON.parse(text) : null;
     if (route.startsWith("/trips/") && method !== "HEAD" && !route.endsWith("/restorations/preview")) parseContract(response.status === 200 && method === "GET" ? route.endsWith("/state") ? "state" : "history" : "response", value);
+    if (route.endsWith("/restorations/preview")) parseRestorationHttpResponse(value, response.status);
     evidence.push({ method, route, status: response.status, body: value }); // Deliberately excludes credentials, cookies and request passwords.
     return { status: response.status, body: value, headers: response.headers };
   }
@@ -235,10 +237,25 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
       const seed = requestAt(4, seedState.revision, crypto.randomUUID());
       seed.commands = [original, { op: "adopt_skeleton", id: original.id, acknowledge_unknowns: true, confirmation_scope: ["cities", "order", "stays", "connections"] }];
       assert.equal((await http("POST", changes, seed, a)).status, 200);
+      // Same persistent candidate identity is revised; restore the specifically selected old version.
+      let historical = await state(); const savedCandidate = createFrom(object(historical, "ux02-original", "Skeleton"), "ux02-versioned");
+      assert(savedCandidate.op === "create" && savedCandidate.object_type === "Skeleton");
+      const saveCandidate = requestAt(4, historical.revision, crypto.randomUUID()); saveCandidate.commands = [savedCandidate];
+      assert.equal((await http("POST", changes, saveCandidate, a)).status, 200); historical = await state();
+      const v1 = object(historical, "ux02-versioned", "Skeleton"), previousVersion = v1.version, oldStops = structuredClone(v1.stops), newStops = structuredClone(oldStops);
+      newStops[newStops.length - 1].nights = 2;
+      const revise = requestAt(4, historical.revision, crypto.randomUUID()); revise.commands = [{ op: "revise", object_type: "Skeleton", id: v1.id, changes: { stops: newStops } }];
+      assert.equal((await http("POST", changes, revise, a)).status, 200); historical = await state();
+      const beforeHistoricalPreview = await fingerprint();
+      const historicPreview = await http("POST", `/trips/${trip}/restorations/preview`, { source_id: v1.id, source_version: previousVersion, new_id: "historic-restore", expected_revision: historical.revision, idempotency_key: crypto.randomUUID(), input: { kind: "dialogue", reference: "historical-v1", text: "恢复旧版", target_ids: [] }, reason: "历史版本恢复", acknowledge_unknowns: true }, a);
+      assert.equal(historicPreview.status, 200); assert.deepEqual(historicPreview.body.request.commands[0].data.stops, oldStops);
+      assert.match(historicPreview.body.request.reason, new RegExp(`version=${previousVersion}`)); assert.equal(await fingerprint(), beforeHistoricalPreview);
+      const unavailable = await http("POST", `/trips/${trip}/restorations/preview`, { source_id: v1.id, source_version: 9999, new_id: "missing-version", expected_revision: historical.revision, idempotency_key: crypto.randomUUID(), input: { kind: "dialogue", reference: "missing", text: "恢复", target_ids: [] }, reason: "恢复", acknowledge_unknowns: true }, a);
+      assert.equal(unavailable.status, 422); assert.equal(unavailable.body.errors[0].code, "RESTORE_SOURCE_VERSION"); assert.equal(await fingerprint(), beforeHistoricalPreview);
       for (const city of [undefined, "luxor"]) {
         const initial = await state(), sourceId = initial.objects.find((o) => o.type === "Skeleton" && o.purpose === "plan" && initial.objects.some((d) => d.type === "Decision" && d.subject_id === o.id && d.decision_kind === "adopt_skeleton"))?.id;
         assert(sourceId);
-        const body = { expected_revision: initial.revision, source_id: sourceId, new_id: `restored-${crypto.randomBytes(6).toString("hex")}`,
+        const body = { expected_revision: initial.revision, source_id: sourceId, source_version: initial.objects.find(o => o.id === sourceId)!.version, new_id: `restored-${crypto.randomBytes(6).toString("hex")}`,
           city_id: city, idempotency_key: crypto.randomUUID(), reason: "合成HTTP本轮明确恢复", acknowledge_unknowns: true,
           input: { kind: "dialogue", reference: crypto.randomUUID(), text: "恢复已展示的旧安排", target_ids: [] } };
         const before = await fingerprint();
@@ -261,7 +278,7 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
       constraint.commands = [hard, { op: "transition", id: hard.id, event: "activate" }];
       assert.equal((await http("POST", changes, constraint, a)).status, 200); current = await state();
       const saved = await fingerprint(), blocked = await http("POST", `/trips/${trip}/restorations/preview`, {
-        source_id: "ux02-original", new_id: "blocked-http-restore", expected_revision: current.revision, idempotency_key: crypto.randomUUID(),
+        source_id: "ux02-original", source_version: current.objects.find(o => o.id === "ux02-original")!.version, new_id: "blocked-http-restore", expected_revision: current.revision, idempotency_key: crypto.randomUUID(),
         input: { kind: "dialogue", reference: "new-hard-conflict", text: "恢复旧版", target_ids: [] }, reason: "当前恢复", acknowledge_unknowns: true,
       }, a);
       assert.equal(blocked.status, 422); assert.equal(blocked.body.can_submit, false);

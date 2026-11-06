@@ -71,6 +71,7 @@ jobs:
         run: |
           npm run specs:ux02
           "$TRIP_STATE_PYTHON" -B scripts/verify-ux02.py --run-reference
+          "$TRIP_STATE_PYTHON" -B scripts/test-ux02-r6-compat.py
       - name: Validate Prisma schema
         run: npm run db:validate
       - name: Generate Prisma client

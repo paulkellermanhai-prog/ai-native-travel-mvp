@@ -171,7 +171,7 @@
     },
     {
       "path": "sources/decision-context-v0.1/03_评审与工程衔接/18_UX02行为落实与E03开发验收映射.md",
-      "sha256": "abdf8ce2a6e66c84e19358acd6d2c4cb741531ba802b1e8d4660ad2fc181ad55"
+      "sha256": "1f9f9b821b2c9ffb992bd63f49eace312ca9d84e3b760f469fc1091880e919bb"
     },
     {
       "path": "sources/decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
@@ -203,11 +203,11 @@
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
-      "sha256": "870c380a4b3fced1cd6b372633ddc6ca995ccbadb78c0144a0847d854af89124"
+      "sha256": "bc985355208caaf1d0367066f9f46677168a815c34fb033cfe0722bedf5667dc"
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
-      "sha256": "b92dc7e520a3a04379e017dd19c545cab442e8703b6b86d1a07ca8a7af9e5953"
+      "sha256": "63b31e37cb64c8dfb72245e49c2c117614a860f0bdbce9197d196c11985ce9e6"
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/check_cross_package_refs.py",
@@ -355,27 +355,23 @@
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/update_package_index.py",
-      "sha256": "160b39975aaa75bd8acd30fd23a228ab74ad0bc8395a4691e85b1dc3948d42da"
+      "sha256": "dd1bc1514af656755e7a77b52ff90370778f2a1c862bd536207d1b7d88e83cf1"
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/ux02-source-manifest.json",
-      "sha256": "9bc1690aae1de2881df97f46333eecba47bbcf20ab9b0ca17bcaf9967466f132"
+      "sha256": "2b4571d1cc6ec956a1e722df343f8b189d91e3c0b3d63273e8902e46db9f5f96"
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/validation-output.txt",
-      "sha256": "ec246dc54c9890dd9dd31589b9c4fa9abb50f27ad152c0f56758477eee592295"
+      "sha256": "59f49bfaaa27dbf8f0e1198ef5fd7122d5558f1ee18997a1c80bbadae72eca2e"
     },
     {
       "path": "sources/decision-context-v0.1/90_可运行工程包/validation-results.json",
-      "sha256": "671d20598f81351d15a389d6350d8e11aac07605aa85544e681e3aec1186fb8c"
-    },
-    {
-      "path": "sources/decision-context-v0.1/LOCAL_EXPORT.json",
-      "sha256": "db6e7fa0d649ad8375f8f857db4c06eaa98c87fd983c43422510f1b8331d4621"
+      "sha256": "ebaa60f501f5480fc4acef09ddb09a5cb416061b42a706a5cc47057d68caa37a"
     },
     {
       "path": "sources/decision-context-v0.1/package-index.json",
-      "sha256": "471798550e9d123bd204aeb8fa541b7cbdaa20332efbb4d32c1bfdf4df2b56d2"
+      "sha256": "5dea392c86818baa8e9d61791bcec07663d3694246f41cd18f33a925d04b0e75"
     },
     {
       "path": "sources/decision-context-v0.1/旧文件包/01_决策上下文机制设计_V0.1.md",
@@ -419,7 +415,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/02_业务状态规则/AUTHORITY_FINAL.md",
-      "sha256": "97500457c7890c2268d771d4e84a3b3ce4f2cf24be1e46a6a50e09008ca51ced"
+      "sha256": "8e72d7a20c1a2b8e4b30f75f4bd9789c3d8cc3cd768951903823634aa3e0c13f"
     },
     {
       "path": "sources/trip-state-schema-v0.1/02_业务状态规则/ENUM_GLOSSARY.md",
@@ -431,7 +427,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/02_业务状态规则/HISTORY_FINAL.md",
-      "sha256": "59453197ca4ff2ee76fdbc5700e602dc510154f116dc545f60640776f5de7ff0"
+      "sha256": "a667fd61377565c3356653f1db0ae14c80d12ca0d17a20d1464fc3f50a9d9c47"
     },
     {
       "path": "sources/trip-state-schema-v0.1/02_业务状态规则/INVARIANTS_FINAL.md",
@@ -455,7 +451,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/02_业务状态规则/SPECIFICATION.md",
-      "sha256": "1f667428967755a46e8c298fd276920e25900fb5e502c259118c3e29c0a65417"
+      "sha256": "0e97d946d12553cdf0a6cf181b3fc357e0d1d7f72711ffae2f7913e65efd5600"
     },
     {
       "path": "sources/trip-state-schema-v0.1/02_业务状态规则/STATE_TRANSITIONS_FINAL.md",
@@ -471,11 +467,11 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/03_场景与验收/TRACEABILITY.md",
-      "sha256": "0038b1aa93dc0ae4170f82caabecfdde96eef347cdb92b8fdde599e2ad7efe56"
+      "sha256": "a833a1c7d9877fffa379981c44f452c2a262c76848924e4c2406c153204d22e5"
     },
     {
       "path": "sources/trip-state-schema-v0.1/03_场景与验收/VALIDATION_REPORT.md",
-      "sha256": "8e79eb2114385d6c80bb3dd98271a4ae25b205f0b4813e7265315f795faa7cf5"
+      "sha256": "67c01d91b442d655111a5630b3e012309cc2c1bbc918331e6a07a822c26124b2"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/.gitignore",
@@ -483,7 +479,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/AUTHORITY_FINAL.md",
-      "sha256": "97500457c7890c2268d771d4e84a3b3ce4f2cf24be1e46a6a50e09008ca51ced"
+      "sha256": "8e72d7a20c1a2b8e4b30f75f4bd9789c3d8cc3cd768951903823634aa3e0c13f"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/CONSISTENCY_REVIEW.md",
@@ -511,7 +507,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/HISTORY_FINAL.md",
-      "sha256": "8024c09b6977be3fbd9b6120fd705725def4724482b174ef14870912376570e1"
+      "sha256": "1f38259f0c9808a3422342ec37f51da3fb78ce8d50a12de8188409223babc278"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/INVARIANTS_FINAL.md",
@@ -551,7 +547,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/SPECIFICATION.md",
-      "sha256": "eee12d01e1d448dfbe8888c020efd5336e6f00f9cc252b54f404d2b4ca699397"
+      "sha256": "b8c112c71e19b576b95a4c883a864087b0701f5caeba650a73b88679c71b7f35"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/STATE_TRANSITIONS.md",
@@ -563,7 +559,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/TRACEABILITY.md",
-      "sha256": "6d36fadaa495765b03bc77e3240be2dcc5bed2c34704d6aee2608c0508d655ef"
+      "sha256": "332c04a7b3f0410301efac8b81954ac0ff9d192df80ea96e1835790a0651bfc7"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/TS八项机制融合与工程同步交接包.md",
@@ -571,7 +567,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/UX02工程落实与DC开发映射.md",
-      "sha256": "01b5720f860c941ee331cbc2fa2b4b909ddaf99454cf6f644bbdd8eaf7d04971"
+      "sha256": "4ce7f5216df8676382e0b2fa2246e7b6f32bdbff3a11bab6fee9de2e7eca88db"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/V1_READINESS.md",
@@ -579,11 +575,11 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
-      "sha256": "8e79eb2114385d6c80bb3dd98271a4ae25b205f0b4813e7265315f795faa7cf5"
+      "sha256": "67c01d91b442d655111a5630b3e012309cc2c1bbc918331e6a07a822c26124b2"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/artifact-manifest.json",
-      "sha256": "c3450eeffe17c82b89409b4572c2b9d68336f43a2a73c5a86630f92b31727b3a"
+      "sha256": "a98498fc0b75151ee481bcfb2de3d549952e5c90b083e3e0ef7c7ca93df63e40"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/build.py",
@@ -759,7 +755,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/package_bundle.py",
-      "sha256": "aad6dc39679f0baaf7a8de79a87cd40defecea9c2815c992dc596b12d9cd0450"
+      "sha256": "332b210390cbc0448ce79c3bac3505df4c8ea607cc4f1fdc58f0d73f03c3e592"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/requirements.txt",
@@ -875,7 +871,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/tests/test_package.py",
-      "sha256": "b0d69017f0467c8872111a8ffa5a5d68d9c219f376845c25a496af5ea002fc3d"
+      "sha256": "0224e18a7b084618b62997ccf1296d81f733e4218c328739fe00c21efb4fd519"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/tests/test_reservation_profile.py",
@@ -887,7 +883,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/tests/test_ux02.py",
-      "sha256": "378776fad526b091dc94bd2b854746de761a768d42c1f24b7967ad8d1f3890ee"
+      "sha256": "b5a5e6f87b5e7d0a1d4bfa4573596707ea70f2543e8104f9962a3f796d22906b"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/tripstate/__init__.py",
@@ -895,7 +891,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/tripstate/api.py",
-      "sha256": "40f27fb0a2d4c303fb2dcb15df9b2d048cdfc87b3146d5683d3b4f6ea740acc9"
+      "sha256": "7b615fb2fda51ad24a2fc90da63aec4aa59af5cdc799efaf3020eb366ada54d9"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/tripstate/contracts.py",
@@ -911,7 +907,7 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/tripstate/restoration.py",
-      "sha256": "376db23e662f7c335b770cdd9d88dc3c58a8da7b1775e071e64d64ac031c0c8d"
+      "sha256": "b7370d1e3f13e185fc186bd83043cf6d0c2c388de4d5a47b85efbaa8924a7994"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/tripstate/rules.py",
@@ -919,15 +915,15 @@
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/ux02-source-manifest.json",
-      "sha256": "9bc1690aae1de2881df97f46333eecba47bbcf20ab9b0ca17bcaf9967466f132"
+      "sha256": "2b4571d1cc6ec956a1e722df343f8b189d91e3c0b3d63273e8902e46db9f5f96"
     },
     {
       "path": "sources/trip-state-schema-v0.1/90_可运行工程包/validation-results.json",
-      "sha256": "4e53352c297e6798e4a9b278f7dfc1f4d396a97804bda4754976fb8af59d826f"
+      "sha256": "24e97e81fa2597320133dd8a5018023bc635aa987673a9349fadd0f4995e6681"
     },
     {
       "path": "sources/trip-state-schema-v0.1/package-index.json",
-      "sha256": "f0810cc412680fa2f8e8f6d512e8580917f617a58de3deeca9d077fbd3b31dbb"
+      "sha256": "17246b003f24d84e33979c77db4b8e0ec6dc2620baf488d2eaee9c2a6a06d94c"
     }
   ]
 }

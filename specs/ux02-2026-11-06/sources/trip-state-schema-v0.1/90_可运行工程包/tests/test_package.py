@@ -17,7 +17,7 @@ class PackageNavigationTests(unittest.TestCase):
         self.assertEqual(json.loads(files["package-index.json"]), index)
         self.assertEqual(index["entrypoint"], "00_从这里开始.md")
         self.assertEqual(index["schema_version"], "0.1.0")
-        self.assertEqual(index["package_revision"], "2026-11-06-ux02-candidate")
+        self.assertEqual(index["package_revision"], "2026-11-06-ux02-review-fixes-candidate")
         self.assertEqual(index["approval_status"], "PENDING_TECH_LEAD_ACCEPTANCE")
         self.assertTrue(all(route in files or route.endswith("/") and
                             any(path.startswith(route) for path in files)

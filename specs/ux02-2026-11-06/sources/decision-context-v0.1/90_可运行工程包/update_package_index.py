@@ -16,7 +16,7 @@ def update():
     path = PACKAGE / "package-index.json"
     data = json.loads(path.read_text())
     data["documents"] = [d for d in data["documents"] if (PACKAGE / d["path"]).is_file()]
-    data.update(document_revision="R7_ux02_behavior_handoff_gate_candidate", updated_on="2026-11-06", status="ux02_reference_updated_e03_runtime_pending_final_gate",
+    data.update(document_revision="R7_ux02_review_fixes_gate_candidate", updated_on="2026-11-06", status="ux02_reference_updated_e03_runtime_pending_final_gate",
                 runtime_contract_version="0.1.0", validation_report="90_可运行工程包/VALIDATION_REPORT.md")
     data["approved_r6_baseline"] = dict(head="7b2a1b5a086544d1dba6f64cfa7a624750ce4072", review_url="https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033", submitted_at="2026-11-06T04:10:43Z", status="GATE_A_PASS_E03_01_AUTHORIZED")
     data["ux02_incremental_review"] = "PENDING_TECH_REVIEW_NOT_COVERED_BY_R6_APPROVAL"

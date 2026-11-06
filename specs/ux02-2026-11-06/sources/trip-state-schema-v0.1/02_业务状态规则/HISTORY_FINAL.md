@@ -23,3 +23,7 @@ V0.1 使用当前聚合快照加追加式 `OperationIntent` / `ChangeRecord`，�
 ### UX-02 恢复编译与只读历史
 
 查看旧版不调用submit或改effective。恢复是新OperationIntent与原子create+adopt；input.target_ids/reason保留源骨架与当前基准，parent_id指向当前有效版。原历史和旧事实快照只读；只复制历史安排内容，不复制旧授权、已核验判断或约束。新提交的原幂等回执应保留用于结果未知的核实，不能因当前版本变了就盲目重建旧请求。实现与验收见[UX02工程映射](../90_可运行工程包/UX02工程落实与DC开发映射.md)。
+
+### PR #13 版本定位与接口合同修订候选
+
+恢复请求必须指定 source_id 与 source_version；从当前旅行授权历史的已应用快照或当前对象解析该精确版本，不可用时拒绝。当前旅行revision仍单独保护并发；查看历史不等于授权。HTTP成功、阻断、版本冲突及鉴权错误的形状见 UX02 工程映射，旧领域Schema不变。

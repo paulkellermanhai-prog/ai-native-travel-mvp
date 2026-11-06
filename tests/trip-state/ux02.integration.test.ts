@@ -7,11 +7,12 @@ import type { Actor } from "../../src/server/trip-state/commands";
 import type { State, TripStateContracts } from "../../src/server/trip-state/contracts.generated";
 import { base, change, createFrom, object } from "../support/bcg-fixtures";
 import { clock, uuids } from "../support/command-fixtures";
+import { ingest } from "../support/fact-fixtures";
 import { restorationRequest } from "../../src/server/trip-state/restoration";
 
 const envFile = process.env.E02_STORAGE_ENV_FILE;
 if (process.env.CI && !envFile) throw new Error("UX02 CI requires real PostgreSQL");
-const config = envFile ? JSON.parse(fs.readFileSync(envFile, "utf8")) as { runtimeUrl: string } : null;
+const config = envFile ? JSON.parse(fs.readFileSync(envFile, "utf8")) as { runtimeUrl: string; migrationUrl: string } : null;
 const actors: Record<string, Actor> = {
   user: { role: "user", id: "scenario-user" }, other: { role: "user", id: "other-member" },
   model: { role: "model", id: "scenario-ai" }, tool: { role: "tool", id: "scenario-provider" }, system: { role: "system", id: "scenario-system" },
@@ -53,7 +54,7 @@ describe.skipIf(!config)("UX02 restoration on actual PostgreSQL", () => {
     next.data.parent_id = "skeleton-a"; next.data.stops[0].nights = 1;
     await f.service.submit(f.tripId, change(adopted, [next, adopt("next-plan")], "new-plan"), f.tokens.user);
     const current = (await f.service.state(f.tripId, f.tokens.user))!;
-    const request = restorationRequest(current, { sourceId: "skeleton-a", newId: "restored-plan", expectedRevision: current.revision,
+    const request = restorationRequest(current, { sourceId: "skeleton-a", sourceVersion: object(current, "skeleton-a", "Skeleton").version, newId: "restored-plan", expectedRevision: current.revision,
       idempotencyKey: "restore-pg", reason: "合成当前授权", input: { kind: "dialogue", reference: "new-event", text: "恢复已展示安排", target_ids: [] }, cityId, acknowledgeUnknowns: true });
     const before = await fingerprint(f.tripId), history = await f.service.history(f.tripId, f.tokens.user);
     expect((await f.service.preview(f.tripId, request, f.tokens.user)).outcome).toBe("preview"); expect(await fingerprint(f.tripId)).toBe(before);
@@ -68,12 +69,60 @@ describe.skipIf(!config)("UX02 restoration on actual PostgreSQL", () => {
     expect(await recovered.submit(f.tripId, { ...request, idempotency_key: "different-intent" }, f.tokens.user)).toMatchObject({ outcome: "conflict", errors: [{ code: "VERSION_CONFLICT" }] });
     expect(await fingerprint(f.tripId)).toBe(saved);
   });
+  it("F03 model restore proposal accepts or rejects with explicit user confirmation", async () => {
+    const f = await setup(); await f.service.submit(f.tripId, change(f.state, [adopt()], "orig-confirm"), f.tokens.user);
+    let state = (await f.service.state(f.tripId, f.tokens.user))!;
+    const make = (key: string, id: string) => restorationRequest(state, { sourceId: "skeleton-a", sourceVersion: object(state, "skeleton-a", "Skeleton").version, newId: id, expectedRevision: state.revision, idempotencyKey: key, reason: "恢复", input: { kind: "dialogue", reference: "synthetic", text: "恢复", target_ids: [] }, acknowledgeUnknowns: true });
+    const rejected = await f.service.submit(f.tripId, make("model-reject", "candidate-reject"), f.tokens.model);
+    expect(rejected.outcome).toBe("pending_confirmation");
+    const no = await f.service.confirm(f.tripId, rejected.proposal_id!, { expected_revision: state.revision, idempotency_key: "reject-restore", proposal_digest: rejected.proposal_digest!, accept: false }, f.tokens.user);
+    expect(no.outcome).toBe("rejected"); expect(await f.service.state(f.tripId, f.tokens.user)).toEqual(state);
+    const accepted = await f.service.submit(f.tripId, make("model-accept", "candidate-accept"), f.tokens.model);
+    const yes = await f.service.confirm(f.tripId, accepted.proposal_id!, { expected_revision: state.revision, idempotency_key: "accept-restore", proposal_digest: accepted.proposal_digest!, accept: true }, f.tokens.user);
+    expect(yes.outcome).toBe("applied"); state = (await f.service.state(f.tripId, f.tokens.user))!; expect(state.effective_skeleton_id).toBe("candidate-accept");
+  });
+  it("F03 concurrent write after preview prevents stale restore", async () => {
+    const f = await setup(); await f.service.submit(f.tripId, change(f.state, [adopt()], "race-orig"), f.tokens.user);
+    const before = (await f.service.state(f.tripId, f.tokens.user))!;
+    const restore = restorationRequest(before, { sourceId: "skeleton-a", sourceVersion: object(before, "skeleton-a", "Skeleton").version, newId: "race-plan", expectedRevision: before.revision, idempotencyKey: "race-restore", reason: "恢复", input: { kind: "dialogue", reference: "race", text: "恢复", target_ids: [] }, acknowledgeUnknowns: true });
+    expect((await f.service.preview(f.tripId, restore, f.tokens.user)).outcome).toBe("preview");
+    await f.service.submit(f.tripId, change(before, [{ op: "revise", object_type: "Preference", id: "pref-culture", changes: { expression: "新的偏好" } }], "race-edit"), f.tokens.user);
+    const locked = await fingerprint(f.tripId);
+    expect(await f.service.submit(f.tripId, restore, f.tokens.user)).toMatchObject({ outcome: "conflict", errors: [{ code: "VERSION_CONFLICT" }] });
+    expect(await fingerprint(f.tripId)).toBe(locked);
+  });
+  it("F03 storage fault during restoration rolls back all rows before retry", async () => {
+    const f = await setup(); await f.service.submit(f.tripId, change(f.state, [adopt()], "failure-orig"), f.tokens.user);
+    const state = (await f.service.state(f.tripId, f.tokens.user))!;
+    const restore = restorationRequest(state, { sourceId: "skeleton-a", sourceVersion: object(state, "skeleton-a", "Skeleton").version, newId: "failure-plan", expectedRevision: state.revision, idempotencyKey: "failure-restore", reason: "恢复", input: { kind: "dialogue", reference: "failure", text: "恢复", target_ids: [] }, acknowledgeUnknowns: true });
+    const owner = new Client({ connectionString: config!.migrationUrl }); await owner.connect(); const name = `ux02_fail_${crypto.randomBytes(6).toString("hex")}`;
+    const before = await fingerprint(f.tripId);
+    await owner.query(`CREATE FUNCTION public.${name}() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN IF NEW."tripId"='${f.tripId}' THEN RAISE EXCEPTION 'ux02 simulated failure'; END IF; RETURN NEW; END $$`);
+    await owner.query(`CREATE TRIGGER ${name} BEFORE INSERT ON "TripStateHistory" FOR EACH ROW EXECUTE FUNCTION public.${name}()`);
+    try { await expect(f.service.submit(f.tripId, restore, f.tokens.user)).rejects.toThrow(); expect(await fingerprint(f.tripId)).toBe(before); }
+    finally { await owner.query(`DROP TRIGGER ${name} ON "TripStateHistory"`); await owner.query(`DROP FUNCTION public.${name}()`); await owner.end(); }
+    expect((await f.service.submit(f.tripId, restore, f.tokens.user)).outcome).toBe("applied");
+  });
+  it("F03 current conflicting transport evidence prevents a newly previewed restore", async () => {
+    const f = await setup(); await f.service.submit(f.tripId, change(f.state, [adopt()], "fact-orig"), f.tokens.user);
+    const before = (await f.service.state(f.tripId, f.tokens.user))!;
+    const make = (state: State, key: string) => restorationRequest(state, { sourceId: "skeleton-a", sourceVersion: object(state, "skeleton-a", "Skeleton").version, newId: "fact-restore", expectedRevision: state.revision, idempotencyKey: key, reason: "恢复", input: { kind: "dialogue", reference: "fact", text: "恢复", target_ids: [] }, acknowledgeUnknowns: true });
+    const old = make(before, "fact-old"); expect((await f.service.preview(f.tripId, old, f.tokens.user)).outcome).toBe("preview");
+    const opposite = ingest("ux02-opposite"); opposite.data.query_status = "no_service";
+    if (opposite.data.value?.kind !== "transport") throw new Error("Fixture");
+    Object.assign(opposite.data.value, { service_exists: false, departure: null, arrival: null, duration_minutes: null });
+    expect((await f.service.submit(f.tripId, change(before, [opposite], "fact-change"), f.tokens.tool)).outcome).toBe("applied");
+    expect(await f.service.submit(f.tripId, old, f.tokens.user)).toMatchObject({ outcome: "conflict", errors: [{ code: "VERSION_CONFLICT" }] });
+    const current = (await f.service.state(f.tripId, f.tokens.user))!, locked = await fingerprint(f.tripId);
+    expect(await f.service.preview(f.tripId, make(current, "fact-new"), f.tokens.user)).toMatchObject({ outcome: "rejected", errors: [{ code: "HARD_CONFLICT" }] });
+    expect(await fingerprint(f.tripId)).toBe(locked);
+  });
   it("current hard constraint rejects whole restore without a new row", async () => {
     const f = await setup(); await f.service.submit(f.tripId, change(f.state, [adopt()], "first"), f.tokens.user);
     let state = (await f.service.state(f.tripId, f.tokens.user))!;
     await f.service.submit(f.tripId, change(state, [{ op: "revise", object_type: "Constraint", id: "constraint-nights", changes: { value: { kind: "duration", maximum_nights: 3 } } }], "hard"), f.tokens.user);
     state = (await f.service.state(f.tripId, f.tokens.user))!;
-    const body = restorationRequest(state, { sourceId: "skeleton-a", newId: "blocked-restoration", expectedRevision: state.revision, idempotencyKey: "blocked", reason: "合成当前恢复", input: { kind: "dialogue", reference: "new", text: "恢复", target_ids: [] }, acknowledgeUnknowns: true });
+    const body = restorationRequest(state, { sourceId: "skeleton-a", sourceVersion: object(state, "skeleton-a", "Skeleton").version, newId: "blocked-restoration", expectedRevision: state.revision, idempotencyKey: "blocked", reason: "合成当前恢复", input: { kind: "dialogue", reference: "new", text: "恢复", target_ids: [] }, acknowledgeUnknowns: true });
     const before = await fingerprint(f.tripId);
     expect(await f.service.preview(f.tripId, body, f.tokens.user)).toMatchObject({ outcome: "rejected", errors: [{ code: "HARD_CONFLICT" }] });
     expect(await f.service.submit(f.tripId, body, f.tokens.user)).toMatchObject({ outcome: "rejected", errors: [{ code: "HARD_CONFLICT" }] });

@@ -45,12 +45,12 @@
     {
       "path": "decision-context-v0.1/90_可运行工程包/VALIDATION_REPORT.md",
       "approved_r6_sha256": "0ade1178adb1fc1eafd4926a31d544e3108f8a0439ac82e26c3aee91e2b38dfe",
-      "ux02_sha256": "870c380a4b3fced1cd6b372633ddc6ca995ccbadb78c0144a0847d854af89124"
+      "ux02_sha256": "bc985355208caaf1d0367066f9f46677168a815c34fb033cfe0722bedf5667dc"
     },
     {
       "path": "decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
       "approved_r6_sha256": "0e03797ada46e0f0a0546f7237f0a630f49ee12369e1a081d9c2d98b1f514362",
-      "ux02_sha256": "b92dc7e520a3a04379e017dd19c545cab442e8703b6b86d1a07ca8a7af9e5953"
+      "ux02_sha256": "63b31e37cb64c8dfb72245e49c2c117614a860f0bdbce9197d196c11985ce9e6"
     },
     {
       "path": "decision-context-v0.1/90_可运行工程包/context_runtime/recovery.py",
@@ -70,22 +70,22 @@
     {
       "path": "decision-context-v0.1/90_可运行工程包/update_package_index.py",
       "approved_r6_sha256": "2c1bb4b18681884e91e62dbefbda39729cc849c4687648cd5a2d01a4626332fb",
-      "ux02_sha256": "160b39975aaa75bd8acd30fd23a228ab74ad0bc8395a4691e85b1dc3948d42da"
+      "ux02_sha256": "dd1bc1514af656755e7a77b52ff90370778f2a1c862bd536207d1b7d88e83cf1"
     },
     {
       "path": "decision-context-v0.1/90_可运行工程包/validation-output.txt",
       "approved_r6_sha256": "de84ac7330c5ebaa12136f5df1d757153fd2297149c70a99ed24d319207690c1",
-      "ux02_sha256": "ec246dc54c9890dd9dd31589b9c4fa9abb50f27ad152c0f56758477eee592295"
+      "ux02_sha256": "59f49bfaaa27dbf8f0e1198ef5fd7122d5558f1ee18997a1c80bbadae72eca2e"
     },
     {
       "path": "decision-context-v0.1/90_可运行工程包/validation-results.json",
       "approved_r6_sha256": "9744f02bdddd61042f63b42e13f8c99ab06f3dba91f3666080a03ab0a22246da",
-      "ux02_sha256": "671d20598f81351d15a389d6350d8e11aac07605aa85544e681e3aec1186fb8c"
+      "ux02_sha256": "ebaa60f501f5480fc4acef09ddb09a5cb416061b42a706a5cc47057d68caa37a"
     },
     {
       "path": "decision-context-v0.1/package-index.json",
       "approved_r6_sha256": "c8d8bed48714c7aa646647223bcface46c76a60ef46920a31e372d0f275ffe74",
-      "ux02_sha256": "471798550e9d123bd204aeb8fa541b7cbdaa20332efbb4d32c1bfdf4df2b56d2"
+      "ux02_sha256": "5dea392c86818baa8e9d61791bcec07663d3694246f41cd18f33a925d04b0e75"
     }
   ],
   "added_to_original_package": [
@@ -94,5 +94,6 @@
   ],
   "machine_schema_count": 20,
   "machine_schema_changed": 0,
-  "checkpoint_format": 1
+  "checkpoint_format": 1,
+  "review_fix": "F01-F04 revised candidate, pending incremental technical review"
 }

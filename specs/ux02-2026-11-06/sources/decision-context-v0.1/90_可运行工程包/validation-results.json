@@ -1,16 +1,16 @@
 {
-  "executed_at_utc": "2026-11-06T04:20:07.779588+00:00",
+  "executed_at_utc": "2026-11-06T05:31:38.907650+00:00",
   "python": "3.13.5",
   "new_tests": 107,
   "runtime_core_tests": 58,
   "recovery_tests": 49,
-  "inherited_tests": 136,
-  "tests_run": 243,
+  "inherited_tests": 137,
+  "tests_run": 244,
   "failures": 0,
   "errors": 0,
   "skipped": 0,
   "successful": true,
-  "elapsed_seconds": 34.522,
+  "elapsed_seconds": 14.783,
   "scope": "synthetic interpretations + runtime/state integration + real local SQLite + new-process recovery/concurrency/SIGKILL; no live LLM/provider/network HTTP/production DB",
   "tests": [
     {
@@ -967,6 +967,10 @@
     },
     {
       "id": "test_ux02.UX02Tests.test_failure_preserves_current_plan_and_draft_request_is_reusable",
+      "outcome": "passed"
+    },
+    {
+      "id": "test_ux02.UX02Tests.test_older_version_of_same_candidate_is_resolved_from_applied_history",
       "outcome": "passed"
     },
     {

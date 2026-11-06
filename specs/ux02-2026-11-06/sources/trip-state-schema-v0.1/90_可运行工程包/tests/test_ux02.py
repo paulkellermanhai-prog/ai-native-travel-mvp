@@ -20,15 +20,26 @@ class UX02Tests(unittest.TestCase):
         self.assertEqual(self.store.submit(request(self.store, create_command(current), adopt('current-plan'), key='current'), USER)['outcome'], 'applied')
 
     def body(self, **kw):
-        args = dict(source_id='skeleton-a', new_id='restored-plan', expected_revision=self.store.get_state()['revision'],
+        args = dict(source_id='skeleton-a', source_version=index(self.store.get_state())['skeleton-a']['version'], new_id='restored-plan', expected_revision=self.store.get_state()['revision'],
                     idempotency_key='restore', input=dict(kind='dialogue', reference='new-request', text='恢复已展示的旧方案', target_ids=[]),
                     reason='用户本轮明确恢复', acknowledge_unknowns=True)
         args.update(kw)
-        return restoration_request(self.store.get_state(), **args)
+        if 'source_id' in kw and 'source_version' not in kw: args['source_version'] = index(self.store.get_state())[kw['source_id']]['version']
+        return restoration_request(self.store.get_state(), history=self.store.get_history(), **args)
+
+    def test_older_version_of_same_candidate_is_resolved_from_applied_history(self):
+        source = deepcopy(index(self.store.get_state())['skeleton-a']); source.update(id='versioned-candidate', status='active')
+        self.assertEqual(self.store.submit(request(self.store, create_command(source), key='candidate-v1'), USER)['outcome'], 'applied')
+        v1 = deepcopy(index(self.store.get_state())['versioned-candidate']); stops = deepcopy(v1['stops']); stops[1]['nights'] = 1
+        self.assertEqual(self.store.submit(request(self.store, dict(op='revise', object_type='Skeleton', id='versioned-candidate', changes=dict(stops=stops)), key='candidate-v2'), USER)['outcome'], 'applied')
+        body = self.body(source_id='versioned-candidate', source_version=v1['version'])
+        self.assertEqual(body['commands'][0]['data']['stops'][1]['nights'], v1['stops'][1]['nights'])
+        self.assertIn('version=' + str(v1['version']), body['reason'])
+        self.assertEqual(self.store.submit(body, USER)['outcome'], 'applied')
 
     def test_restoration_preview_adapter_is_read_only_and_rejects_actor_fields(self):
         from tripstate.api import dispatch
-        body = dict(source_id='skeleton-a', new_id='restored-plan', expected_revision=self.store.get_state()['revision'],
+        body = dict(source_id='skeleton-a', source_version=index(self.store.get_state())['skeleton-a']['version'], new_id='restored-plan', expected_revision=self.store.get_state()['revision'],
                     idempotency_key='preview-adapter', input=dict(kind='dialogue', reference='fresh-input', text='恢复', target_ids=[]),
                     reason='本轮明确恢复', acknowledge_unknowns=True)
         before, history = self.store.get_state(), self.store.get_history()

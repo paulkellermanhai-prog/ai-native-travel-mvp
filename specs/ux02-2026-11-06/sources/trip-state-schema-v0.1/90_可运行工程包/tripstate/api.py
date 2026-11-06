@@ -18,7 +18,7 @@ def dispatch(store, method, path, body=None, actor=None):
         if method == "POST" and resource == "decision-context":
             return 200, store.context(body)
         if method == "POST" and resource == "restorations/preview":
-            required = {"source_id", "new_id", "expected_revision", "idempotency_key", "input", "reason"}
+            required = {"source_id", "source_version", "new_id", "expected_revision", "idempotency_key", "input", "reason"}
             optional = {"city_id", "insert_at", "acknowledge_unknowns"}
             require(isinstance(body, dict) and required <= body.keys() and body.keys() <= required | optional,
                     "SCHEMA", "恢复输入字段不合法")
@@ -26,7 +26,7 @@ def dispatch(store, method, path, body=None, actor=None):
                     isinstance(body["input"], dict) and {"kind", "reference", "text", "target_ids"} == body["input"].keys() and
                     isinstance(body["input"]["target_ids"], list) and all(isinstance(x, str) for x in body["input"]["target_ids"]),
                     "SCHEMA", "恢复输入类型不合法")
-            request = restoration_request(store.get_state(), **body)
+            request = restoration_request(store.get_state(), history=store.get_history(), **body)
             preview = store.preview(request, actor)
             status = {"preview": 200, "conflict": 409, "rejected": 422}[preview["outcome"]]
             return status, dict(request=request, preview=preview, impact=restoration_impact(store.get_state(), request, store.clock),

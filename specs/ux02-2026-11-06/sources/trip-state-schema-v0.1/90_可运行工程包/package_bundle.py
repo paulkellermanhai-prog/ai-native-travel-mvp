@@ -72,7 +72,7 @@ def make_contents(root):
     index = {
         "format": "trip-state-delivery-index/v1",
         "schema_version": "0.1.0",
-        "package_revision": "2026-11-06-ux02-candidate",
+        "package_revision": "2026-11-06-ux02-review-fixes-candidate",
         "approval_status": "PENDING_TECH_LEAD_ACCEPTANCE",
         "entrypoint": "00_从这里开始.md",
         "authoritative_runtime_root": KIT,

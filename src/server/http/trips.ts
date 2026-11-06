@@ -40,7 +40,9 @@ export async function handleTripHttp(request: Request, tripId: string, resource:
     requireOrigin(request, identity.config.origin);
     const raw = await readJsonText(request); // Keep the original numeric tokens for the existing controlled decoder.
     if (path === "restorations/preview") {
-      const restore = restorationRequest(before, parseRestorationInput(decodeCommandJson(raw)));
+      const options = parseRestorationInput(decodeCommandJson(raw));
+      const history = await trips.history(tripId, credential);
+      const restore = restorationRequest(before, options, history);
       const preview = await trips.preview(tripId, restore, credential);
       if (["PERMISSION", "ACTOR"].includes(preview.errors[0]?.code ?? "")) return json(errorResponse("PERMISSION", "Access denied"), 403);
       if (statusFor(preview) === 500) return json(errorResponse("INTERNAL_FAILURE", "Request failed"), 500);

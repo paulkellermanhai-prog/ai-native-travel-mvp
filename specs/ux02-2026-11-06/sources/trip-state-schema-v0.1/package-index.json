@@ -1,7 +1,7 @@
 {
   "format": "trip-state-delivery-index/v1",
   "schema_version": "0.1.0",
-  "package_revision": "2026-11-06-ux02-candidate",
+  "package_revision": "2026-11-06-ux02-review-fixes-candidate",
   "approval_status": "PENDING_TECH_LEAD_ACCEPTANCE",
   "entrypoint": "00_从这里开始.md",
   "authoritative_runtime_root": "90_可运行工程包",
@@ -75,7 +75,7 @@
       "canonical_path": "90_可运行工程包/AUTHORITY_FINAL.md",
       "reading_path": "02_业务状态规则/AUTHORITY_FINAL.md",
       "group": "02_业务状态规则",
-      "sha256": "97500457c7890c2268d771d4e84a3b3ce4f2cf24be1e46a6a50e09008ca51ced"
+      "sha256": "8e72d7a20c1a2b8e4b30f75f4bd9789c3d8cc3cd768951903823634aa3e0c13f"
     },
     {
       "source_path": "CONSISTENCY_REVIEW.md",
@@ -124,7 +124,7 @@
       "canonical_path": "90_可运行工程包/HISTORY_FINAL.md",
       "reading_path": "02_业务状态规则/HISTORY_FINAL.md",
       "group": "02_业务状态规则",
-      "sha256": "8024c09b6977be3fbd9b6120fd705725def4724482b174ef14870912376570e1"
+      "sha256": "1f38259f0c9808a3422342ec37f51da3fb78ce8d50a12de8188409223babc278"
     },
     {
       "source_path": "INVARIANTS_FINAL.md",
@@ -194,7 +194,7 @@
       "canonical_path": "90_可运行工程包/SPECIFICATION.md",
       "reading_path": "02_业务状态规则/SPECIFICATION.md",
       "group": "02_业务状态规则",
-      "sha256": "eee12d01e1d448dfbe8888c020efd5336e6f00f9cc252b54f404d2b4ca699397"
+      "sha256": "b8c112c71e19b576b95a4c883a864087b0701f5caeba650a73b88679c71b7f35"
     },
     {
       "source_path": "STATE_TRANSITIONS.md",
@@ -215,7 +215,7 @@
       "canonical_path": "90_可运行工程包/TRACEABILITY.md",
       "reading_path": "03_场景与验收/TRACEABILITY.md",
       "group": "03_场景与验收",
-      "sha256": "6d36fadaa495765b03bc77e3240be2dcc5bed2c34704d6aee2608c0508d655ef"
+      "sha256": "332c04a7b3f0410301efac8b81954ac0ff9d192df80ea96e1835790a0651bfc7"
     },
     {
       "source_path": "TS八项机制融合与工程同步交接包.md",
@@ -229,7 +229,7 @@
       "canonical_path": "90_可运行工程包/UX02工程落实与DC开发映射.md",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "01b5720f860c941ee331cbc2fa2b4b909ddaf99454cf6f644bbdd8eaf7d04971"
+      "sha256": "4ce7f5216df8676382e0b2fa2246e7b6f32bdbff3a11bab6fee9de2e7eca88db"
     },
     {
       "source_path": "V1_READINESS.md",
@@ -243,14 +243,14 @@
       "canonical_path": "90_可运行工程包/VALIDATION_REPORT.md",
       "reading_path": "03_场景与验收/VALIDATION_REPORT.md",
       "group": "03_场景与验收",
-      "sha256": "8e79eb2114385d6c80bb3dd98271a4ae25b205f0b4813e7265315f795faa7cf5"
+      "sha256": "67c01d91b442d655111a5630b3e012309cc2c1bbc918331e6a07a822c26124b2"
     },
     {
       "source_path": "artifact-manifest.json",
       "canonical_path": "90_可运行工程包/artifact-manifest.json",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "c3450eeffe17c82b89409b4572c2b9d68336f43a2a73c5a86630f92b31727b3a"
+      "sha256": "a98498fc0b75151ee481bcfb2de3d549952e5c90b083e3e0ef7c7ca93df63e40"
     },
     {
       "source_path": "build.py",
@@ -558,7 +558,7 @@
       "canonical_path": "90_可运行工程包/package_bundle.py",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "aad6dc39679f0baaf7a8de79a87cd40defecea9c2815c992dc596b12d9cd0450"
+      "sha256": "332b210390cbc0448ce79c3bac3505df4c8ea607cc4f1fdc58f0d73f03c3e592"
     },
     {
       "source_path": "requirements.txt",
@@ -761,7 +761,7 @@
       "canonical_path": "90_可运行工程包/tests/test_package.py",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "b0d69017f0467c8872111a8ffa5a5d68d9c219f376845c25a496af5ea002fc3d"
+      "sha256": "0224e18a7b084618b62997ccf1296d81f733e4218c328739fe00c21efb4fd519"
     },
     {
       "source_path": "tests/test_reservation_profile.py",
@@ -782,7 +782,7 @@
       "canonical_path": "90_可运行工程包/tests/test_ux02.py",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "378776fad526b091dc94bd2b854746de761a768d42c1f24b7967ad8d1f3890ee"
+      "sha256": "b5a5e6f87b5e7d0a1d4bfa4573596707ea70f2543e8104f9962a3f796d22906b"
     },
     {
       "source_path": "tripstate/__init__.py",
@@ -796,7 +796,7 @@
       "canonical_path": "90_可运行工程包/tripstate/api.py",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "40f27fb0a2d4c303fb2dcb15df9b2d048cdfc87b3146d5683d3b4f6ea740acc9"
+      "sha256": "7b615fb2fda51ad24a2fc90da63aec4aa59af5cdc799efaf3020eb366ada54d9"
     },
     {
       "source_path": "tripstate/contracts.py",
@@ -824,7 +824,7 @@
       "canonical_path": "90_可运行工程包/tripstate/restoration.py",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "376db23e662f7c335b770cdd9d88dc3c58a8da7b1775e071e64d64ac031c0c8d"
+      "sha256": "b7370d1e3f13e185fc186bd83043cf6d0c2c388de4d5a47b85efbaa8924a7994"
     },
     {
       "source_path": "tripstate/rules.py",
@@ -838,14 +838,14 @@
       "canonical_path": "90_可运行工程包/ux02-source-manifest.json",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "9bc1690aae1de2881df97f46333eecba47bbcf20ab9b0ca17bcaf9967466f132"
+      "sha256": "2b4571d1cc6ec956a1e722df343f8b189d91e3c0b3d63273e8902e46db9f5f96"
     },
     {
       "source_path": "validation-results.json",
       "canonical_path": "90_可运行工程包/validation-results.json",
       "reading_path": null,
       "group": "90_可运行工程包",
-      "sha256": "4e53352c297e6798e4a9b278f7dfc1f4d396a97804bda4754976fb8af59d826f"
+      "sha256": "24e97e81fa2597320133dd8a5018023bc635aa987673a9349fadd0f4995e6681"
     }
   ],
   "mirror_rule": "Reading copies differ from canonical Markdown only in rebased local links; edit canonical files and regenerate."

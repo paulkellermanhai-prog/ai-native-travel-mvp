@@ -47,7 +47,7 @@ Existing=原合同/运行能力可复用；New-composition=新增既有命令组
 
 两种恢复都不拷 assessment、旧 confirmed_by、旧 Grant、旧 overrides 或旧事实值。当前 TS 重算夜数、相邻连接、当前硬约束、已确认选择及消费时效；任何拒绝不写新骨架。城市级恢复也可能使整趟成本/天数/依据陈旧，需要整趟预览；不能静默回滚无关城市或为解决冲突撤旧决定。
 
-HTTP 增量：`POST /trips/{id}/restorations/preview`，严格请求字段为 source_id/new_id/expected_revision/idempotency_key/input/reason，可选 city_id/insert_at/acknowledge_unknowns。认证、旅行权限、Origin、体积/数字解码沿用原防线；不接受 actor/owner/Grant。成功 200 返回 `{request,preview,impact,can_submit,warnings}`；输入/鉴权错误仍为原 response；领域阻断返回同一封装和422/409，can_submit=false，impact仍给只读候选评估。客户端完整展示 preview.diff 中新骨架 assessment、当前影响和未知后，由本轮明确授权将**同一 request**提交到原 `/changes`；Model仍生成待确认提案。比较UI入口使用已有 TS input.kind（如 dialogue）与真实 reference，不擅加 comparison 枚举；DC event.entry=comparison 仍独立合法。纯预览不授予写权限，不自动提交、不保存草稿、不生成历史。可重试同一已生成提交请求；应先查回执/状态，不重新编译旧恢复来冒充新意图。既有提交幂等键与身份作用域不变。
+HTTP 增量：`POST /trips/{id}/restorations/preview`，严格请求字段为 source_id/source_version/new_id/expected_revision/idempotency_key/input/reason，可选 city_id/insert_at/acknowledge_unknowns。认证、旅行权限、Origin、体积/数字解码沿用原防线；不接受 actor/owner/Grant。成功 200 返回 `{request,preview,impact,can_submit,warnings}`；输入/鉴权错误仍为原 response；领域阻断返回同一封装和422/409，can_submit=false，impact仍给只读候选评估。客户端完整展示 preview.diff 中新骨架 assessment、当前影响和未知后，由本轮明确授权将**同一 request**提交到原 `/changes`；Model仍生成待确认提案。比较UI入口使用已有 TS input.kind（如 dialogue）与真实 reference，不擅加 comparison 枚举；DC event.entry=comparison 仍独立合法。纯预览不授予写权限，不自动提交、不保存草稿、不生成历史。可重试同一已生成提交请求；应先查回执/状态，不重新编译旧恢复来冒充新意图。既有提交幂等键与身份作用域不变。
 
 新增体验保护守卫：已确认 accept 的 experience，其目录祖先城市不能在新采用骨架中消失；确需放弃须先展示牺牲，并在本轮授权批次显式处理原 Decision。该最小守卫不证明城市内部日程/体验可执行，未映射目录祖先的体验也不能凭此宣称完全保护。
 
@@ -80,3 +80,9 @@ E03-07：真实Session/PG/HTTP/新进程串联F1→F3→F4→F5→F6→恢复；
 E03-01原获批的合同注册/解码/类型/宿主边界和隔离测试底座可继续，不需重新申请开工。本轮只补审：UX02来源及Oracle锁切换、TS恢复编译/新增HTTP封装和体验城市守卫、DC新保存草稿目标校验及历史/假设恢复提示、三入口草稿/历史焦点/新actual授权的跨模块语义。20份DC机器合同/格式1、E11独立边界与Owner已批准隐私策略不重开。E03-02当前依据、03任务/异步归属、04写桥/恢复授权、05草稿ACK/CAS、06只读恢复、07真实联测按本表分别承接，既有阶段权重不变；未获增量接受前不能静默用本地R7替换获准R6或将R6批准说成R7已通过。
 
 确切文件差异与旧/新SHA另列在本轮工程交接的 `ux02-dc-r6-delta.json` 和 `UX02-DC已通过GateA的增量评审范围.md`。本任务没有实现E03-01生产代码，也不改写并行工程分支的看板或AGENTS；仅交接给既有执行者。
+
+## PR #13 技术审核后的候选增量（F01–F04）
+
+历史恢复以 `source_id + source_version` 指定所选对象版本；受信宿主从当前旅行状态或已应用的历史 ChangeRecord 前后快照解析，找不到、跨旅行、未提交或同一版本内容冲突时拒绝，不得回退最新。当前旅行 `expected_revision` 保持单独CAS；来源ID和版本写入 ChangeRecord.reason；OperationIntent.input 保留来源ID与本轮输入，旧 Grant 和事实判断不继承。新增HTTP响应合同区分严格五字段封装与原TS基础错误；422/409可能是两种形状，必须先判完整形状，详细见工程仓库 `docs/UX02恢复预览HTTP合同.md`。
+
+R6已批准源在独立校验区保留，用R6新进程实际生成旧格式1检查点，再由R7另一个新进程恢复、原样保存及验证非法修改拒绝；这不把R7升级为已批准基线。E03-01仍按已批准R6继续；接纳本次版本定位、HTTP合同和兼容修订须技术负责人对具体增量复审。20+20份机器Schema与旧来源逐字节自动对照。

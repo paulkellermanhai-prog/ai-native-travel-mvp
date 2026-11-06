@@ -11,6 +11,20 @@ assert actual == expected, 'UX02 source snapshot drift'
 for package in ['trip-state-schema-v0.1', 'decision-context-v0.1']:
     schemas = list((root/'sources'/package/'90_可运行工程包/schemas').glob('*.json'))
     assert len(schemas) == 20
+# Compare byte-for-byte against the actual approved baselines; the metadata flag is not proof.
+r6_selection = root / 'approved-r6-selection.json'
+assert hashlib.sha256(r6_selection.read_bytes()).hexdigest() == 'eaff06a085946c3a55ddd395169a534b12d8b896e7c4f5dd2b4bde08a46bca77', 'R6 approved selection mismatch'
+r6 = json.loads(r6_selection.read_text())
+dc_rows = {Path(row['source_path']).name: row['sha256'] for row in r6['files'] if '/schemas/' in row['source_path']}
+dc_dir = root/'sources/decision-context-v0.1/90_可运行工程包/schemas'
+assert len(dc_rows) == 20 and set(dc_rows) == {p.name for p in dc_dir.glob('*.json')}
+for filename, approved_hash in dc_rows.items():
+    assert hashlib.sha256((dc_dir/filename).read_bytes()).hexdigest() == approved_hash, f'DC approved schema changed: {filename}'
+ts_dir = root/'sources/trip-state-schema-v0.1/90_可运行工程包/schemas'
+ts_baseline = repo/'specs/ts-ac8-stage-a-2026-11-03/trip-state-schema-v0.1/90_可运行工程包/schemas'
+assert {p.name for p in ts_dir.glob('*.json')} == {p.name for p in ts_baseline.glob('*.json')}
+for schema in ts_dir.glob('*.json'):
+    assert schema.read_bytes() == (ts_baseline/schema.name).read_bytes(), f'TS approved schema changed: {schema.name}'
 # These are source snapshots, never imported by the Next application.
 if '--run-reference' in sys.argv:
     subprocess.run([sys.executable, '-B', 'check_cross_package_refs.py'], cwd=root/'sources/decision-context-v0.1/90_可运行工程包', check=True)

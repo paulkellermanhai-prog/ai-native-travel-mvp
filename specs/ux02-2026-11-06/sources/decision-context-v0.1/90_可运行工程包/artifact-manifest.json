@@ -22,10 +22,10 @@
   "03_评审与工程衔接/15_DC-AC8协议裁决与宿主证据接口交接.md": "879c1759ba52042ca089f59f223f45872e81b1ab308adaa32812709101bc0314",
   "03_评审与工程衔接/16_E11宿主交互证据数据契约与验收轨迹.md": "ed192c56c5ea3839ffed59f83ac2679892c471f137d2319d5ef72767e9f3b946",
   "03_评审与工程衔接/17_DC-AC8-PRIVACY-01_Owner裁决与执行边界.md": "05159c3f0aa0000f53316e8017f9052facbb7c5fe16ef4fd309c1922a624e6d1",
-  "03_评审与工程衔接/18_UX02行为落实与E03开发验收映射.md": "abdf8ce2a6e66c84e19358acd6d2c4cb741531ba802b1e8d4660ad2fc181ad55",
+  "03_评审与工程衔接/18_UX02行为落实与E03开发验收映射.md": "1f9f9b821b2c9ffb992bd63f49eace312ca9d84e3b760f469fc1091880e919bb",
   "90_可运行工程包/FIELD_DICTIONARY.md": "d7cca5bd04acb717a1590ac642a7e982ba9ae853a174b6b753f6e90e4b5db879",
   "90_可运行工程包/README.md": "83b2a73723f2edbffa301ffd89a4f5457740d205fc013fdd9f379ba3d8a6ce8f",
-  "90_可运行工程包/VALIDATION_REPORT.md": "870c380a4b3fced1cd6b372633ddc6ca995ccbadb78c0144a0847d854af89124",
+  "90_可运行工程包/VALIDATION_REPORT.md": "bc985355208caaf1d0367066f9f46677168a815c34fb033cfe0722bedf5667dc",
   "90_可运行工程包/check_cross_package_refs.py": "85e960b7f7e837b7e7e6e7b0e4a087a80cfeace15de40a6d4dc2a47f84f77748",
   "90_可运行工程包/context_runtime/__init__.py": "ad829be702f5b30422cf476c0e794c70a9ffe195081ffea639ac0215c6d72d14",
   "90_可运行工程包/context_runtime/api.py": "7a318597eb3499c4512577ed82956b681baac8aa8396a0b1695c06bbcbd2d965",
@@ -62,9 +62,9 @@
   "90_可运行工程包/schemas/turn.schema.json": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9",
   "90_可运行工程包/tests/test_recovery.py": "811cadb76da6a0ad6e357af57153e5ebdcfb60c9b4f2c991f3e8607cd5de0bc7",
   "90_可运行工程包/tests/test_runtime.py": "7c8f39e0eeb61e90fbaaf2df1f0d388f8038d9d90b68c8b54e41e4c9c9ecc2ed",
-  "90_可运行工程包/update_package_index.py": "160b39975aaa75bd8acd30fd23a228ab74ad0bc8395a4691e85b1dc3948d42da",
-  "90_可运行工程包/ux02-source-manifest.json": "9bc1690aae1de2881df97f46333eecba47bbcf20ab9b0ca17bcaf9967466f132",
-  "90_可运行工程包/validation-output.txt": "ec246dc54c9890dd9dd31589b9c4fa9abb50f27ad152c0f56758477eee592295",
-  "90_可运行工程包/validation-results.json": "671d20598f81351d15a389d6350d8e11aac07605aa85544e681e3aec1186fb8c",
-  "package-index.json": "471798550e9d123bd204aeb8fa541b7cbdaa20332efbb4d32c1bfdf4df2b56d2"
+  "90_可运行工程包/update_package_index.py": "dd1bc1514af656755e7a77b52ff90370778f2a1c862bd536207d1b7d88e83cf1",
+  "90_可运行工程包/ux02-source-manifest.json": "2b4571d1cc6ec956a1e722df343f8b189d91e3c0b3d63273e8902e46db9f5f96",
+  "90_可运行工程包/validation-output.txt": "59f49bfaaa27dbf8f0e1198ef5fd7122d5558f1ee18997a1c80bbadae72eca2e",
+  "90_可运行工程包/validation-results.json": "ebaa60f501f5480fc4acef09ddb09a5cb416061b42a706a5cc47057d68caa37a",
+  "package-index.json": "5dea392c86818baa8e9d61791bcec07663d3694246f41cd18f33a925d04b0e75"
 }

@@ -1,20 +1,26 @@
 /** UX-02 history compiler. No writes/grants: use the existing authenticated preview/submit service. */
 import { z } from "zod";
+import { isDeepStrictEqual } from "node:util";
 import { parseContract, TripStateContractError } from "./contracts";
 import { validateStateSemantics, rule } from "./semantics";
 import type { State, TripStateContracts } from "./contracts.generated";
 import { previewCommand, type CommandRequest } from "./commands";
 
 export type RestorationInput = {
-  sourceId: string; newId: string; expectedRevision: number; idempotencyKey: string;
+  sourceId: string; sourceVersion: number; newId: string; expectedRevision: number; idempotencyKey: string;
   input: CommandRequest["input"]; reason: string; cityId?: string; insertAt?: number; acknowledgeUnknowns?: boolean;
 };
-export function restorationRequest(value: State, options: RestorationInput): CommandRequest {
+export function restorationRequest(value: State, options: RestorationInput, history: TripStateContracts["history"] = { intents: [], changes: [] }): CommandRequest {
   const state = validateStateSemantics(value), objects = new Map(state.objects.map((o) => [o.id, o]));
-  const { sourceId, newId, expectedRevision, idempotencyKey, input, reason, cityId, insertAt } = options;
+  const { sourceId, sourceVersion, newId, expectedRevision, idempotencyKey, input, reason, cityId, insertAt } = options;
   rule(expectedRevision === state.revision, "VERSION_CONFLICT", "恢复基准已变，重新预览");
-  const source = objects.get(sourceId), current = state.effective_skeleton_id ? objects.get(state.effective_skeleton_id) : undefined;
-  rule(source?.type === "Skeleton" && source.purpose === "plan", "RESTORE_SOURCE", "恢复来源必须是历史规划骨架");
+  rule(Number.isSafeInteger(sourceVersion) && sourceVersion > 0, "SCHEMA", "必须指定历史来源版本");
+  const currentSource = objects.get(sourceId), candidates = [currentSource, ...history.changes.filter(c => c.outcome === "applied" && c.trip_id === state.trip_id && c.result_revision <= state.revision).flatMap(c => c.diff.filter(d => d.id === sourceId).flatMap(d => [d.before, d.after]))]
+    .filter((o): o is Extract<State["objects"][number], { type: "Skeleton" }> => !!o && o.type === "Skeleton" && o.id === sourceId && o.trip_id === state.trip_id && o.version === sourceVersion);
+  rule(candidates.length > 0, "RESTORE_SOURCE_VERSION", "所选历史来源版本不可用");
+  rule(candidates.every(o => isDeepStrictEqual(o, candidates[0])), "RESTORE_SOURCE_INTEGRITY", "同一历史版本的来源不一致");
+  const source = candidates[0], current = state.effective_skeleton_id ? objects.get(state.effective_skeleton_id) : undefined;
+  rule(source.purpose === "plan", "RESTORE_SOURCE", "恢复来源必须是历史规划骨架");
   rule(!objects.has(newId), "DUPLICATE_ID", "恢复必须生成新骨架");
   let stops = structuredClone(source.stops), connections = structuredClone(source.connections), costs = [...source.cost_fact_ids];
   if (cityId === undefined) rule(insertAt === undefined, "RESTORE_SCOPE", "整份恢复不接受城市位置");
@@ -47,13 +53,13 @@ export function restorationRequest(value: State, options: RestorationInput): Com
   };
   return parseContract("change-request", { expected_revision: expectedRevision, idempotency_key: idempotencyKey,
     input: { ...structuredClone(input), target_ids: [...new Set([...input.target_ids, sourceId, ...(state.effective_skeleton_id ? [state.effective_skeleton_id] : []), ...(cityId ? [cityId] : [])])] },
-    reason: `${reason} | UX02 restore source=${sourceId}${cityId ? ` city=${cityId}` : " whole"}`,
+    reason: `${reason} | UX02 restore source=${sourceId} version=${sourceVersion}${cityId ? ` city=${cityId}` : " whole"}`,
     commands: [command, { op: "adopt_skeleton", id: newId, acknowledge_unknowns: options.acknowledgeUnknowns ?? false, confirmation_scope: ["cities", "order", "stays", "connections"] }],
   });
 }
 
 const restoreShape = z.object({
-  source_id: z.string().min(1), new_id: z.string().min(1), expected_revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+  source_id: z.string().min(1), source_version: z.number().int().positive().max(Number.MAX_SAFE_INTEGER), new_id: z.string().min(1), expected_revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
   idempotency_key: z.string().min(1), reason: z.string().min(1),
   input: z.object({ kind: z.enum(["dialogue", "map", "timeline", "tool", "system"]), reference: z.string().min(1), text: z.string().min(1), target_ids: z.array(z.string()) }).strict(),
   city_id: z.string().min(1).optional(), insert_at: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER).optional(), acknowledge_unknowns: z.boolean().optional(),
@@ -62,7 +68,7 @@ export function parseRestorationInput(value: unknown): RestorationInput {
   const result = restoreShape.safeParse(value);
   if (!result.success) throw new TripStateContractError("SCHEMA", "Invalid restoration input");
   const b = result.data;
-  return { sourceId: b.source_id, newId: b.new_id, expectedRevision: b.expected_revision, idempotencyKey: b.idempotency_key,
+  return { sourceId: b.source_id, sourceVersion: b.source_version, newId: b.new_id, expectedRevision: b.expected_revision, idempotencyKey: b.idempotency_key,
     input: b.input, reason: b.reason, cityId: b.city_id, insertAt: b.insert_at, acknowledgeUnknowns: b.acknowledge_unknowns };
 }
 
@@ -70,4 +76,20 @@ export function parseRestorationInput(value: unknown): RestorationInput {
 export function restorationImpact(state: State, request: CommandRequest, clock: () => Date = () => new Date()) {
   const calculation = { ...structuredClone(request), commands: [request.commands[0], { op: "recalculate" as const, id: (request.commands[0] as { id: string }).id }] as CommandRequest["commands"] };
   return previewCommand(state, calculation, { role: "system", id: "restoration-preview-calculator" }, clock);
+}
+
+/** Validate either documented HTTP response shape without assuming a shape from status alone. */
+export function parseRestorationHttpResponse(value: unknown, status: number) {
+  const envelope = z.object({ request: z.unknown(), preview: z.unknown(), impact: z.unknown(), can_submit: z.boolean(), warnings: z.array(z.string()) }).strict().safeParse(value);
+  if (envelope.success) {
+    const request = parseContract("change-request", envelope.data.request), preview = parseContract("response", envelope.data.preview), impact = parseContract("response", envelope.data.impact);
+    rule(envelope.data.can_submit === (preview.outcome === "preview"), "SCHEMA", "提交资格与预览结果不一致");
+    const expected = preview.outcome === "preview" ? 200 : preview.outcome === "conflict" ? 409 : preview.outcome === "rejected" ? 422 : 0;
+    rule(status === expected, "SCHEMA", "预览结果与HTTP状态不一致");
+    return { kind: "preview" as const, request, preview, impact, can_submit: envelope.data.can_submit, warnings: envelope.data.warnings };
+  }
+  const error = parseContract("response", value), code = error.errors[0]?.code;
+  const expected = ["PERMISSION", "ACTOR"].includes(code ?? "") ? 403 : code === "NOT_FOUND" ? 404 : code === "METHOD_NOT_ALLOWED" ? 405 : code === "INTERNAL_FAILURE" || code?.startsWith("STORAGE_") ? 500 : error.outcome === "conflict" ? 409 : 422;
+  rule(["rejected", "conflict"].includes(error.outcome) && expected === status, "SCHEMA", "错误响应与HTTP状态不一致");
+  return { kind: "error" as const, error };
 }

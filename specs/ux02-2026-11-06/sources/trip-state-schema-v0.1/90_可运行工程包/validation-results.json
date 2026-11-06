@@ -1,6 +1,6 @@
 {
   "schema_version": "0.1.0",
-  "executed_at_utc": "2026-11-06T04:19:32.902794+00:00",
+  "executed_at_utc": "2026-11-06T05:31:23.768533+00:00",
   "python": "3.13.5",
   "platform": "macOS-26.0-arm64-arm-64bit-Mach-O",
   "dependencies": {
@@ -11,12 +11,12 @@
     "rpds-py": "2026.9.1"
   },
   "dependency_lock_matches": true,
-  "test_cases_run": 136,
-  "passed": 136,
+  "test_cases_run": 137,
+  "passed": 137,
   "failures": 0,
   "errors": 0,
   "skipped": 0,
-  "duration_seconds": 10.068,
+  "duration_seconds": 9.865,
   "successful": true,
   "tests": [
     {
@@ -545,6 +545,10 @@
     },
     {
       "test": "test_ux02.UX02Tests.test_failure_preserves_current_plan_and_draft_request_is_reusable",
+      "outcome": "passed"
+    },
+    {
+      "test": "test_ux02.UX02Tests.test_older_version_of_same_candidate_is_resolved_from_applied_history",
       "outcome": "passed"
     },
     {

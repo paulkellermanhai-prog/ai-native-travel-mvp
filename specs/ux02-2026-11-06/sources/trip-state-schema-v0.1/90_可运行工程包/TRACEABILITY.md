@@ -81,3 +81,7 @@ Python 3.13 + jsonschema 4.23.0 + 标准库 unittest；依赖全部固定在 req
 ## UX-02 本轮增量
 
 E01–E32完整分类及DC后续子任务见[UX02逐项矩阵](UX02工程落实与DC开发映射.md)。`tests/test_ux02.py`覆盖整份/城市恢复只读预览、新版本、当前硬约束拒绝、事实过期、Model确认、旧基准、幂等、故障回滚、缺城市位置与体验城市保护。真实TS对应`tests/trip-state/ux02.test.ts`、PG专项和HTTP专项；本参考报告不证明GitHub/前端/LLM/真实交通通过。
+
+### PR #13 版本定位与接口合同修订候选
+
+恢复请求必须指定 source_id 与 source_version；从当前旅行授权历史的已应用快照或当前对象解析该精确版本，不可用时拒绝。当前旅行revision仍单独保护并发；查看历史不等于授权。HTTP成功、阻断、版本冲突及鉴权错误的形状见 UX02 工程映射，旧领域Schema不变。

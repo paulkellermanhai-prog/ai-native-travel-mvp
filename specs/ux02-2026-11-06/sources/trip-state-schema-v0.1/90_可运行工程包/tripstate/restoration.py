@@ -7,13 +7,23 @@ from copy import deepcopy
 from .rules import require, validate_state, validate_shape, index
 
 
-def restoration_request(state, *, source_id, new_id, expected_revision, idempotency_key,
-                        input, reason, city_id=None, insert_at=None, acknowledge_unknowns=False):
+def restoration_request(state, *, source_id, source_version, new_id, expected_revision, idempotency_key,
+                        input, reason, city_id=None, insert_at=None, acknowledge_unknowns=False, history=None):
     validate_state(state)
     require(expected_revision == state["revision"], "VERSION_CONFLICT", "恢复基准已变，重新预览")
     objects = index(state)
-    source = objects.get(source_id)
-    require(source is not None and source["type"] == "Skeleton" and source["purpose"] == "plan",
+    require(type(source_version) is int and source_version > 0, "SCHEMA", "必须指定历史来源版本")
+    candidates = [objects.get(source_id)]
+    for change in (history or {}).get("changes", []):
+        if change["outcome"] == "applied" and change["trip_id"] == state["trip_id"] and change["result_revision"] <= state["revision"]:
+            for diff in change["diff"]:
+                if diff["id"] == source_id:
+                    candidates.extend([diff["before"], diff["after"]])
+    candidates = [o for o in candidates if o and o["type"] == "Skeleton" and o["id"] == source_id and o["trip_id"] == state["trip_id"] and o["version"] == source_version]
+    require(bool(candidates), "RESTORE_SOURCE_VERSION", "所选历史来源版本不可用")
+    require(all(o == candidates[0] for o in candidates), "RESTORE_SOURCE_INTEGRITY", "同一历史版本的来源不一致")
+    source = candidates[0]
+    require(source["purpose"] == "plan",
             "RESTORE_SOURCE", "恢复来源必须是历史规划骨架")
     require(new_id not in objects, "DUPLICATE_ID", "恢复必须生成新骨架")
     current_id = state["effective_skeleton_id"]
@@ -55,7 +65,7 @@ def restoration_request(state, *, source_id, new_id, expected_revision, idempote
                                  *([city_id] if city_id else [])]))
     body = dict(expected_revision=expected_revision, idempotency_key=idempotency_key,
                 input=dict(deepcopy(input), target_ids=targets),
-                reason=reason + " | UX02 restore source=" + source_id + (" city=" + city_id if city_id else " whole"),
+                reason=reason + " | UX02 restore source=" + source_id + " version=" + str(source_version) + (" city=" + city_id if city_id else " whole"),
                 commands=[dict(op="create", object_type="Skeleton", id=new_id,
                                scope=dict(kind="trip", ids=[]), dependencies=[], data=data),
                           dict(op="adopt_skeleton", id=new_id, acknowledge_unknowns=acknowledge_unknowns,
