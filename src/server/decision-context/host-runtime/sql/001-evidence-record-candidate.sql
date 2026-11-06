@@ -1,6 +1,7 @@
 -- Isolated candidate only: do not add to the shared migration chain or grant
 -- EXECUTE until this slice has real PostgreSQL and least-privilege review.
--- It has no reader or association capability.
+-- Internal event reader and Task/source binding remain isolated candidates;
+-- they are not the full E11 association log or a production reader.
 CREATE TABLE public."HostEvidenceWorkspace" (
   owner_id TEXT NOT NULL CHECK (char_length(owner_id) BETWEEN 1 AND 256),
   trip_id TEXT NOT NULL CHECK (trip_id ~ '^[A-Za-z][A-Za-z0-9_-]{0,95}$'),
@@ -117,7 +118,7 @@ REVOKE ALL ON FUNCTION public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT
 CREATE FUNCTION public.host_evidence_for_turn_candidate(p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_event TEXT,p_token TEXT,p_metadata_only BOOLEAN)
 RETURNS TABLE(allowed BOOLEAN, out_entry TEXT, out_body TEXT, out_received_at TIMESTAMPTZ)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
-DECLARE e public."HostEvidenceEvent"%ROWTYPE; l public."HostEvidenceTripLifecycle"%ROWTYPE; v_revision BIGINT;
+DECLARE e public."HostEvidenceEvent"%ROWTYPE; l public."HostEvidenceTripLifecycle"%ROWTYPE; v_revision BIGINT; checked_at TIMESTAMPTZ;
 BEGIN
   SELECT "revision" INTO v_revision FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
   IF NOT FOUND THEN RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN; END IF;
@@ -134,14 +135,53 @@ BEGIN
   IF NOT FOUND OR e.key_token IS DISTINCT FROM p_token OR e.deleted_at IS NOT NULL OR e.body IS NULL OR e.recorded_at > clock_timestamp() OR clock_timestamp() >= e.recorded_at + interval '180 days' OR clock_timestamp() >= e.recorded_at + interval '12 months' THEN
     RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
   END IF;
-  IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE OR
-    (l.ended_at IS NOT NULL AND (l.ended_at > clock_timestamp() OR clock_timestamp() >= l.ended_at + interval '30 days')) THEN
+  IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
+  END IF;
+  checked_at := clock_timestamp();
+  IF (l.ended_at IS NOT NULL AND (l.ended_at > checked_at OR checked_at >= l.ended_at + interval '30 days')) OR
+    e.recorded_at > checked_at OR checked_at >= e.recorded_at + interval '180 days' OR checked_at >= e.recorded_at + interval '12 months' THEN
     RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
   END IF;
   RETURN QUERY SELECT TRUE,CASE WHEN p_metadata_only THEN NULL ELSE e.entry END,CASE WHEN p_metadata_only THEN NULL ELSE e.body END,CASE WHEN p_metadata_only THEN NULL ELSE e.received_at END;
 END;
 $$;
 REVOKE ALL ON FUNCTION public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN) FROM PUBLIC;
+
+-- Internal append-only provenance, storing no Task or event text. This is a
+-- candidate source binding, not the full E11 association log or a Task store.
+CREATE TABLE public."HostEvidenceTaskSource" (
+  owner_id TEXT NOT NULL, trip_id TEXT NOT NULL, workspace_key TEXT NOT NULL,
+  task_token TEXT NOT NULL CHECK (task_token ~ '^[0-9a-f]{64}$'),
+  task_digest TEXT NOT NULL CHECK (task_digest ~ '^[0-9a-f]{64}$'),
+  event_id TEXT NOT NULL REFERENCES public."HostEvidenceEvent"(event_id),
+  event_token TEXT NOT NULL CHECK (event_token ~ '^[0-9a-f]{64}$'),
+  PRIMARY KEY(owner_id,trip_id,workspace_key,task_token,task_digest,event_id),
+  FOREIGN KEY(owner_id,trip_id,workspace_key) REFERENCES public."HostEvidenceWorkspace"(owner_id,trip_id,workspace_key)
+);
+REVOKE ALL ON public."HostEvidenceTaskSource" FROM PUBLIC;
+
+-- Only the trusted host calls this after validating the Task against the
+-- source and current state. The source is re-authorized and held to commit.
+CREATE FUNCTION public.host_evidence_bind_task_source_candidate(
+  p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,
+  p_task_token TEXT,p_task JSONB,p_event TEXT,p_event_token TEXT
+) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+DECLARE ok BOOLEAN;
+BEGIN
+  IF p_task_token !~ '^[0-9a-f]{64}$' OR jsonb_typeof(p_task) IS DISTINCT FROM 'object' THEN RETURN FALSE; END IF;
+  SELECT allowed INTO ok FROM public.host_evidence_for_turn_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,p_event,p_event_token,TRUE);
+  IF ok IS DISTINCT FROM TRUE THEN RETURN FALSE; END IF;
+  INSERT INTO public."HostEvidenceTaskSource"(owner_id,trip_id,workspace_key,task_token,task_digest,event_id,event_token)
+    VALUES(p_owner,p_trip,p_workspace,p_task_token,encode(sha256(convert_to(p_capability || p_task::text,'UTF8')),'hex'),p_event,p_event_token)
+    ON CONFLICT DO NOTHING;
+  IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
+    RAISE EXCEPTION 'source authorization expired' USING ERRCODE='42501';
+  END IF;
+  RETURN TRUE;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT) FROM PUBLIC;
 
 -- Serializes deletion with writes in the same workspace. A committed marker
 -- always precedes physical cleanup; repeat requests do not advance revision.

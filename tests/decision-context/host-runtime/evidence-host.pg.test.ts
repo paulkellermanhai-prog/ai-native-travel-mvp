@@ -6,6 +6,8 @@ import { openIdentity, type Identity } from "../../../src/server/auth/config";
 import { openEvidenceHost } from "../../../src/server/decision-context/host-runtime/evidence-host";
 import { issueInternalCapability, openInternalTripService } from "../../../src/server/auth/internal-service";
 import { base } from "../../support/bcg-fixtures";
+import { checkpointDigest, validateCheckpoint } from "../../../src/server/decision-context/checkpoint-core";
+import { digest } from "../../../src/server/trip-state/command-json";
 
 const file = process.env.E02_STORAGE_ENV_FILE;
 const config = file ? JSON.parse(fs.readFileSync(file, "utf8")) as { migrationUrl: string; runtimeUrl: string; authUrl: string; runtimeRole: string; database: string } : null;
@@ -37,8 +39,15 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     const existing = await owner.query<{ relation: string | null }>("SELECT to_regclass('public.\"HostEvidenceEvent\"')::text AS relation");
     if (existing.rows[0]?.relation) throw new Error("Refusing to replace existing evidence tables");
     await owner.query(fs.readFileSync("src/server/decision-context/host-runtime/sql/001-evidence-record-candidate.sql", "utf8")); created = true;
+    await owner.query("BEGIN");
+    try {
+      await owner.query("SELECT pg_advisory_xact_lock(hashtext('e03_checkpoint_test_migration'))");
+      await owner.query(fs.readFileSync("src/server/decision-context/checkpoint-store/migration.sql", "utf8"));
+      await owner.query("COMMIT");
+    } catch (error) { await owner.query("ROLLBACK"); throw error; }
+    await owner.query(fs.readFileSync("src/server/decision-context/integration/checkpoint-evidence-candidate.sql", "utf8"));
     const role = `"${config.runtimeRole}"`;
-    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT) TO ${role}`);
+    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) TO ${role}`);
     runtime = new Client({ connectionString: config.runtimeUrl }); await runtime.connect();
     identity = await openIdentity(env);
     internal = await openInternalTripService(config.runtimeUrl, secret);
@@ -50,8 +59,9 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   afterAll(async () => {
     await host?.close(); await internal?.close(); await identity?.close(); await runtime?.end();
     if (created) {
-      await owner.query('DROP FUNCTION public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
-      await owner.query('DROP TABLE public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
+      await owner.query('DROP FUNCTION public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
+      await owner.query('DROP FUNCTION public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
+      await owner.query('DROP TABLE public."HostEvidenceTaskSource", public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
     }
     await owner?.end();
   }, 30000);
@@ -75,7 +85,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     const direct = await runtime.query("SELECT * FROM public.host_evidence_record_candidate($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)",
       [otherSession.session.id, a.user.id, trip, first.workspace_key, "0".repeat(64), "event_direct", "dialogue", "x", new Date(), "b".repeat(64), "a".repeat(64)]);
     expect(direct.rows).toMatchObject([{ disposition: "denied", out_event_id: null, out_sequence: null }]);
-    const directDelete = await runtime.query("SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)",
+    const directDelete = await runtime.query("SELECT * FROM public.host_checkpoint_delete_event_candidate($1,$2,$3,$4,$5,$6)",
       [otherSession.session.id, a.user.id, trip, first.workspace_key, "0".repeat(64), first.event_id]);
     expect(directDelete.rows).toMatchObject([{ disposition: "denied", deletion_revision: null }]);
     const guessed = await runtime.query("SELECT * FROM public.host_evidence_for_turn_candidate($1,$2,$3,$4,$5,$6,$7,$8)",
@@ -134,7 +144,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(await probe(eb.workspace_key,cb,0)).toBe(true);
     expect(await probe(eb.workspace_key,ca,0)).toBe(false);
     expect(await probe(ea.workspace_key,cb,0)).toBe(false);
-    const wrongDelete=await runtime.query('SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,eb.workspace_key,ca,eb.event_id]);
+    const wrongDelete=await runtime.query('SELECT * FROM public.host_checkpoint_delete_event_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,eb.workspace_key,ca,eb.event_id]);
     expect(wrongDelete.rows).toMatchObject([{disposition:"denied",deletion_revision:null,accepted_at:null}]);
     const wrongRead=await runtime.query('SELECT * FROM public.host_evidence_for_turn_candidate($1,$2,$3,$4,$5,$6,$7,$8)',[a.session.session.id,a.user.id,trip,eb.workspace_key,ca,eb.event_id,"0".repeat(64),false]);
     expect(wrongRead.rows).toMatchObject([{allowed:false,out_entry:null,out_body:null,out_received_at:null}]);
@@ -163,7 +173,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
         if(r.rows[0].blocked){blocked=true;break;} await new Promise(resolve=>setTimeout(resolve,50));
       }
       expect(blocked).toBe(true);
-      const deleted=await owner.query('SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,event.workspace_key,cap,event.event_id]);
+      const deleted=await owner.query('SELECT * FROM public.host_checkpoint_delete_event_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,event.workspace_key,cap,event.event_id]);
       expect(deleted.rows).toMatchObject([{disposition:"deleted"}]);
       await owner.query("COMMIT"); committed=true;
       expect((await pending).rows).toEqual([{ok:false}]);
@@ -207,6 +217,200 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
       await owner.query(`REVOKE EXECUTE ON FUNCTION e03_checkpoint.session_read_scene(text,text,text,text,text) FROM ${role}`);
       await owner.query(`REVOKE USAGE ON SCHEMA e03_checkpoint FROM ${role}`);
     }
+    const rawDelete="public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT)";
+    await owner.query(`GRANT EXECUTE ON FUNCTION ${rawDelete} TO ${role}`);
+    try { await expect(openEvidenceHost(env)).rejects.toThrow("without checkpoint access"); }
+    finally { await owner.query(`REVOKE EXECUTE ON FUNCTION ${rawDelete} FROM ${role}`); }
+    await owner.query(`GRANT EXECUTE ON FUNCTION ${rawDelete} TO PUBLIC`);
+    try { await expect(openEvidenceHost(env)).rejects.toThrow("without checkpoint access"); }
+    finally { await owner.query(`REVOKE EXECUTE ON FUNCTION ${rawDelete} FROM PUBLIC`); }
+    const inherited=`"e11_parent_${randomBytes(8).toString("hex")}"`;
+    await owner.query(`CREATE ROLE ${inherited} NOLOGIN`);
+    try {
+      await owner.query(`GRANT EXECUTE ON FUNCTION ${rawDelete} TO ${inherited}`);
+      await owner.query(`GRANT ${inherited} TO ${role}`);
+      await expect(openEvidenceHost(env)).rejects.toThrow("without checkpoint access");
+    } finally {
+      await owner.query(`REVOKE ${inherited} FROM ${role}`);
+      await owner.query(`REVOKE EXECUTE ON FUNCTION ${rawDelete} FROM ${inherited}`);
+      await owner.query(`DROP ROLE ${inherited}`);
+    }
+  },30000);
+  it("saves and inspects a source-bound checkpoint without exposing its payload; cross-workspace, tamper and deletion fail closed", async () => {
+    const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const wa=await host.createWorkspace(trip,a.headers), wb=await host.createWorkspace(trip,a.headers);
+    const ea=await host.record(wa,a.headers,{entry:"dialogue",text:"trusted source",idempotency_key:`checkpoint_${randomUUID()}`});
+    const eb=await host.record(wb,a.headers,{entry:"dialogue",text:"other source",idempotency_key:`checkpoint_${randomUUID()}`});
+    const task={task_key:"task-cp",question:"trusted",kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:7,quote:"trusted"}],progress:"open",progress_evidence:null};
+    await host.registerTaskIdentity(wa,a.headers,ea,{expected_revision:0,tasks:[task],focus_keys:["task-cp"]});
+    const caps=await owner.query<{workspace_key:string;capability_token:string}>('SELECT workspace_key,capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=ANY($3::text[])',[a.user.id,trip,[ea.workspace_key,eb.workspace_key]]);
+    const ca=caps.rows.find(r=>r.workspace_key===ea.workspace_key)!.capability_token, cb=caps.rows.find(r=>r.workspace_key===eb.workspace_key)!.capability_token;
+    const received=(await owner.query<{received_at:Date}>('SELECT received_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[ea.event_id])).rows[0].received_at.toISOString();
+    const input={checkpoint_format_version:1,trip_id:trip,captured_state_revision:0,captured_object_versions:[],
+      tasks:[{task,event:{event_id:ea.event_id,entry:"dialogue",text:"trusted source",reference:`host-interaction:${ea.event_id}`,received_at:received},base_revision:0,processing_status:"unprocessed",result_revision:0,errors:[]}],
+      focus_keys:["task-cp"],view:{entry:"dialogue",comparison_refs:[],selected_id:null,expanded_task_keys:[]},drafts:[],deferred_issue_ids:[]};
+    const payload=validateCheckpoint(input,trip,0), now=new Date().toISOString();
+    const save=async (workspace:string,cap:string,value:unknown,key:string) => {
+      const req=digest({expected_revision:0,payload:value,deleted:false});
+      return (await runtime.query<{value:{fault?:string;ack?:{checkpoint_revision:number}}}>(
+        'SELECT public.host_checkpoint_save_candidate($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,$10,$11,$12) AS value',
+        [a.session.session.id,a.user.id,trip,workspace,cap,0,key,req,JSON.stringify(value),checkpointDigest(payload),now,null])).rows[0].value;
+    };
+    const inspect=async (workspace:string,cap:string) => (await runtime.query<{value:Record<string,unknown>}>(
+      'SELECT public.host_checkpoint_inspect_candidate($1,$2,$3,$4,$5) AS value',[a.session.session.id,a.user.id,trip,workspace,cap])).rows[0].value;
+    expect(await save(ea.workspace_key,cb,payload,"wrong-cap")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    expect(await save(eb.workspace_key,ca,payload,"wrong-workspace")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    expect(await save(ea.workspace_key,ca,{...payload,drafts:[{}]},"draft")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    expect(await save(ea.workspace_key,ca,{...payload,captured_object_versions:[{id:"fake",version:1}]},"fake-versions")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    await expect(runtime.query('SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,ea.workspace_key,ca,ea.event_id])).rejects.toThrow();
+    const altered=structuredClone(payload); altered.tasks[0].task.question="forged";
+    expect(await save(ea.workspace_key,ca,altered,"forged")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    const forgedEvent=structuredClone(payload); forgedEvent.tasks[0].event.reference=`host-interaction:${eb.event_id}`;
+    expect(await save(ea.workspace_key,ca,forgedEvent,"forged-reference")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    const forgedText=structuredClone(payload); forgedText.tasks[0].event.text="different body";
+    expect(await save(ea.workspace_key,ca,forgedText,"forged-text")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    expect(await host.saveCheckpoint(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
+    expect(await host.saveCheckpoint(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
+    expect(await host.inspectCheckpoint(wa,a.headers)).toMatchObject({revision:1});
+    expect(await inspect(ea.workspace_key,ca)).toMatchObject({revision:1});
+    expect(await inspect(ea.workspace_key,ca)).not.toHaveProperty("payload");
+    const unrelated=await host.record(wa,a.headers,{entry:"dialogue",text:"unrelated",idempotency_key:`unrelated_${randomUUID()}`});
+    await host.deleteEvent(wa,a.headers,unrelated.event_id);
+    expect(await host.inspectCheckpoint(wa,a.headers)).toMatchObject({revision:1});
+    expect(await host.saveCheckpoint(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
+    // A continuation also depends on the original event. A fresh latest event
+    // cannot rescue an expired earlier source in the same Task's lineage.
+    const bTask={...task,task_key:"task-b",question:"other",evidence:[{start:0,end:5,quote:"other"}]};
+    await host.registerTaskIdentity(wb,a.headers,eb,{expected_revision:0,tasks:[bTask],focus_keys:["task-b"]});
+    const bNext=await host.record(wb,a.headers,{entry:"dialogue",text:"follow",idempotency_key:`continue_${randomUUID()}`});
+    const bContinue={...bTask,relation:"continue",evidence:[{start:0,end:6,quote:"follow"}]};
+    await host.registerTaskIdentity(wb,a.headers,bNext,{expected_revision:0,tasks:[bContinue],focus_keys:["task-b"]});
+    const bReceived=(await owner.query<{received_at:Date}>('SELECT received_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[bNext.event_id])).rows[0].received_at.toISOString();
+    const bInput={...input,tasks:[{task:bContinue,event:{event_id:bNext.event_id,entry:"dialogue",text:"follow",reference:`host-interaction:${bNext.event_id}`,received_at:bReceived},base_revision:0,processing_status:"unprocessed",result_revision:0,errors:[]}],focus_keys:["task-b"]};
+    const before=(await owner.query<{recorded_at:string}>('SELECT recorded_at::text FROM public."HostEvidenceEvent" WHERE event_id=$1',[eb.event_id])).rows[0].recorded_at;
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '180 days' WHERE event_id=$1`,[eb.event_id]);
+    await expect(host.saveCheckpoint(wb,a.headers,bInput,0,"expired-dependency")).rejects.toMatchObject({code:"RECOVERY_UNAVAILABLE"});
+    expect((await owner.query('SELECT 1 FROM e03_checkpoint.heads WHERE owner_id=$1 AND trip_id=$2 AND workspace=$3',[`user-${a.user.id}`,trip,eb.workspace_key])).rowCount).toBe(0);
+    await owner.query('UPDATE public."HostEvidenceEvent" SET recorded_at=$2::timestamptz WHERE event_id=$1',[eb.event_id,before]);
+    await expect(host.saveCheckpoint(wb,a.headers,bInput,0,"fresh-dependency")).resolves.toMatchObject({checkpoint_revision:1});
+    // The dependency can cross its deadline while the checkpoint advisory lock
+    // is held. Inspection must use the clock after the wait, not before it.
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '180 days'+interval '2 seconds' WHERE event_id=$1`,[eb.event_id]);
+    const watcher=new Client({connectionString:config!.migrationUrl}); await watcher.connect();
+    const ownerPid=(await owner.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    await owner.query("BEGIN"); let lockCommitted=false;
+    try {
+      await owner.query("SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array($1::text,$2::text,$3::text)::text,0))",[`user-${a.user.id}`,trip,eb.workspace_key]);
+      const pending=inspect(eb.workspace_key,cb); let blocked=false,expired=false;
+      for(let i=0;i<150 && !(blocked && expired);i++) {
+        const r=await watcher.query<{blocked:boolean;expired:boolean}>(`SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_checkpoint_inspect_candidate%') AS blocked, (SELECT clock_timestamp()>=recorded_at+interval '180 days' FROM public."HostEvidenceEvent" WHERE event_id=$2) AS expired`,[ownerPid,eb.event_id]);
+        blocked ||= r.rows[0].blocked; expired ||= r.rows[0].expired;
+        if(!(blocked && expired)) await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      expect(blocked).toBe(true); expect(expired).toBe(true);
+      await owner.query("COMMIT"); lockCommitted=true;
+      expect(await pending).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    } finally { if(!lockCommitted) await owner.query("ROLLBACK"); await watcher.end(); }
+    await owner.query('UPDATE public."HostEvidenceEvent" SET recorded_at=$2::timestamptz WHERE event_id=$1',[eb.event_id,before]);
+    expect(await inspect(eb.workspace_key,cb)).toMatchObject({revision:1});
+    // Reverse ordering: committed deletion before a waiting inspection wins.
+    const observerB=new Client({connectionString:config!.migrationUrl}); await observerB.connect();
+    await owner.query("BEGIN"); let deleteCommitted=false;
+    try {
+      await owner.query('SELECT 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3 FOR UPDATE',[a.user.id,trip,eb.workspace_key]);
+      const pending=inspect(eb.workspace_key,cb); let blocked=false;
+      for(let i=0;i<100;i++) {
+        const r=await observerB.query<{blocked:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_checkpoint_inspect_candidate%') AS blocked",[ownerPid]);
+        if(r.rows[0].blocked){blocked=true;break;} await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      expect(blocked).toBe(true);
+      const deleted=await owner.query('SELECT * FROM public.host_checkpoint_delete_event_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,eb.workspace_key,cb,eb.event_id]);
+      expect(deleted.rows).toMatchObject([{disposition:"deleted"}]);
+      await owner.query("COMMIT"); deleteCommitted=true;
+      expect(await pending).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    } finally { if(!deleteCommitted) await owner.query("ROLLBACK"); await observerB.end(); }
+    await host.deleteEvent(wb,a.headers,eb.event_id);
+    await expect(runtime.query('SELECT e03_checkpoint.session_read_scene($1,$2,$3,$4,$5)',[a.session.session.id,a.user.id,trip,ea.workspace_key,now])).rejects.toThrow();
+    const recorded=(await owner.query<{recorded_at:Date}>('SELECT recorded_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[ea.event_id])).rows[0].recorded_at;
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '180 days' WHERE event_id=$1`,[ea.event_id]);
+    expect(await inspect(ea.workspace_key,ca)).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    await owner.query('UPDATE public."HostEvidenceEvent" SET recorded_at=$2 WHERE event_id=$1',[ea.event_id,recorded]);
+    expect(await inspect(ea.workspace_key,ca)).toMatchObject({revision:1});
+    // Real metadata inspection holds the workspace lock until commit; a deletion
+    // that starts after it must wait, then all future inspections fail closed.
+    const observer=new Client({connectionString:config!.migrationUrl}); await observer.connect();
+    const pid=(await runtime.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    await runtime.query("BEGIN"); let committed=false;
+    try {
+      expect(await inspect(ea.workspace_key,ca)).toMatchObject({revision:1});
+      const deleting=host.deleteEvent(wa,a.headers,ea.event_id);
+      let blocked=false;
+      for(let i=0;i<100;i++) {
+        const r=await observer.query<{blocked:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_checkpoint_delete_event_candidate%') AS blocked",[pid]);
+        if(r.rows[0].blocked){blocked=true;break;} await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      expect(blocked).toBe(true);
+      await runtime.query("COMMIT"); committed=true;
+      await expect(deleting).resolves.toMatchObject({durable:true});
+    } finally { if(!committed) await runtime.query("ROLLBACK"); await observer.end(); }
+    expect(await inspect(ea.workspace_key,ca)).toEqual({fault:"CHECKPOINT_NOT_FOUND"});
+    await expect(host.inspectCheckpoint(wa,a.headers)).rejects.toMatchObject({code:"CHECKPOINT_NOT_FOUND"});
+    await expect(host.saveCheckpoint(wa,a.headers,payload,0,"after-delete-host")).rejects.toMatchObject({code:"RECOVERY_UNAVAILABLE"});
+    expect(await save(ea.workspace_key,ca,payload,"after-delete")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    const heads=await owner.query<{revision:string;payload:unknown;payload_digest:unknown;deleted:boolean}>('SELECT revision,payload,payload_digest,deleted FROM e03_checkpoint.heads WHERE owner_id=$1 AND trip_id=$2 AND workspace=$3',[`user-${a.user.id}`,trip,ea.workspace_key]);
+    expect(heads.rows).toEqual([{revision:"1",payload:null,payload_digest:null,deleted:true}]);
+    expect((await owner.query('SELECT 1 FROM e03_checkpoint.receipts WHERE owner_id=$1 AND trip_id=$2 AND workspace=$3',[`user-${a.user.id}`,trip,ea.workspace_key])).rowCount).toBe(0);
+    expect((await owner.query('SELECT 1 FROM public."HostEvidenceTaskSource" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3 AND event_id=$4',[a.user.id,trip,ea.workspace_key,ea.event_id])).rowCount).toBe(0);
+  },30000);
+  it("snapshots mutable Task input before waiting for a real database lock", async () => {
+    const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers);
+    const event=await host.record(ticket,a.headers,{entry:"dialogue",text:"one two",idempotency_key:`clone_${randomUUID()}`});
+    const first={task_key:"one",question:"one",kind:"explore",target_ids:[] as string[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:3,quote:"one"}],progress:"open",progress_evidence:null};
+    const second={...first,task_key:"two",question:"two",target_ids:[] as string[],evidence:[{start:4,end:7,quote:"two"}]};
+    const original=structuredClone(second), raw={expected_revision:0,tasks:[first,second],focus_keys:["two"]};
+    const received=(await owner.query<{received_at:Date}>('SELECT received_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[event.event_id])).rows[0].received_at.toISOString();
+    const observer=new Client({connectionString:config!.migrationUrl}); await observer.connect();
+    const pid=(await owner.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    await owner.query("BEGIN"); let committed=false;
+    try {
+      await owner.query('LOCK TABLE public."HostEvidenceTaskSource" IN ACCESS EXCLUSIVE MODE');
+      const pending=host.registerTaskIdentity(ticket,a.headers,event,raw); let blocked=false;
+      for(let i=0;i<100;i++) {
+        const r=await observer.query<{blocked:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_evidence_bind_task_source_candidate%') AS blocked",[pid]);
+        if(r.rows[0].blocked){blocked=true;break;} await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      expect(blocked).toBe(true); second.target_ids.push("missing");
+      await owner.query("COMMIT"); committed=true;
+      expect((await pending).task_keys).toEqual(["one","two"]);
+    } finally { if(!committed) await owner.query("ROLLBACK"); await observer.end(); }
+    const payload={checkpoint_format_version:1,trip_id:trip,captured_state_revision:0,captured_object_versions:[],
+      tasks:[{task:original,event:{event_id:event.event_id,entry:"dialogue",text:"one two",reference:`host-interaction:${event.event_id}`,received_at:received},base_revision:0,processing_status:"unprocessed",result_revision:0,errors:[]}],
+      focus_keys:["two"],view:{entry:"dialogue",comparison_refs:[],selected_id:null,expanded_task_keys:[]},drafts:[],deferred_issue_ids:[]};
+    await expect(host.saveCheckpoint(ticket,a.headers,payload,0,"clone-save")).resolves.toMatchObject({checkpoint_revision:1});
+  },30000);
+  it("does not expose a missing checkpoint fault when the session expires while waiting", async () => {
+    const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers);
+    const event=await host.record(ticket,a.headers,{entry:"dialogue",text:"empty",idempotency_key:`missing_${randomUUID()}`});
+    const cap=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rows[0].capability_token;
+    await owner.query(`UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()+interval '2 seconds' WHERE id=$1`,[a.session.session.id]);
+    const observer=new Client({connectionString:config!.migrationUrl}); await observer.connect();
+    const pid=(await owner.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+    await owner.query("BEGIN"); let committed=false;
+    try {
+      await owner.query("SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array($1::text,$2::text,$3::text)::text,0))",[`user-${a.user.id}`,trip,event.workspace_key]);
+      const pending=runtime.query<{value:unknown}>('SELECT public.host_checkpoint_inspect_candidate($1,$2,$3,$4,$5) AS value',[a.session.session.id,a.user.id,trip,event.workspace_key,cap]);
+      let blocked=false,expired=false;
+      for(let i=0;i<150 && !(blocked && expired);i++) {
+        const r=await observer.query<{blocked:boolean;expired:boolean}>(`SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_checkpoint_inspect_candidate%') AS blocked, (SELECT "expiresAt"<=clock_timestamp() FROM "AuthSession" WHERE id=$2) AS expired`,[pid,a.session.session.id]);
+        blocked ||= r.rows[0].blocked; expired ||= r.rows[0].expired;
+        if(!(blocked && expired)) await new Promise(resolve=>setTimeout(resolve,50));
+      }
+      expect(blocked).toBe(true); expect(expired).toBe(true);
+      await owner.query("COMMIT"); committed=true;
+      expect((await pending).rows).toEqual([{value:{fault:"RECOVERY_UNAVAILABLE"}}]);
+    } finally { if(!committed) await owner.query("ROLLBACK"); await observer.end(); }
   },30000);
   it("rejects an expired session after a workspace was issued", async () => {
     const a = await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)', [trip, a.user.id]);
@@ -341,7 +545,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     await owner.query("BEGIN"); let committed=false;
     try {
       const cap=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rows[0].capability_token;
-      const deleted=await owner.query("SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)",[a.session.session.id,a.user.id,trip,event.workspace_key,cap,event.event_id]);
+      const deleted=await owner.query("SELECT * FROM public.host_checkpoint_delete_event_candidate($1,$2,$3,$4,$5,$6)",[a.session.session.id,a.user.id,trip,event.workspace_key,cap,event.event_id]);
       expect(deleted.rows[0].disposition).toBe("deleted");
       const pending=host.registerTaskIdentity(workspace,a.headers,event,interpretation).then(()=>({code:"unexpected-success"}),error=>({code:error?.code as string}));
       let blocked=false;
