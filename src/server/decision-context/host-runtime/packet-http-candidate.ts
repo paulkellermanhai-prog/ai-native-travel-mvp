@@ -18,6 +18,14 @@ const identifier=/^[A-Za-z][A-Za-z0-9_-]{0,95}$/;
 export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interpret?:ControlledInterpreter) {
   const turns=new Map<string,{tripId:string;ticket:object;expiresAt:number;timer:NodeJS.Timeout}>();
   const workspaces=new Map<string,Set<object>>();
+  const sessionWorkspaces=new Map<string,{ticket:object;expiresAt:number;timer:NodeJS.Timeout}>();
+  const packetHandoffs=new Map<object,Set<Promise<void>>>();
+  function trackPacketHandoff<T>(ticket:object,operation:Promise<T>):Promise<T> {
+    const settled=operation.then(()=>{},()=>{}),pending=packetHandoffs.get(ticket)??new Set<Promise<void>>();
+    pending.add(settled);packetHandoffs.set(ticket,pending);
+    void settled.then(()=>{pending.delete(settled);if(!pending.size)packetHandoffs.delete(ticket);});
+    return operation;
+  }
   function forgetTurn(turnId:string) {
     const prior=turns.get(turnId);if(!prior)return;
     clearTimeout(prior.timer);turns.delete(turnId);
@@ -33,7 +41,16 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
     const expiresAt=Date.now()+300_000,timer=setTimeout(()=>forgetTurn(turnId),300_000);timer.unref();
     turns.set(turnId,{tripId,ticket,expiresAt,timer});const set=workspaces.get(tripId)??new Set<object>();set.add(ticket);workspaces.set(tripId,set);
   }
-  function forgetWorkspace(ticket:object) {for(const [id,entry] of turns)if(entry.ticket===ticket)forgetTurn(id);}
+  function forgetWorkspace(ticket:object) {
+    for(const [id,entry] of turns)if(entry.ticket===ticket)forgetTurn(id);
+    for(const [key,entry] of sessionWorkspaces)if(entry.ticket===ticket){clearTimeout(entry.timer);sessionWorkspaces.delete(key);}
+  }
+  function keepWorkspace(key:string,ticket:object) {
+    const old=sessionWorkspaces.get(key);if(old)clearTimeout(old.timer);
+    const expiresAt=Date.now()+300_000;
+    const timer=setTimeout(()=>{const current=sessionWorkspaces.get(key);if(current?.ticket===ticket){forgetWorkspace(ticket);void host.disposeWorkspace(ticket).catch(()=>{});}},300_000);timer.unref();
+    sessionWorkspaces.set(key,{ticket,expiresAt,timer});
+  }
   return {
     bindTurn,forgetWorkspace,
     async handle(request:IncomingMessage,response:ServerResponse) {
@@ -43,7 +60,7 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
         const tripId=match?.[1],candidateTickets=tripId?workspaces.get(tripId):undefined;
         if(!tripId)throw new RuntimeHttpFault("ACCESS_DENIED");
         const credential=new Headers({cookie:request.headers.cookie??""});
-        await host.authorizeTripCandidate(tripId,credential);
+        const sessionKey=await host.authorizeTripCandidate(tripId,credential);
         if(match[2]!=="turns"&&!candidateTickets?.size)throw new RuntimeHttpFault("ACCESS_DENIED");
         if(request.method!=="POST")throw new RuntimeHttpFault("METHOD_NOT_ALLOWED");
         if(request.headers.origin!==origin||request.headers["sec-fetch-site"]==="cross-site")throw new RuntimeHttpFault("ACCESS_DENIED");
@@ -58,20 +75,25 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
           if(turns.size>=256)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
           let parsed:unknown;try{parsed=JSON.parse(body);}catch{throw new RuntimeHttpFault("CONTRACT_INVALID");}
           const value=recordInputSchema.safeParse(parsed);if(!value.success)throw new RuntimeHttpFault("CONTRACT_INVALID");
-          const ticket=await host.createWorkspace(tripId,credential);
-          try {
-            const turn=await host.openInterpretedTurnCandidate(ticket,credential,value.data,interpret);
-            bindTurn(tripId,turn.turn_id,ticket);
-            await host.sendTurnCandidate(ticket,credential,turn,response);
-          } catch(error) {forgetWorkspace(ticket);await host.disposeWorkspace(ticket);throw error;}
+          const route=sessionWorkspaces.get(sessionKey);
+          if(route&&route.expiresAt<=Date.now()){forgetWorkspace(route.ticket);await host.disposeWorkspace(route.ticket);}
+          const ticket=route&&route.expiresAt>Date.now()?route.ticket:await host.createWorkspace(tripId,credential);
+          if(!route||route.ticket!==ticket)keepWorkspace(sessionKey,ticket);
+          const turn=await host.openInterpretedTurnCandidate(ticket,credential,value.data,interpret);
+          bindTurn(tripId,turn.turn_id,ticket);keepWorkspace(sessionKey,ticket);
+          await host.sendTurnCandidate(ticket,credential,turn,response);
         } else if(match[2]==="assemble"){
           const value=decodeDCContract("assemble",body),binding=turns.get(value.turn_id);
           if(!binding||binding.tripId!==tripId||binding.expiresAt<=Date.now())throw new RuntimeHttpFault("ACCESS_DENIED");
-          await host.sendLivePacketCandidate(binding.ticket,credential,value.turn_id,value.task_key,value.body_budget_bytes,undefined,response);
+          await trackPacketHandoff(binding.ticket,host.sendLivePacketCandidate(binding.ticket,credential,value.turn_id,value.task_key,value.body_budget_bytes,undefined,response));
         } else {
           const value=decodeDCContract("page-request",body);
           const ticket=[...candidateTickets!].find(candidate=>host.hasLocalPacketCandidate(candidate,value.packet_id));
           if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
+          // The Packet bytes may reach a client before the socket-finish
+          // postflight has committed its private delivery ledger. Wait for
+          // that local handoff before an independent page request rechecks it.
+          const pending=packetHandoffs.get(ticket);if(pending)await Promise.all([...pending]);
           await host.sendLivePacketPageCandidate(ticket,credential,value,undefined,response);
         }
       } catch(error) {

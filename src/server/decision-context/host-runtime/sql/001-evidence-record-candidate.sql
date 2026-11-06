@@ -120,7 +120,7 @@ REVOKE ALL ON FUNCTION public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT
 CREATE FUNCTION public.host_evidence_for_turn_candidate(p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_event TEXT,p_token TEXT,p_metadata_only BOOLEAN)
 RETURNS TABLE(allowed BOOLEAN, out_entry TEXT, out_body TEXT, out_received_at TIMESTAMPTZ, out_retention_revision BIGINT, out_valid_for_ms BIGINT)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
-DECLARE e public."HostEvidenceEvent"%ROWTYPE; l public."HostEvidenceTripLifecycle"%ROWTYPE; v_revision BIGINT; v_retention BIGINT; v_cutoff BIGINT; checked_at TIMESTAMPTZ; session_until TIMESTAMPTZ; valid_until TIMESTAMPTZ;
+DECLARE e public."HostEvidenceEvent"%ROWTYPE; l public."HostEvidenceTripLifecycle"%ROWTYPE; v_revision BIGINT; v_retention BIGINT; v_cutoff BIGINT; checked_at TIMESTAMPTZ; session_until TIMESTAMPTZ; valid_until TIMESTAMPTZ; related_at TIMESTAMPTZ;
 BEGIN
   SELECT "revision" INTO v_revision FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
   IF NOT FOUND THEN RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT,NULL::BIGINT; RETURN; END IF;
@@ -134,7 +134,22 @@ BEGIN
     RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT,NULL::BIGINT; RETURN;
   END IF;
   SELECT * INTO e FROM public."HostEvidenceEvent" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND event_id=p_event FOR SHARE;
-  IF NOT FOUND OR e.key_token IS DISTINCT FROM p_token OR e.sequence <= v_cutoff OR e.deleted_at IS NOT NULL OR e.body IS NULL OR e.recorded_at > clock_timestamp() OR clock_timestamp() >= e.recorded_at + interval '180 days' OR clock_timestamp() >= e.recorded_at + interval '12 months' THEN
+  IF NOT FOUND OR e.key_token IS DISTINCT FROM p_token OR e.sequence <= v_cutoff OR e.deleted_at IS NOT NULL OR e.body IS NULL OR e.recorded_at > clock_timestamp() OR clock_timestamp() >= e.recorded_at + interval '12 months' THEN
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT,NULL::BIGINT; RETURN;
+  END IF;
+  -- Only a committed, same-scope, validated Task association may extend the
+  -- 180-day clock. An unlinked event uses its own recorded_at. A deleted or
+  -- future peer never extends another source; the original 12-month cap stays.
+  SELECT MAX(peer_event.recorded_at) INTO related_at
+    FROM public."HostEvidenceTaskSource" anchor
+    JOIN public."HostEvidenceTaskSource" peer ON peer.owner_id=anchor.owner_id AND peer.trip_id=anchor.trip_id
+      AND peer.workspace_key=anchor.workspace_key AND peer.task_token=anchor.task_token
+    JOIN public."HostEvidenceEvent" peer_event ON peer_event.event_id=peer.event_id
+      AND peer_event.owner_id=peer.owner_id AND peer_event.trip_id=peer.trip_id AND peer_event.workspace_key=peer.workspace_key
+    WHERE anchor.owner_id=p_owner AND anchor.trip_id=p_trip AND anchor.workspace_key=p_workspace AND anchor.event_id=e.event_id
+      AND peer_event.deleted_at IS NULL AND peer_event.recorded_at <= clock_timestamp();
+  related_at:=GREATEST(e.recorded_at,COALESCE(related_at,e.recorded_at));
+  IF clock_timestamp() >= related_at + interval '180 days' THEN
     RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT,NULL::BIGINT; RETURN;
   END IF;
   IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
@@ -142,7 +157,7 @@ BEGIN
   END IF;
   checked_at := clock_timestamp();
   IF (l.ended_at IS NOT NULL AND (l.ended_at > checked_at OR checked_at >= l.ended_at + interval '30 days')) OR
-    e.recorded_at > checked_at OR checked_at >= e.recorded_at + interval '180 days' OR checked_at >= e.recorded_at + interval '12 months' THEN
+    e.recorded_at > checked_at OR checked_at >= related_at + interval '180 days' OR checked_at >= e.recorded_at + interval '12 months' THEN
     RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT,NULL::BIGINT; RETURN;
   END IF;
   -- authorize_trip_session holds the exact Session row through commit. Return
@@ -150,7 +165,7 @@ BEGIN
   -- directly or use it as an authorization by itself.
   SELECT "expiresAt" INTO session_until FROM public."AuthSession" WHERE id=p_session AND "userId"=p_owner;
   checked_at:=clock_timestamp();
-  valid_until:=LEAST(session_until,e.recorded_at+interval '180 days',e.recorded_at+interval '12 months',COALESCE(l.ended_at+interval '30 days','infinity'::timestamptz));
+  valid_until:=LEAST(session_until,related_at+interval '180 days',e.recorded_at+interval '12 months',COALESCE(l.ended_at+interval '30 days','infinity'::timestamptz));
   IF session_until IS NULL OR checked_at>=valid_until THEN RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT,NULL::BIGINT; RETURN; END IF;
   RETURN QUERY SELECT TRUE,CASE WHEN p_metadata_only THEN NULL ELSE e.entry END,CASE WHEN p_metadata_only THEN NULL ELSE e.body END,CASE WHEN p_metadata_only THEN NULL ELSE e.received_at END,v_retention,FLOOR(EXTRACT(EPOCH FROM (valid_until-checked_at))*1000)::BIGINT;
 END;

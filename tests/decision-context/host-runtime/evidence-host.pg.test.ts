@@ -6,7 +6,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openIdentity, type Identity } from "../../../src/server/auth/config";
-import { openEvidenceHost } from "../../../src/server/decision-context/host-runtime/evidence-host";
+import { openEvidenceHost, type ControlledInterpreter } from "../../../src/server/decision-context/host-runtime/evidence-host";
 import { createPacketHttpCandidate } from "../../../src/server/decision-context/host-runtime/packet-http-candidate";
 import { createSameOriginE03Gateway } from "../../../src/server/decision-context/host-runtime/same-origin-gateway-candidate";
 import { createPacketSocketDeliveryCandidate } from "../../../src/server/decision-context/host-runtime/packet-socket-delivery-candidate";
@@ -164,6 +164,31 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(await probe(eb.workspace_key,cb,0)).toBe(true);
     await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,a.user.id]);
     expect(await probe(ea.workspace_key,ca,1)).toBe(false);
+  },30000);
+  it("extends an old source only through a verified related interaction, within its twelve-month cap",async()=>{
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers),key=await host.mintTaskKey(ticket,a.headers,"retention-task");
+    const firstText="阿斯旺交通",nextText="继续比较交通",unrelatedText="无关联聊天";
+    const first=await host.record(ticket,a.headers,{entry:"dialogue",text:firstText,idempotency_key:`retention_${randomUUID()}`});
+    const task=(text:string,relation:"new"|"continue")=>({task_key:key,question:text,kind:"explore",target_ids:[],branch:"actual",relation,related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null});
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '179 days' WHERE event_id=$1`,[first.event_id]);
+    await host.registerTaskIdentity(ticket,a.headers,first,{expected_revision:0,tasks:[task(firstText,"new")],focus_keys:[key]});
+    await host.record(ticket,a.headers,{entry:"dialogue",text:unrelatedText,idempotency_key:`unrelated_${randomUUID()}`});
+    const scope=(await owner.query<{capability_token:string}>('SELECT capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,first.workspace_key])).rows[0].capability_token;
+    const token=(await owner.query<{key_token:string}>('SELECT key_token FROM public."HostEvidenceEvent" WHERE event_id=$1',[first.event_id])).rows[0].key_token;
+    const read=async()=> (await runtime.query<{allowed:boolean}>('SELECT allowed FROM public.host_evidence_for_turn_candidate($1,$2,$3,$4,$5,$6,$7,FALSE)',[a.session.session.id,a.user.id,trip,first.workspace_key,scope,first.event_id,token])).rows[0].allowed;
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '181 days' WHERE event_id=$1`,[first.event_id]);
+    expect(await read()).toBe(false); // a later unlinked message cannot renew this source
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '179 days' WHERE event_id=$1`,[first.event_id]);
+    const related=await host.record(ticket,a.headers,{entry:"dialogue",text:nextText,idempotency_key:`related_${randomUUID()}`});
+    await host.registerTaskIdentity(ticket,a.headers,related,{expected_revision:0,tasks:[task(nextText,"continue")],focus_keys:[key]});
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '181 days' WHERE event_id=$1`,[first.event_id]);
+    expect(await read()).toBe(true);
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET deleted_at=clock_timestamp() WHERE event_id=$1`,[related.event_id]);
+    expect(await read()).toBe(false); // a deleted peer cannot renew the old source
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET deleted_at=NULL WHERE event_id=$1`,[related.event_id]);
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '13 months' WHERE event_id=$1`,[first.event_id]);
+    expect(await read()).toBe(false); // the event's own twelve-month cap remains absolute
   },30000);
   it("rechecks deletion revision after waiting for the workspace lock", async () => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
@@ -518,7 +543,9 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(await host.inspectLivePacketCandidate(ticket,a.headers,next.turn_id,key,4096,nextInput)).toMatchObject({state_revision:0,selected_count:0});
     const prior=(await owner.query<{recorded_at:Date}>('SELECT recorded_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[first.event_id])).rows[0].recorded_at;
     await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '180 days' WHERE event_id=$1`,[first.event_id]);
-    await expect(host.inspectLivePacketCandidate(ticket,a.headers,next.turn_id,key,4096,nextInput)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    // The verified continuation is a related interaction, so its live source
+    // renews the 180-day read window (but not the original twelve-month cap).
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,next.turn_id,key,4096,nextInput)).resolves.toMatchObject({state_revision:0,selected_count:0});
     await owner.query('UPDATE public."HostEvidenceEvent" SET recorded_at=$2 WHERE event_id=$1',[first.event_id,prior]);
     await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,a.user.id]);
     await expect(host.inspectLivePacketCandidate(ticket,a.headers,next.turn_id,key,4096,nextInput)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
@@ -708,9 +735,27 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     const wired=await openEvidenceHost(env);
     let gateway!:http.Server,origin="",interpretCalls=0;
     try {
-      const interpreter=async({event,state,new_task_key}:{event:{text:string};state:State;new_task_key:string})=>{
+      const multiText="阿斯旺和埃及",continueText="继续阿斯旺",focusText="回到埃及",badText="冒充旧任务";
+      let firstKey="",secondKey="";
+      const interpreter:ControlledInterpreter=async({event,state,runtime_focus,mint_task_key})=>{
         interpretCalls++;expect(state.trip_id).toBe(t);expect(state.objects.some(item=>item.id==="aswan")).toBe(true);
-        return {tasks:[{task_key:new_task_key,question:event.text,kind:"explore",target_ids:["aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(event.text).length,quote:event.text}],progress:"open",progress_evidence:null}],focus_keys:[new_task_key]};
+        const task=(key:string,question:string,relation:"new"|"continue"|"focus",target:string,span:{start:number;end:number;quote:string})=>({
+          task_key:key,question,kind:"explore",target_ids:[target],branch:"actual",relation,related_task_keys:[],certainty:"explicit",evidence:[span],progress:"open",progress_evidence:null});
+        if(event.text===multiText){
+          expect(runtime_focus.complete).toBe(true);expect(runtime_focus.tasks.map(item=>item.task_key)).toContain(firstKey);
+          const aKey=await mint_task_key(0),bKey=await mint_task_key(1);secondKey=bKey;
+          return {tasks:[task(aKey,"阿斯旺","new","aswan",{start:0,end:3,quote:"阿斯旺"}),task(bKey,"埃及","new","egypt",{start:4,end:6,quote:"埃及"})],focus_keys:[aKey,bKey]};
+        }
+        if(event.text===continueText||event.text===focusText||event.text===badText){
+          expect(runtime_focus.complete).toBe(true);
+          const key=event.text===focusText?secondKey:event.text===badText?"task_forged":firstKey;
+          const target=event.text===focusText?"egypt":"aswan";
+          const relation=event.text===focusText?"focus":"continue";
+          return {tasks:[task(key,event.text,relation,target,{start:0,end:Array.from(event.text).length,quote:event.text})],focus_keys:[key]};
+        }
+        const new_task_key=await mint_task_key(0);
+        firstKey=new_task_key;
+        return {tasks:[task(new_task_key,event.text,"new","aswan",{start:0,end:Array.from(event.text).length,quote:event.text})],focus_keys:[new_task_key]};
       };
       const adapterHolder:{current?:ReturnType<typeof createPacketHttpCandidate>}={};
       const gatewayHandler=createSameOriginE03Gateway((req,res)=>adapterHolder.current!.handle(req,res),`http://127.0.0.1:${nextAddress.port}`);
@@ -730,6 +775,21 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
       const packet=await open.json() as {packet_id:string;deferred_ids:string[]};expect(packet.deferred_ids).toEqual(["aswan"]);
       const page=await post("pages",{runtime_contract_version:"0.1.0",packet_id:packet.packet_id,object_ids:["aswan"]});expect(page.status).toBe(200);
       expect((await page.json() as {objects:Array<{id:string}>}).objects.map(item=>item.id)).toEqual(["aswan"]);
+      const multi=await post("turns",{entry:"dialogue",text:multiText,idempotency_key:`multi_${randomUUID()}`});expect(multi.status).toBe(200);
+      const multiTurn=await multi.json() as {tasks:Array<{task_key:string}>;focus_keys:string[]};expect(multiTurn.tasks).toHaveLength(2);expect(multiTurn.focus_keys).toEqual(multiTurn.tasks.map(item=>item.task_key));
+      const continued=await post("turns",{entry:"dialogue",text:continueText,idempotency_key:`continue_${randomUUID()}`});expect(continued.status).toBe(200);
+      const continuedTurn=await continued.json() as {tasks:Array<{task_key:string;relation:string}>;focus_keys:string[]};expect(continuedTurn.tasks[0]).toMatchObject({task_key:firstKey,relation:"continue"});
+      const focused=await post("turns",{entry:"dialogue",text:focusText,idempotency_key:`focus_${randomUUID()}`});expect(focused.status).toBe(200);
+      const focusedTurn=await focused.json() as {tasks:Array<{task_key:string;relation:string}>;focus_keys:string[]};expect(focusedTurn.tasks[0]).toMatchObject({task_key:secondKey,relation:"focus"});expect(focusedTurn.focus_keys).toEqual([secondKey]);
+      const forged=await post("turns",{entry:"dialogue",text:badText,idempotency_key:`forged_${randomUUID()}`});expect(forged.status).toBe(503);
+      expect(await forged.text()).not.toContain(badText);
+      const afterFailure=await post("turns",{entry:"dialogue",text:focusText,idempotency_key:`after_failure_${randomUUID()}`});
+      expect(afterFailure.status).toBe(200);expect((await afterFailure.json() as {focus_keys:string[]}).focus_keys).toEqual([secondKey]);
+      const sources=await owner.query<{event_id:string;body:string;workspace_key:string}>('SELECT event_id,body,workspace_key FROM public."HostEvidenceEvent" WHERE trip_id=$1 AND body=ANY($2::text[])',[t,[text,multiText,continueText,focusText,badText]]);
+      expect(new Set(sources.rows.map(row=>row.workspace_key)).size).toBe(1);
+      const firstEvent=sources.rows.find(row=>row.body===text)!,continuationEvent=sources.rows.find(row=>row.body===continueText)!;
+      const bound=await owner.query<{event_id:string}>('SELECT event_id FROM public."HostEvidenceTaskSource" WHERE event_id=ANY($1::text[])',[ [firstEvent.event_id,continuationEvent.event_id] ]);
+      expect(new Set(bound.rows.map(row=>row.event_id))).toEqual(new Set([firstEvent.event_id,continuationEvent.event_id]));
       const controller=new AbortController();const slow=await fetch(`${origin}/slow`,{signal:controller.signal});expect(slow.status).toBe(200);controller.abort();
       await expect(slow.text()).rejects.toThrow();
       await expect(Promise.race([slowClosed.then(()=>true),new Promise<boolean>(resolve=>setTimeout(()=>resolve(false),1500))])).resolves.toBe(true);
@@ -745,8 +805,10 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
       try {const failureAddress=failingServer.address();if(!failureAddress||typeof failureAddress==="string")throw new Error("missing interpreter failure route");
         const failed=await fetch(`http://127.0.0.1:${failureAddress.port}/runtime/trips/${t}/turns`,{method:"POST",headers:{cookie,origin,"content-type":"application/json"},body:JSON.stringify({entry:"dialogue",text:rejectedText,idempotency_key:`throw_${randomUUID()}`})});
         expect(failed.status).toBe(503);expect(await failed.text()).not.toContain(rejectedText);
-        const marker=await owner.query<{deleted_at:Date|null}>('SELECT deleted_at FROM public."HostEvidenceEvent" WHERE trip_id=$1 AND body=$2 ORDER BY sequence DESC LIMIT 1',[t,rejectedText]);
-        expect(marker.rows[0]?.deleted_at).toBeTruthy();
+        const unlinked=await owner.query<{event_id:string;deleted_at:Date|null}>('SELECT event_id,deleted_at FROM public."HostEvidenceEvent" WHERE trip_id=$1 AND body=$2 ORDER BY sequence DESC LIMIT 1',[t,rejectedText]);
+        expect(unlinked.rows[0]?.deleted_at).toBeNull();
+        const links=await owner.query('SELECT event_id FROM public."HostEvidenceTaskSource" WHERE event_id=$1',[unlinked.rows[0].event_id]);
+        expect(links.rowCount).toBe(0);
       } finally {await new Promise<void>((resolve,reject)=>failingServer.close(error=>error?reject(error):resolve()));}
     } finally {if(gateway?.listening)await new Promise<void>((resolve,reject)=>gateway.close(error=>error?reject(error):resolve()));await wired.close();await new Promise<void>((resolve,reject)=>next.close(error=>error?reject(error):resolve()));}
   },30000);
@@ -1256,7 +1318,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
       await owner.query('LOCK TABLE public."HostEvidenceTaskSource" IN ACCESS EXCLUSIVE MODE');
       const pending=host.registerTaskIdentity(ticket,a.headers,event,raw); let blocked=false;
       for(let i=0;i<100;i++) {
-        const r=await observer.query<{blocked:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND query LIKE '%host_evidence_bind_task_source_candidate%') AS blocked",[pid]);
+        const r=await observer.query<{blocked:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE $1=ANY(pg_blocking_pids(pid)) AND (query LIKE '%host_evidence_for_turn_candidate%' OR query LIKE '%host_evidence_bind_task_source_candidate%')) AS blocked",[pid]);
         if(r.rows[0].blocked){blocked=true;break;} await new Promise(resolve=>setTimeout(resolve,50));
       }
       expect(blocked).toBe(true); second.target_ids.push("missing");

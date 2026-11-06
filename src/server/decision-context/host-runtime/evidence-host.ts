@@ -13,7 +13,7 @@ import { parseAndCheckTaskCore, type TaskCorePrior } from "../task-core/validate
 import { parseDCContract } from "../contracts";
 import { canonicalJson, decodeCommandJson, digest } from "../../trip-state/command-json";
 import { CheckpointError, checkpointDigest, validateCheckpoint } from "../checkpoint-core";
-import type { CheckpointPayload } from "../contracts.generated";
+import type { CheckpointPayload, DecisionContextContracts } from "../contracts.generated";
 import { classifyRecovery } from "../recovery-core";
 import { buildRestoredSceneCandidate } from "../integration/restored-scene-candidate";
 import { assembleContextSnapshot, validateContextSnapshot } from "../context-assembly";
@@ -35,7 +35,9 @@ type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey:
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
 type DeleteRow = { disposition: string; deletion_revision: bigint | null; accepted_at: Date | null; cleanup_pending: boolean | null; event_highwater: bigint | null };
 type EventRow = { allowed: boolean; out_entry: "dialogue" | "map" | "timeline" | "comparison" | null; out_body: string | null; out_received_at: Date | null; out_retention_revision: bigint | null; out_valid_for_ms:bigint|null };
-export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordInput["entry"];text:string;reference:string;received_at:string};state:ReturnType<typeof parseStateReferences>;new_task_key:string})=>Promise<{tasks:unknown;focus_keys:unknown}>;
+type InterpretedTask = DecisionContextContracts["open-turn"]["tasks"][number];
+export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordInput["entry"];text:string;reference:string;received_at:string};state:ReturnType<typeof parseStateReferences>;
+  runtime_focus:{tasks:InterpretedTask[];focus_keys:string[];complete:boolean};mint_task_key:(ordinal:number)=>Promise<string>})=>Promise<{tasks:unknown;focus_keys:unknown}>;
 const identityInput = z.strictObject({ expected_revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), tasks: z.unknown(), focus_keys: z.unknown() });
 export class TurnIdentityError extends Error {
   constructor(readonly code: "EVENT_REUSE" | "REVISION_CHANGED" | "TARGET_NOT_FOUND") { super(`Turn identity: ${code}`); this.name = "TurnIdentityError"; }
@@ -89,6 +91,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       throw new Error("Evidence host requires an isolated non-owner runtime role without checkpoint access");
   } catch (error) { await Promise.all([db.$disconnect(), identity.close()]); throw error; }
   const host = sessionHost(identity), workspaces = new WeakMap<object, Scope>(), eventProofs = new WeakMap<object, { scope: Scope; eventId: string; token: string }>();
+  const routingSecret=randomBytes(32);
   const activeScopes = new Set<Scope>();
   let closed = false;
   // Task keys may contain user text; retain only a keyed, scope-bound index.
@@ -403,36 +406,59 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         return { ...registration, runtime_id: scope.runtimeId };
       });
     },
-    /** One new Task from a trusted, server-installed interpreter. No model service is installed here. */
+    /** Server-installed interpretation after durable recording; no model service is installed here. */
     async openInterpretedTurnCandidate(ticket:object,credential:Headers,value:RecordInput,interpret:ControlledInterpreter) {
       if(typeof interpret!=="function")return unavailable();
-      const initial=await scoped(ticket,credential);
-      if(initial.scope.tasks.size||initial.scope.turns.size||initial.scope.receipts.size||initial.scope.replayReceipts.size)return unavailable();
       const receipt=await this.record(ticket,credential,value);
-      try {
       const {scope,headers}=await scoped(ticket,credential);
-      const state=await exclusive(scope,async()=>db.$transaction(async tx=>{
+      const context=await exclusive(scope,async()=>db.$transaction(async tx=>{
         const [document]=await tx.$queryRaw<Array<{revision:bigint;snapshot:string}>>`SELECT "revision","snapshot"::text AS snapshot FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
         try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
         if(!document)return deny();
         const parsed=parseStateReferences(decodeCommandJson(document.snapshot));checkStateCounters(parsed);
         if(parsed.trip_id!==scope.tripId||BigInt(parsed.revision)!==document.revision)return unavailable();
-        return parsed;
+        const prior=new Map<string,InterpretedTask>();let focus:string[]=[],complete=true;
+        for(const turn of scope.turns.values()){
+          let candidate:DecisionContextContracts["turn"];
+          try {
+            const lease=turnInput(scope,turn.result.turn_id);
+            const input=identityInput.parse(lease.value);
+            candidate=parseDCContract("turn",{runtime_contract_version:"0.1.0",runtime_id:scope.runtimeId,turn_id:turn.result.turn_id,
+              revision:turn.result.revision,tasks:input.tasks,focus_keys:input.focus_keys,checkpoint_ack:null});
+          } catch {complete=false;continue;}
+          let sourcesValid=true;
+          for(const [id,token] of turn.sources){
+            const [row]=await tx.$queryRaw<EventRow[]>`SELECT * FROM public.host_evidence_for_turn_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${id},${token},${true})`;
+            if(!row?.allowed||counter(row.out_retention_revision)!==scope.deletionRevision){sourcesValid=false;break;}
+          }
+          if(!sourcesValid){complete=false;continue;}
+          for(const task of candidate.tasks){
+            const current=scope.tasks.get(taskIndex(scope,task.task_key));
+            if(current&&!current.incomplete&&current.fingerprint===taskFingerprint(scope,task))prior.set(task.task_key,task);
+            else if(!current||current.incomplete)complete=false;
+          }
+          focus=candidate.focus_keys.filter(key=>prior.has(key));
+        }
+        if(prior.size!==scope.tasks.size)complete=false;
+        return {state:parsed,runtime_focus:{tasks:[...prior.values()],focus_keys:focus,complete}};
       }));
-      const taskKey=await this.mintTaskKey(ticket,credential,receipt.event_id);
       const event={event_id:receipt.event_id,entry:value.entry,text:value.text,reference:`host-interaction:${receipt.event_id}`,received_at:receipt.recorded_at};
-      const interpreted=await interpret({event:structuredClone(event),state:structuredClone(state),new_task_key:taskKey});
-      const proposed=parseDCContract("open-turn",{runtime_contract_version:"0.1.0",trip_id:scope.tripId,expected_revision:state.revision,event,tasks:interpreted.tasks,focus_keys:interpreted.focus_keys});
-      if(proposed.tasks.length!==1||proposed.tasks[0].task_key!==taskKey||proposed.focus_keys.length!==1||proposed.focus_keys[0]!==taskKey)return unavailable();
-      const registration=await this.registerTaskIdentity(ticket,credential,receipt,{expected_revision:state.revision,tasks:proposed.tasks,focus_keys:proposed.focus_keys});
+      const minted=new Map<number,string>();
+      const mint=async(ordinal:number)=>{
+        if(!Number.isInteger(ordinal)||ordinal<0||ordinal>=256)return unavailable();
+        const existing=minted.get(ordinal);if(existing)return existing;
+        const key=await this.mintTaskKey(ticket,credential,`${receipt.event_id}:${ordinal}`);minted.set(ordinal,key);return key;
+      };
+      const interpreted=await interpret({event:structuredClone(event),state:structuredClone(context.state),runtime_focus:structuredClone(context.runtime_focus),mint_task_key:mint});
+      const proposed=parseDCContract("open-turn",{runtime_contract_version:"0.1.0",trip_id:scope.tripId,expected_revision:context.state.revision,event,tasks:interpreted.tasks,focus_keys:interpreted.focus_keys});
+      const priorKeys=new Set(context.runtime_focus.tasks.map(task=>task.task_key)),newKeys=new Set(minted.values());
+      for(const task of proposed.tasks){
+        const continuing=["continue","focus","resume","reopen"].includes(task.relation);
+        if(continuing?!priorKeys.has(task.task_key):!newKeys.has(task.task_key))return unavailable();
+      }
+      const registration=await this.registerTaskIdentity(ticket,credential,receipt,{expected_revision:context.state.revision,tasks:proposed.tasks,focus_keys:proposed.focus_keys});
       return parseDCContract("turn",{runtime_contract_version:"0.1.0",runtime_id:registration.runtime_id,turn_id:registration.turn_id,revision:registration.revision,
         tasks:proposed.tasks,focus_keys:proposed.focus_keys,checkpoint_ack:null});
-      } catch(error) {
-        // This method is restricted to a fresh single-Turn workspace. An
-        // interpretation failure must not leave its durable source readable.
-        try{await this.deleteEvent(ticket,credential,receipt.event_id);}catch{/* the marker may require maintenance after authorization loss */}
-        throw error;
-      }
     },
     /**
      * Assemble a registered live Turn against the authorized current TS
@@ -571,7 +597,10 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       return !!scope&&!scope.disposed&&!closed&&scope.packets.has(packetId);
     },
     async authorizeTicketCandidate(ticket:object,credential:Headers) {await scoped(ticket,credential);},
-    async authorizeTripCandidate(tripId:string,credential:Headers) {await authorized(tripId,credential);},
+    async authorizeTripCandidate(tripId:string,credential:Headers) {
+      const current=await authorized(tripId,credential);
+      return createHmac("sha256",routingSecret).update(canonicalJson([current.ownerId,current.sessionId,tripId]),"utf8").digest("hex");
+    },
     /** Send a registered Turn while its Session, source and state locks are held. */
     async sendTurnCandidate(ticket:object,credential:Headers,value:unknown,response:ServerResponse) {
       const turn=parseDCContract("turn",value),{scope,headers}=await scoped(ticket,credential);
@@ -812,7 +841,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
         scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
       }
-      activeScopes.clear(); await Promise.all([db.$disconnect(), identity.close()]);
+      activeScopes.clear();routingSecret.fill(0); await Promise.all([db.$disconnect(), identity.close()]);
     },
   };
 }
