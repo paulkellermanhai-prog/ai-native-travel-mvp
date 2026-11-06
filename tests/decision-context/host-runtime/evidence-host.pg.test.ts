@@ -14,19 +14,21 @@ import { createPacketSocketDeliveryCandidate } from "../../../src/server/decisio
 import { createShortPacketHandoffCandidate } from "../../../src/server/decision-context/host-runtime/packet-short-handoff-candidate";
 import type { PacketCandidate } from "../../../src/server/decision-context/packet-core/packet";
 import type { State } from "../../../src/server/trip-state/contracts.generated";
-import { issueInternalCapability, openInternalTripService } from "../../../src/server/auth/internal-service";
+import { createInternalHost, issueInternalCapability, openInternalTripService } from "../../../src/server/auth/internal-service";
+import { openEvidenceLifecycleAdapter } from "../../../src/server/decision-context/host-runtime/lifecycle-adapter";
 import { base } from "../../support/bcg-fixtures";
 import { checkpointDigest, validateCheckpoint } from "../../../src/server/decision-context/checkpoint-core";
 import { digest } from "../../../src/server/trip-state/command-json";
 
 const file = process.env.E02_STORAGE_ENV_FILE;
-const config = file ? JSON.parse(fs.readFileSync(file, "utf8")) as { migrationUrl: string; runtimeUrl: string; authUrl: string; runtimeRole: string; database: string } : null;
-if (process.env.CI && !config?.authUrl) throw new Error("CI requires disposable PostgreSQL and actual Session");
+const config = file ? JSON.parse(fs.readFileSync(file, "utf8")) as { migrationUrl: string; runtimeUrl: string; authUrl: string; lifecycleUrl:string; lifecycleRole:string; runtimeRole: string; database: string } : null;
+if (process.env.CI && (!config?.authUrl||!config?.lifecycleUrl)) throw new Error("CI requires disposable PostgreSQL, actual Session and lifecycle roles");
 
-describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Session and PostgreSQL", () => {
+describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and deletion with real Session and PostgreSQL", () => {
   let owner: Client, runtime: Client, identity: Identity;
   let host: Awaited<ReturnType<typeof openEvidenceHost>>;
   let internal: Awaited<ReturnType<typeof openInternalTripService>>;
+  let lifecycle: Awaited<ReturnType<typeof openEvidenceLifecycleAdapter>>;
   let created = false, capturedWarnings:string[]=[];
   const secret = randomBytes(32).toString("hex"), trip = `trip_e11_${randomBytes(8).toString("hex")}`;
   const env = { ...process.env, DATABASE_URL: config?.runtimeUrl, AUTH_DATABASE_URL: config?.authUrl,
@@ -41,8 +43,13 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     if (!session) throw new Error("Expected authenticated session");
     return { user, headers, session, email, password };
   }
+  async function syncLifecycle(tripId:string,sourceRevision=0,endedAt:string|null=null) {
+    return lifecycle.sync(await issueInternalCapability(secret,tripId,{role:"system",id:"e11-lifecycle"}),
+      {trip_id:tripId,source_revision:sourceRevision,ended_at:endedAt});
+  }
   beforeAll(async () => {
-    if (!config || !/^antu_e02_test_[a-f0-9]+$/.test(config.database) || !/^antu_e02_runtime_[a-f0-9]+$/.test(config.runtimeRole)) throw new Error("Requires provisioned disposable E02 test database");
+    if (!config || !/^antu_e02_test_[a-f0-9]+$/.test(config.database) || !/^antu_e02_runtime_[a-f0-9]+$/.test(config.runtimeRole) ||
+      !/^antu_e03_lifecycle_[a-f0-9]+$/.test(config.lifecycleRole)) throw new Error("Requires provisioned disposable E02 test database");
     owner = new Client({ connectionString: config.migrationUrl }); await owner.connect();
     const db = await owner.query<{ db: string }>("SELECT current_database() AS db");
     if (db.rows[0]?.db !== config.database) throw new Error("Unexpected database");
@@ -57,24 +64,48 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     } catch (error) { await owner.query("ROLLBACK"); throw error; }
     await owner.query(fs.readFileSync("src/server/decision-context/integration/checkpoint-evidence-candidate.sql", "utf8"));
     const role = `"${config.runtimeRole}"`;
-    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_unlink_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_supersede_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_task_source_current_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) TO ${role}`);
+    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_unlink_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_supersede_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_task_source_current_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) TO ${role}`);
+    const lifecycleRole=`"${config.lifecycleRole}"`;
+    await owner.query(`GRANT USAGE ON SCHEMA public TO ${lifecycleRole}`);
+    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_sync_trip_lifecycle_candidate(TEXT,BIGINT,TIMESTAMPTZ) TO ${lifecycleRole}`);
     runtime = new Client({ connectionString: config.runtimeUrl }); await runtime.connect();
     identity = await openIdentity(env);
     internal = await openInternalTripService(config.runtimeUrl, secret);
+    lifecycle=await openEvidenceLifecycleAdapter(config.lifecycleUrl,createInternalHost(secret));
     await internal.createTrip(trip, await issueInternalCapability(secret, trip, { role: "system", id: "e11-bootstrap" }));
-    // Synthetic lifecycle evidence is test-only; no trusted lifecycle adapter exists yet.
-    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[trip]);
+    await syncLifecycle(trip);
     host = await openEvidenceHost(env,{onCandidatePacketWarnings:warnings=>{capturedWarnings=[...warnings];}});
   }, 30000);
   afterAll(async () => {
-    await host?.close(); await internal?.close(); await identity?.close(); await runtime?.end();
+    await host?.close(); await lifecycle?.close(); await internal?.close(); await identity?.close(); await runtime?.end();
     if (created) {
       await owner.query('DROP FUNCTION public.host_checkpoint_expire_batch_candidate(BIGINT,INTEGER), public.host_checkpoint_expire_event_candidate(TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,BOOLEAN), public.host_checkpoint_view_valid_candidate(TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
-      await owner.query('DROP FUNCTION public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_unlink_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_supersede_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_task_source_current_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
+      await owner.query('DROP FUNCTION public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_unlink_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_supersede_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_task_source_current_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_sync_trip_lifecycle_candidate(TEXT,BIGINT,TIMESTAMPTZ)');
       await owner.query('DROP TABLE public."HostEvidenceSceneEventWitness", public."HostEvidenceScene", public."HostEvidenceTaskKey", public."HostEvidenceTaskSource", public."HostEvidenceAssociationLog", public."HostEvidenceAssociationHead", public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
     }
     await owner?.end();
   }, 30000);
+  it("syncs lifecycle only through the dedicated trusted adapter and current TS revision",async()=>{
+    const t=`trip_lifecycle_adapter_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"lifecycle-fixture"}));
+    const credential=await issueInternalCapability(secret,t,{role:"system",id:"lifecycle-source"});
+    await expect(lifecycle.sync(credential,{trip_id:t,source_revision:0,ended_at:null}))
+      .resolves.toMatchObject({disposition:"synced",source_revision:0,ended_at:null});
+    await expect(lifecycle.sync(credential,{trip_id:t,source_revision:0,ended_at:null})).resolves.toMatchObject({disposition:"replayed"});
+    const wrong=await issueInternalCapability(secret,trip,{role:"system",id:"wrong-trip"});
+    await expect(lifecycle.sync(wrong,{trip_id:t,source_revision:0,ended_at:null})).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(lifecycle.sync(credential,{trip_id:t,source_revision:1,ended_at:null})).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    await expect(lifecycle.sync(credential,{trip_id:t,source_revision:0,ended_at:new Date(Date.now()+60_000).toISOString()}))
+      .rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    const ended=new Date(Date.now()-31*24*60*60*1000).toISOString();
+    await expect(lifecycle.sync(credential,{trip_id:t,source_revision:0,ended_at:ended})).resolves.toMatchObject({disposition:"synced",ended_at:ended});
+    const isolated=new Client({connectionString:config!.lifecycleUrl});await isolated.connect();
+    try {
+      await expect(isolated.query('SELECT * FROM public."HostEvidenceTripLifecycle"')).rejects.toThrow();
+      await expect(isolated.query('SELECT public.host_evidence_record_candidate(NULL,NULL,NULL,NULL,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL)')).rejects.toThrow();
+      await expect(runtime.query('SELECT public.host_evidence_sync_trip_lifecycle_candidate($1,0,NULL)',[t])).rejects.toThrow();
+    } finally {await isolated.end();}
+  },30000);
   it("binds actual sessions, persists concurrent idempotent records, denies cross-session access, and keeps deletion after failed cleanup", async () => {
     const a = await account(), b = await account();
     await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)', [trip, a.user.id, b.user.id]);
@@ -435,6 +466,53 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     await host.deleteEvent(ticket,a.headers,receipts[0].event_id);
     await expect(host.readTaskEvidenceCandidate(ticket,a.headers,key,query)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
   },30000);
+  it("exposes bounded authorized history only during controlled interpretation and closes on delete, expiry or revoke",async()=>{
+    const setup=async(label:string)=>{
+      const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+      const ticket=await host.createWorkspace(trip,a.headers),key=await host.mintTaskKey(ticket,a.headers,`interpreter_history_${label}`);
+      const text=`历史原话 ${label}`,receipt=await host.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`history_${label}_${randomUUID()}`});
+      const task={task_key:key,question:text,kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",
+        evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null};
+      await host.registerTaskIdentity(ticket,a.headers,receipt,{expected_revision:0,tasks:[task],focus_keys:[key]});
+      return {a,ticket,key,text,receipt,task};
+    };
+    const window=()=>({page_size:10,from:new Date(Date.now()-60_000).toISOString(),to:new Date(Date.now()+60_000).toISOString(),cursor:null});
+    const positive=await setup("positive");let escaped:Parameters<ControlledInterpreter>[0]["read_task_evidence"]|undefined;
+    const nextText="继续历史问题";
+    await expect(host.openInterpretedTurnCandidate(positive.ticket,positive.a.headers,
+      {entry:"dialogue",text:nextText,idempotency_key:`history_positive_${randomUUID()}`},async({event,read_task_evidence})=>{
+        escaped=read_task_evidence;const page=await read_task_evidence(positive.key,window());
+        expect(page).toMatchObject({status:"complete",complete:true,authority:"historical_evidence_only"});
+        expect(page.events.map(item=>item.text)).toEqual([positive.text]);
+        return {tasks:[{...positive.task,question:event.text,relation:"continue",evidence:[{start:0,end:Array.from(event.text).length,quote:event.text}]}],focus_keys:[positive.key]};
+      })).resolves.toMatchObject({focus_keys:[positive.key]});
+    await expect(escaped!(positive.key,window())).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+
+    const deleted=await setup("deleted");await host.deleteEvent(deleted.ticket,deleted.a.headers,deleted.receipt.event_id);
+    await expect(host.openInterpretedTurnCandidate(deleted.ticket,deleted.a.headers,
+      {entry:"dialogue",text:"删除后继续",idempotency_key:`history_deleted_${randomUUID()}`},
+      async({read_task_evidence})=>{await read_task_evidence(deleted.key,window());throw new Error("unreachable");}))
+      .rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+
+    const expired=await setup("expired");
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '13 months' WHERE event_id=$1`,[expired.receipt.event_id]);
+    let expiredPage:Awaited<ReturnType<Parameters<ControlledInterpreter>[0]["read_task_evidence"]>>|undefined;
+    await expect(host.openInterpretedTurnCandidate(expired.ticket,expired.a.headers,
+      {entry:"dialogue",text:"到期后继续",idempotency_key:`history_expired_${randomUUID()}`},async({read_task_evidence})=>{
+        expiredPage=await read_task_evidence(expired.key,window());throw new Error("EXPIRED_HISTORY_CLOSED");
+      })).rejects.toThrow("EXPIRED_HISTORY_CLOSED");
+    expect(expiredPage).toMatchObject({events:[],status:"partial",complete:false});
+
+    const revoked=await setup("revoked");let revokedCode="";
+    await expect(host.openInterpretedTurnCandidate(revoked.ticket,revoked.a.headers,
+      {entry:"dialogue",text:"撤权时继续",idempotency_key:`history_revoked_${randomUUID()}`},async({read_task_evidence})=>{
+        await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,revoked.a.user.id]);
+        try {await read_task_evidence(revoked.key,window());} catch(error) {revokedCode=(error as {code?:string}).code??"";}
+        finally {await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,revoked.a.user.id]);}
+        throw new Error("REVOKED_HISTORY_CLOSED");
+      })).rejects.toThrow("REVOKED_HISTORY_CLOSED");
+    expect(revokedCode).toBe("EVIDENCE_ACCESS_DENIED");
+  },30000);
   it("marks natural expiry before physical cleanup and invalidates a live host across the database boundary",async()=>{
     const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
     const ticket=await host.createWorkspace(trip,a.headers),key=await host.mintTaskKey(ticket,a.headers,"expiry-maintenance-task");
@@ -463,12 +541,12 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   it("uses a matching trusted trip lifecycle for the thirty-day expiry cutoff",async()=>{
     const t=`trip_expiry_${randomBytes(8).toString("hex")}`;
     await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"expiry-test"}));
-    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle"(trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    await syncLifecycle(t);
     const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[t,a.user.id]);
     const ticket=await host.createWorkspace(t,a.headers),event=await host.record(ticket,a.headers,{entry:"dialogue",text:"旅行原话",idempotency_key:`trip_expiry_${randomUUID()}`});
     await owner.query(`UPDATE public."HostEvidenceTripLifecycle" SET source_revision=1,ended_at=clock_timestamp()-interval '31 days' WHERE trip_id=$1`,[t]);
     expect((await owner.query<{disposition:string}>('SELECT public.host_checkpoint_expire_event_candidate($1) AS disposition',[event.event_id])).rows[0].disposition).toBe("retained");
-    await owner.query('UPDATE public."HostEvidenceTripLifecycle" SET source_revision=0 WHERE trip_id=$1',[t]);
+    await syncLifecycle(t,0,new Date(Date.now()-31*24*60*60*1000).toISOString());
     expect((await owner.query<{disposition:string}>('SELECT public.host_checkpoint_expire_event_candidate($1) AS disposition',[event.event_id])).rows[0].disposition).toBe("expired");
     const row=(await owner.query<{deleted_at:Date;completed_at:Date|null}>('SELECT e.deleted_at,c.completed_at FROM public."HostEvidenceEvent" e JOIN public."HostEvidenceCleanup" c USING(event_id) WHERE e.event_id=$1',[event.event_id])).rows[0];
     expect(row.deleted_at).toBeInstanceOf(Date);expect(row.completed_at).toBeNull();
@@ -705,10 +783,10 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     // Synthetic owner-controlled revision update tests that an older checkpoint
     // is compared against the newest held TS snapshot, not written back to it.
     await owner.query(`UPDATE public."TripStateDocument" SET "revision"=1,snapshot=jsonb_set(snapshot,'{revision}','1'::jsonb) WHERE "tripId"=$1`,[trip]);
-    await owner.query('UPDATE public."HostEvidenceTripLifecycle" SET source_revision=1 WHERE trip_id=$1',[trip]);
+    await syncLifecycle(trip,1);
     expect(await host.restoreCheckpoint(wa,a.headers)).toMatchObject({saved_state_revision:0,current_state_revision:1});
     await owner.query(`UPDATE public."TripStateDocument" SET "revision"=0,snapshot=jsonb_set(snapshot,'{revision}','0'::jsonb) WHERE "tripId"=$1`,[trip]);
-    await owner.query('UPDATE public."HostEvidenceTripLifecycle" SET source_revision=0 WHERE trip_id=$1',[trip]);
+    await syncLifecycle(trip);
     const stored=(await owner.query<{payload:unknown}>('SELECT payload FROM e03_checkpoint.heads WHERE owner_id=$1 AND trip_id=$2 AND workspace=$3',[`user-${a.user.id}`,trip,ea.workspace_key])).rows[0].payload;
     expect(stored).toEqual({e11_scene_ref:expect.stringMatching(/^[0-9a-f]{64}$/)});
     expect(JSON.stringify(stored)).not.toContain("trusted source");
@@ -879,7 +957,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   it("selects a real PG-held Egypt fixture for a registered target without business writes", async () => {
     const egyptTrip=`trip_egypt_${randomBytes(8).toString("hex")}`;
     await internal.createTrip(egyptTrip,await issueInternalCapability(secret,egyptTrip,{role:"system",id:"egypt-fixture"}));
-    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[egyptTrip]);
+    await syncLifecycle(egyptTrip);
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[egyptTrip,a.user.id]);
     const aswan=structuredClone(base.objects.find(item=>item.id==="aswan")!); aswan.trip_id=egyptTrip;
     const egypt=structuredClone(base.objects.find(item=>item.id==="egypt")!); egypt.trip_id=egyptTrip;
@@ -895,14 +973,14 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     expect(await host.inspectLivePacketCandidate(ticket,a.headers,turn.turn_id,key,4096,input)).toEqual({state_revision:0,selected_count:1,body_count:1,deferred_count:0,coverage:"complete"});
     expect((await owner.query<{snapshot:unknown;revision:string}>('SELECT snapshot,"revision" FROM public."TripStateDocument" WHERE "tripId"=$1',[egyptTrip])).rows[0]).toEqual(before);
     await owner.query(`UPDATE public."TripStateDocument" SET "revision"=1,snapshot=jsonb_set(snapshot,'{revision}','1'::jsonb) WHERE "tripId"=$1`,[egyptTrip]);
-    await owner.query('UPDATE public."HostEvidenceTripLifecycle" SET source_revision=1 WHERE trip_id=$1',[egyptTrip]);
+    await syncLifecycle(egyptTrip,1);
     await expect(host.inspectLivePacketCandidate(ticket,a.headers,turn.turn_id,key,4096,input)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
     await host.disposeWorkspace(ticket);
   },30000);
   it("hands a real Session and PostgreSQL Packet to a real socket in an isolated test host", async () => {
     const egyptTrip=`trip_socket_${randomBytes(8).toString("hex")}`;
     await internal.createTrip(egyptTrip,await issueInternalCapability(secret,egyptTrip,{role:"system",id:"socket-fixture"}));
-    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[egyptTrip]);
+    await syncLifecycle(egyptTrip);
     const a=await account(),b=await account();
     await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[egyptTrip,a.user.id,b.user.id]);
     const egypt=structuredClone(base.objects.find(item=>item.id==="egypt")!),aswan=structuredClone(base.objects.find(item=>item.id==="aswan")!);
@@ -948,7 +1026,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   it("revalidates separate socket pages in short real Session/PG transactions", async () => {
     const t=`trip_page_${randomBytes(8).toString("hex")}`;
     await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"short-fixture"}));
-    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    await syncLifecycle(t);
     const a=await account(),b=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[t,a.user.id,b.user.id]);
     const objects=structuredClone(base.objects.filter(item=>["egypt","aswan"].includes(item.id))); for(const item of objects)item.trip_id=t;
     await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}',$2::jsonb) WHERE "tripId"=$1`,[t,JSON.stringify(objects)]);
@@ -1028,7 +1106,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   it("runs record, controlled interpretation, Turn and Packet beside a same-origin Next proxy",async()=>{
     const t=`trip_gateway_${randomBytes(8).toString("hex")}`;
     await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"gateway-test"}));
-    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    await syncLifecycle(t);
     const a=await account(),b=await account();
     await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[t,a.user.id,b.user.id]);
     const objects=structuredClone(base.objects.filter(item=>["egypt","aswan"].includes(item.id)));
@@ -1123,7 +1201,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   it("routes registered Turn and independent pages using only the private task lease",async()=>{
     const t=`trip_route_${randomBytes(8).toString("hex")}`;
     await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"packet-route-test"}));
-    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    await syncLifecycle(t);
     const a=await account(),b=await account();
     await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[t,a.user.id,b.user.id]);
     const objects=structuredClone(base.objects.filter(item=>["egypt","aswan"].includes(item.id)));
@@ -1160,7 +1238,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   it("uses host-owned packet and page state across separate real Session/PG/socket requests", async()=> {
     const t=`trip_formal_${randomBytes(8).toString("hex")}`;
     await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"host-packet-fixture"}));
-    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    await syncLifecycle(t);
     const a=await account(),b=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[t,a.user.id,b.user.id]);
     const objects=structuredClone(base.objects.filter(item=>["egypt","aswan"].includes(item.id)));for(const item of objects)item.trip_id=t;
     await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}',$2::jsonb) WHERE "tripId"=$1`,[t,JSON.stringify(objects)]);
@@ -1272,7 +1350,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   it("does not send across an unselected fact's activation after the final check",async()=> {
     const t=`trip_fact_gap_${randomBytes(8).toString("hex")}`;
     await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"fact-gap-fixture"}));
-    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    await syncLifecycle(t);
     const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[t,a.user.id]);
     const boundary=(await owner.query<{at:Date}>("SELECT clock_timestamp()+interval '3 seconds' AS at")).rows[0].at;
     const objects=structuredClone(base.objects.filter(item=>["egypt","aswan","cairo","luxor","fact-cairo-luxor"].includes(item.id)));
@@ -1790,7 +1868,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
         await expect(host.registerTaskIdentity(workspace,a.headers,receipt,interpretation)).rejects.toMatchObject({code:"DUPLICATE_ID"});
       } finally { await owner.query('UPDATE "TripStateDocument" SET snapshot=$2::jsonb WHERE "tripId"=$1',[trip,JSON.stringify(original)]); }
       await expect(host.registerTaskIdentity(workspace,a.headers,receipt,interpretation)).resolves.toMatchObject({task_keys:["task-lifecycle"]});
-    } finally { await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL) ON CONFLICT (trip_id) DO UPDATE SET source_revision=0,ended_at=NULL',[trip]); }
+    } finally { await syncLifecycle(trip); }
   },30000);
   it.each(["revoke", "expire"] as const)("rechecks %s while registering task identity and leaves no partial result", async mode => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);

@@ -41,7 +41,8 @@ type UnlinkRow = { disposition:"denied"|"conflict"|"replayed"|"unlinked"; out_as
 type SupersedeRow = { disposition:"denied"|"conflict"|"replayed"|"superseded"; out_association_revision:bigint|null; out_retention_revision:bigint|null };
 type InterpretedTask = DecisionContextContracts["open-turn"]["tasks"][number];
 export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordInput["entry"];text:string;reference:string;received_at:string};state:ReturnType<typeof parseStateReferences>;
-  runtime_focus:{tasks:InterpretedTask[];focus_keys:string[];complete:boolean};mint_task_key:(ordinal:number)=>Promise<string>})=>Promise<{tasks:unknown;focus_keys:unknown}>;
+  runtime_focus:{tasks:InterpretedTask[];focus_keys:string[];complete:boolean};mint_task_key:(ordinal:number)=>Promise<string>;
+  read_task_evidence:(taskKey:string,window:{page_size:number;from:string;to:string;cursor:string|null})=>Promise<EvidencePage>})=>Promise<{tasks:unknown;focus_keys:unknown}>;
 const identityInput = z.strictObject({ expected_revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), tasks: z.unknown(), focus_keys: z.unknown() });
 const unlinkInput = z.strictObject({action:z.literal("unlink"),task_key:z.string().regex(/^task-[0-9a-f]{32}$/),event_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),
   source_turn_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),expected_association_revision:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER-1),
@@ -105,6 +106,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       throw new Error("Evidence host requires an isolated non-owner runtime role without checkpoint access");
   } catch (error) { await Promise.all([db.$disconnect(), identity.close()]); throw error; }
   const host = sessionHost(identity), workspaces = new WeakMap<object, Scope>(), eventProofs = new WeakMap<object, { scope: Scope; eventId: string; token: string }>();
+  const interpreterReads=new WeakMap<object,{scope:Scope;eventId:string;token:string}>();
   const routingSecret=randomBytes(32);
   const activeScopes = new Set<Scope>();
   let closed = false;
@@ -491,7 +493,18 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         const existing=minted.get(ordinal);if(existing)return existing;
         const key=await this.mintTaskKey(ticket,credential,`${receipt.event_id}:${ordinal}`);minted.set(ordinal,key);return key;
       };
-      const interpreted=await interpret({event:structuredClone(event),state:structuredClone(context.state),runtime_focus:structuredClone(context.runtime_focus),mint_task_key:mint});
+      let interpreting=true;
+      const readTaskEvidence=async(taskKey:string,window:{page_size:number;from:string;to:string;cursor:string|null})=>{
+        if(!interpreting)return unavailable();
+        const proof=eventProofs.get(receipt);if(!proof||proof.scope!==scope)return unavailable();
+        const request=structuredClone(window);interpreterReads.set(request,{scope,eventId:proof.eventId,token:proof.token});
+        return this.readTaskEvidenceCandidate(ticket,credential,taskKey,request);
+      };
+      let interpreted:{tasks:unknown;focus_keys:unknown};
+      try {
+        interpreted=await interpret({event:structuredClone(event),state:structuredClone(context.state),runtime_focus:structuredClone(context.runtime_focus),
+          mint_task_key:mint,read_task_evidence:readTaskEvidence});
+      } finally {interpreting=false;}
       const proposed=parseDCContract("open-turn",{runtime_contract_version:"0.1.0",trip_id:scope.tripId,expected_revision:context.state.revision,event,tasks:interpreted.tasks,focus_keys:interpreted.focus_keys});
       const priorKeys=new Set(context.runtime_focus.tasks.map(task=>task.task_key)),newKeys=new Set(minted.values());
       for(const task of proposed.tasks){
@@ -588,6 +601,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     },
     /** Internal bounded historical source page; never a new instruction or write grant. */
     async readTaskEvidenceCandidate(ticket:object,credential:Headers,taskKey:string,raw:unknown):Promise<EvidencePage> {
+      const pending=raw&&typeof raw==="object"?interpreterReads.get(raw):undefined;
       let input:unknown;try{input=structuredClone(raw);}catch{return unavailable();}
       const request=z.strictObject({page_size:z.number().int().min(1).max(PAGE_LIMIT),from:z.iso.datetime({offset:true}),
         to:z.iso.datetime({offset:true}),cursor:z.string().nullable()}).safeParse(input);
@@ -606,7 +620,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         const task=scope.tasks.get(taskToken);
         if(!task||task.incomplete||task.sources.size<1||task.sources.size>256)
           throw new EvidenceBoundaryError(request.data.cursor===null?"EVIDENCE_UNAVAILABLE":"EVIDENCE_CURSOR_STALE");
-        const [snapshot]=await tx.$queryRaw<TaskSnapshotRow[]>`SELECT * FROM public.host_evidence_task_snapshot_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${taskKey},${taskToken})`;
+        if(pending&&pending.scope!==scope)return unavailable();
+        const [snapshot]=await tx.$queryRaw<TaskSnapshotRow[]>`SELECT * FROM public.host_evidence_task_snapshot_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${taskKey},${taskToken},${pending?.eventId??null},${pending?.token??null})`;
         const stale=()=>{throw new EvidenceBoundaryError(request.data.cursor===null?"EVIDENCE_UNAVAILABLE":"EVIDENCE_CURSOR_STALE");};
         if(!snapshot?.ok||counter(snapshot.out_retention_revision)!==scope.deletionRevision||task.retentionRevision!==scope.deletionRevision)return stale();
         const sourceShape=z.array(z.strictObject({event_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),

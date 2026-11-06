@@ -13,14 +13,31 @@ CREATE TABLE public."HostEvidenceWorkspace" (
   PRIMARY KEY (owner_id,trip_id,workspace_key)
 );
 REVOKE ALL ON public."HostEvidenceWorkspace" FROM PUBLIC;
--- Written only by a future trusted lifecycle adapter; no writer is granted in
--- this candidate. Missing/stale lifecycle evidence must close event reads.
+-- Written only through the separately credentialed trusted lifecycle adapter.
+-- Missing/stale lifecycle evidence must close event reads.
 CREATE TABLE public."HostEvidenceTripLifecycle" (
   trip_id TEXT PRIMARY KEY,
   source_revision BIGINT NOT NULL CHECK (source_revision BETWEEN 0 AND 9007199254740991),
   ended_at TIMESTAMPTZ(6)
 );
 REVOKE ALL ON public."HostEvidenceTripLifecycle" FROM PUBLIC;
+
+CREATE FUNCTION public.host_evidence_sync_trip_lifecycle_candidate(p_trip TEXT,p_source_revision BIGINT,p_ended_at TIMESTAMPTZ)
+RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
+DECLARE v_revision BIGINT; prior public."HostEvidenceTripLifecycle"%ROWTYPE;
+BEGIN
+  IF p_trip !~ '^[A-Za-z][A-Za-z0-9_-]{0,95}$' OR p_source_revision<0 OR p_source_revision>9007199254740991 OR
+    (p_ended_at IS NOT NULL AND p_ended_at>clock_timestamp()) THEN RETURN 'denied'; END IF;
+  SELECT "revision" INTO v_revision FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
+  IF NOT FOUND OR v_revision IS DISTINCT FROM p_source_revision THEN RETURN 'stale'; END IF;
+  SELECT * INTO prior FROM public."HostEvidenceTripLifecycle" WHERE trip_id=p_trip FOR UPDATE;
+  IF FOUND AND prior.source_revision=p_source_revision AND prior.ended_at IS NOT DISTINCT FROM p_ended_at THEN RETURN 'replayed'; END IF;
+  INSERT INTO public."HostEvidenceTripLifecycle"(trip_id,source_revision,ended_at) VALUES(p_trip,p_source_revision,p_ended_at)
+    ON CONFLICT(trip_id) DO UPDATE SET source_revision=EXCLUDED.source_revision,ended_at=EXCLUDED.ended_at;
+  RETURN 'synced';
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_evidence_sync_trip_lifecycle_candidate(TEXT,BIGINT,TIMESTAMPTZ) FROM PUBLIC;
 CREATE TABLE public."HostEvidenceEvent" (
   sequence BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY CHECK (sequence <= 9007199254740991),
   owner_id TEXT NOT NULL CHECK (char_length(owner_id) BETWEEN 1 AND 256),
@@ -322,7 +339,8 @@ REVOKE ALL ON FUNCTION public.host_evidence_bind_task_source_candidate(TEXT,TEXT
 -- exposing text. Workspace FOR UPDATE linearizes association/deletion changes
 -- with the cursor snapshot; no caller-provided task string is authority alone.
 CREATE FUNCTION public.host_evidence_task_snapshot_candidate(
-  p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_task_key TEXT,p_task_token TEXT
+  p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_task_key TEXT,p_task_token TEXT,
+  p_known_pending_event TEXT DEFAULT NULL,p_known_pending_token TEXT DEFAULT NULL
 ) RETURNS TABLE(ok BOOLEAN,out_retention_revision BIGINT,out_highwater BIGINT,out_association_revision BIGINT,out_unlinked_count BIGINT,out_sources JSONB)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 DECLARE v_retention BIGINT; v_highwater BIGINT; v_count BIGINT; v_association BIGINT; v_unlinked BIGINT; v_sources JSONB;
@@ -336,6 +354,13 @@ BEGIN
   IF NOT FOUND OR public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE OR NOT EXISTS (
     SELECT 1 FROM public."HostEvidenceTaskKey" WHERE owner_id=p_owner AND trip_id=p_trip
       AND workspace_key=p_workspace AND task_key=p_task_key) THEN
+    RETURN QUERY SELECT FALSE,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::JSONB; RETURN;
+  END IF;
+  IF (p_known_pending_event IS NULL) IS DISTINCT FROM (p_known_pending_token IS NULL) OR
+    (p_known_pending_event IS NOT NULL AND (p_known_pending_event !~ '^[A-Za-z][A-Za-z0-9_-]{0,95}$' OR
+      p_known_pending_token !~ '^[0-9a-f]{64}$' OR NOT EXISTS (
+        SELECT 1 FROM public.host_evidence_for_turn_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,
+          p_known_pending_event,p_known_pending_token,TRUE) f WHERE f.allowed))) THEN
     RETURN QUERY SELECT FALSE,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::JSONB; RETURN;
   END IF;
   SELECT count(*) INTO v_count FROM public."HostEvidenceTaskSource" WHERE owner_id=p_owner AND trip_id=p_trip
@@ -356,6 +381,7 @@ BEGIN
     WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace;
   SELECT count(*) INTO v_unlinked FROM public."HostEvidenceEvent" e
     WHERE e.owner_id=p_owner AND e.trip_id=p_trip AND e.workspace_key=p_workspace AND e.deleted_at IS NULL
+      AND e.event_id IS DISTINCT FROM p_known_pending_event
       AND NOT EXISTS (SELECT 1 FROM public."HostEvidenceTaskSource" b WHERE b.owner_id=p_owner AND b.trip_id=p_trip
         AND b.workspace_key=p_workspace AND b.event_id=e.event_id)
       -- A superseded event remains retained as audit history, but it is not an
@@ -390,7 +416,7 @@ BEGIN
   RETURN QUERY SELECT TRUE,v_retention,v_highwater,v_association,v_unlinked,v_sources;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
 
 -- A trusted host can retract one effective Task/source link. A correction is
 -- append-only; the original event and other Tasks remain available. A saved
