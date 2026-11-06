@@ -57,7 +57,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     } catch (error) { await owner.query("ROLLBACK"); throw error; }
     await owner.query(fs.readFileSync("src/server/decision-context/integration/checkpoint-evidence-candidate.sql", "utf8"));
     const role = `"${config.runtimeRole}"`;
-    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) TO ${role}`);
+    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) TO ${role}`);
     runtime = new Client({ connectionString: config.runtimeUrl }); await runtime.connect();
     identity = await openIdentity(env);
     internal = await openInternalTripService(config.runtimeUrl, secret);
@@ -70,7 +70,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     await host?.close(); await internal?.close(); await identity?.close(); await runtime?.end();
     if (created) {
       await owner.query('DROP FUNCTION public.host_checkpoint_expire_batch_candidate(BIGINT,INTEGER), public.host_checkpoint_expire_event_candidate(TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,BOOLEAN), public.host_checkpoint_view_valid_candidate(TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
-      await owner.query('DROP FUNCTION public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
+      await owner.query('DROP FUNCTION public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
       await owner.query('DROP TABLE public."HostEvidenceSceneEventWitness", public."HostEvidenceScene", public."HostEvidenceTaskKey", public."HostEvidenceTaskSource", public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
     }
     await owner?.end();
@@ -192,6 +192,55 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '13 months' WHERE event_id=$1`,[first.event_id]);
     expect(await read()).toBe(false); // the event's own twelve-month cap remains absolute
     expect((await owner.query<{disposition:string}>('SELECT public.host_checkpoint_expire_event_candidate($1) AS disposition',[first.event_id])).rows[0].disposition).toBe("expired");
+  },30000);
+  it("reads bounded historical Task evidence across turns with a scope-bound cursor and current Session",async()=>{
+    const a=await account(),b=await account();
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[trip,a.user.id,b.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers),other=await host.createWorkspace(trip,b.headers);
+    const key=await host.mintTaskKey(ticket,a.headers,"history-task"),texts=["阿斯旺太远", "其实仍想去", "比较交通方式"];
+    const receipts=[];
+    for(const [i,value] of texts.entries()){
+      const receipt=await host.record(ticket,a.headers,{entry:"dialogue",text:value,idempotency_key:`history_${i}_${randomUUID()}`});
+      const task={task_key:key,question:value,kind:"explore",target_ids:[],branch:"actual",relation:i===0?"new":"continue",
+        related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(value).length,quote:value}],progress:"open",progress_evidence:null};
+      await host.registerTaskIdentity(ticket,a.headers,receipt,{expected_revision:0,tasks:[task],focus_keys:[key]});receipts.push(receipt);
+    }
+    const separateKey=await host.mintTaskKey(ticket,a.headers,"separate-history-task"),separateText="开罗独立问题";
+    const separate=await host.record(ticket,a.headers,{entry:"dialogue",text:separateText,idempotency_key:`separate_history_${randomUUID()}`});
+    await host.registerTaskIdentity(ticket,a.headers,separate,{expected_revision:0,tasks:[{task_key:separateKey,question:separateText,
+      kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",
+      evidence:[{start:0,end:Array.from(separateText).length,quote:separateText}],progress:"open",progress_evidence:null}],focus_keys:[separateKey]});
+    const query={page_size:1,from:new Date(Date.now()-60_000).toISOString(),to:new Date(Date.now()+60_000).toISOString(),cursor:null as string|null};
+    const first=await host.readTaskEvidenceCandidate(ticket,a.headers,key,query);
+    expect(first).toMatchObject({status:"complete",complete:false,authority:"historical_evidence_only"});
+    expect(first.events.map(item=>item.text)).toEqual([texts[0]]);expect(first.cursor).toBeTruthy();
+    expect(JSON.stringify(first)).not.toContain(a.session.session.id);
+    const second=await host.readTaskEvidenceCandidate(ticket,a.headers,key,{...query,cursor:first.cursor});
+    expect(second.events.map(item=>item.text)).toEqual([texts[1]]);expect(second.complete).toBe(false);
+    const third=await host.readTaskEvidenceCandidate(ticket,a.headers,key,{...query,cursor:second.cursor});
+    expect(third.events.map(item=>item.text)).toEqual([texts[2]]);expect(third).toMatchObject({cursor:null,complete:true});
+    expect((await host.readTaskEvidenceCandidate(ticket,a.headers,separateKey,{...query,page_size:10})).events.map(item=>item.text)).toEqual([separateText]);
+    await expect(host.readTaskEvidenceCandidate(ticket,a.headers,separateKey,{...query,cursor:first.cursor})).rejects.toMatchObject({code:"EVIDENCE_CURSOR_STALE"});
+    const guessed=await runtime.query<{ok:boolean;out_sources:unknown}>('SELECT ok,out_sources FROM public.host_evidence_task_snapshot_candidate($1,$2,$3,$4,$5,$6,$7)',
+      [a.session.session.id,a.user.id,trip,receipts[0].workspace_key,"0".repeat(64),key,"0".repeat(64)]);
+    expect(guessed.rows).toEqual([{ok:false,out_sources:null}]);
+    await expect(host.readTaskEvidenceCandidate(ticket,b.headers,key,query)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(host.readTaskEvidenceCandidate(other,b.headers,key,query)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    await expect(host.readTaskEvidenceCandidate(ticket,a.headers,key,{...query,cursor:`${first.cursor}x`})).rejects.toMatchObject({code:"EVIDENCE_CURSOR_STALE"});
+    await expect(host.readTaskEvidenceCandidate(ticket,a.headers,key,{...query,from:new Date(Date.now()-30_000).toISOString(),cursor:first.cursor})).rejects.toMatchObject({code:"EVIDENCE_CURSOR_STALE"});
+    await expect(host.readTaskEvidenceCandidate(ticket,a.headers,key,{...query,page_size:101})).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,a.user.id]);
+    await expect(host.readTaskEvidenceCandidate(ticket,a.headers,key,query)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '13 months' WHERE event_id=$1`,[receipts[0].event_id]);
+    expect(await host.readTaskEvidenceCandidate(ticket,a.headers,key,query)).toMatchObject({events:[],status:"partial",complete:false});
+    await expect(host.readTaskEvidenceCandidate(ticket,a.headers,key,{...query,cursor:first.cursor})).rejects.toMatchObject({code:"EVIDENCE_CURSOR_STALE"});
+    await owner.query('UPDATE public."HostEvidenceEvent" SET recorded_at=$2 WHERE event_id=$1',[receipts[0].event_id,receipts[0].recorded_at]);
+    await host.record(ticket,a.headers,{entry:"dialogue",text:"未关联新轮",idempotency_key:`history_unlinked_${randomUUID()}`});
+    await expect(host.readTaskEvidenceCandidate(ticket,a.headers,key,{...query,cursor:first.cursor})).rejects.toMatchObject({code:"EVIDENCE_CURSOR_STALE"});
+    expect(await host.readTaskEvidenceCandidate(ticket,a.headers,key,query)).toMatchObject({events:[],status:"partial",complete:false});
+    await host.deleteEvent(ticket,a.headers,receipts[0].event_id);
+    await expect(host.readTaskEvidenceCandidate(ticket,a.headers,key,query)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
   },30000);
   it("marks natural expiry before physical cleanup and invalidates a live host across the database boundary",async()=>{
     const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);

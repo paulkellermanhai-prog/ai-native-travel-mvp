@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { ServerResponse } from "node:http";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { z } from "zod";
@@ -7,7 +7,8 @@ import { databaseEnvSchema } from "../../../lib/env";
 import { openIdentity } from "../../auth/config";
 import { sessionHost, userActorId } from "../../auth/authorization";
 import { runtimeRoleSafetySql } from "../../database/runtime-role-safety.mjs";
-import { EvidenceBoundaryError, type EventReceipt, type DeleteReceipt, type RecordInput } from "../../interaction-evidence/contracts";
+import { CURSOR_TTL_MS, MAX_WINDOW_MS, PAGE_LIMIT, cursorSchema, EvidenceBoundaryError, type EventReceipt, type DeleteReceipt, type RecordInput, type EvidencePage } from "../../interaction-evidence/contracts";
+import { checkCursor, checkReadWindow } from "../../interaction-evidence/boundaries";
 import { evidenceKeyToken, prepareEvidenceEvent } from "./evidence-event";
 import { parseAndCheckTaskCore, type TaskCorePrior } from "../task-core/validate";
 import { parseDCContract } from "../contracts";
@@ -35,6 +36,7 @@ type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey:
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
 type DeleteRow = { disposition: string; deletion_revision: bigint | null; accepted_at: Date | null; cleanup_pending: boolean | null; event_highwater: bigint | null };
 type EventRow = { allowed: boolean; out_entry: "dialogue" | "map" | "timeline" | "comparison" | null; out_body: string | null; out_received_at: Date | null; out_retention_revision: bigint | null; out_valid_for_ms:bigint|null };
+type TaskSnapshotRow = { ok:boolean; out_retention_revision:bigint|null; out_highwater:bigint|null; out_association_revision:bigint|null; out_unlinked_count:bigint|null; out_sources:unknown };
 type InterpretedTask = DecisionContextContracts["open-turn"]["tasks"][number];
 export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordInput["entry"];text:string;reference:string;received_at:string};state:ReturnType<typeof parseStateReferences>;
   runtime_focus:{tasks:InterpretedTask[];focus_keys:string[];complete:boolean};mint_task_key:(ordinal:number)=>Promise<string>})=>Promise<{tasks:unknown;focus_keys:unknown}>;
@@ -59,6 +61,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
   if (typeof keySecret !== "string" || Buffer.byteLength(keySecret, "utf8") < 32) return unavailable();
+  const cursorSecret=keySecret;
   const url = new URL(connection);
   url.searchParams.set("options", `${url.searchParams.get("options") ?? ""} -c timezone=UTC`.trim());
   const identity = await openIdentity(env);
@@ -95,6 +98,21 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   const routingSecret=randomBytes(32);
   const activeScopes = new Set<Scope>();
   let closed = false;
+  const pageCursorShape=z.strictObject({cursor:cursorSchema,from:z.iso.datetime({offset:true}),to:z.iso.datetime({offset:true})});
+  const cursorStale=():never=>{throw new EvidenceBoundaryError("EVIDENCE_CURSOR_STALE");};
+  function sealPageCursor(value:z.infer<typeof pageCursorShape>) {
+    const body=Buffer.from(canonicalJson(value),"utf8"),signature=createHmac("sha256",cursorSecret).update("e11-page-cursor\0").update(body).digest();
+    return `${body.toString("base64url")}.${signature.toString("base64url")}`;
+  }
+  function openPageCursor(value:string) {
+    if(typeof value!=="string"||value.length>4096)return cursorStale();
+    const parts=value.split(".");if(parts.length!==2)return cursorStale();
+    const body=Buffer.from(parts[0],"base64url"),signature=Buffer.from(parts[1],"base64url");
+    if(body.toString("base64url")!==parts[0]||signature.toString("base64url")!==parts[1]||signature.length!==32||
+      !timingSafeEqual(signature,createHmac("sha256",cursorSecret).update("e11-page-cursor\0").update(body).digest()))
+      return cursorStale();
+    try{return pageCursorShape.parse(JSON.parse(body.toString("utf8")));}catch{return cursorStale();}
+  }
   // Task keys may contain user text; retain only a keyed, scope-bound index.
   const taskIndex = (scope: Scope, key: string) => createHmac("sha256",keySecret).update("task-identity\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,key]),"utf8").digest("hex");
   const taskFingerprint = (scope: Scope, task: unknown) => createHmac("sha256",keySecret).update("task-value\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,task]),"utf8").digest("hex");
@@ -460,6 +478,77 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       const registration=await this.registerTaskIdentity(ticket,credential,receipt,{expected_revision:context.state.revision,tasks:proposed.tasks,focus_keys:proposed.focus_keys});
       return parseDCContract("turn",{runtime_contract_version:"0.1.0",runtime_id:registration.runtime_id,turn_id:registration.turn_id,revision:registration.revision,
         tasks:proposed.tasks,focus_keys:proposed.focus_keys,checkpoint_ack:null});
+    },
+    /** Internal bounded historical source page; never a new instruction or write grant. */
+    async readTaskEvidenceCandidate(ticket:object,credential:Headers,taskKey:string,raw:unknown):Promise<EvidencePage> {
+      let input:unknown;try{input=structuredClone(raw);}catch{return unavailable();}
+      const request=z.strictObject({page_size:z.number().int().min(1).max(PAGE_LIMIT),from:z.iso.datetime({offset:true}),
+        to:z.iso.datetime({offset:true}),cursor:z.string().nullable()}).safeParse(input);
+      if(!request.success||typeof taskKey!=="string"||!/^task-[0-9a-f]{32}$/.test(taskKey))return unavailable();
+      const from=new Date(request.data.from),to=new Date(request.data.to);
+      checkReadWindow(request.data.page_size,from,to);
+      const fromTick=instantAttoseconds(request.data.from),toTick=instantAttoseconds(request.data.to);
+      if(toTick<fromTick||toTick-fromTick>BigInt(MAX_WINDOW_MS)*1_000_000_000_000n)return unavailable();
+      const {scope,headers}=await scoped(ticket,credential),taskToken=taskIndex(scope,taskKey);
+      return exclusive(scope,async()=>{
+        let committedDeadline=process.hrtime.bigint()+BigInt(CURSOR_TTL_MS)*1_000_000n;
+        const page:EvidencePage=await db.$transaction(async tx=>{
+        const [document]=await tx.$queryRaw<Array<{revision:bigint}>>`SELECT "revision" FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        if(!document)return deny();
+        const task=scope.tasks.get(taskToken);
+        if(!task||task.incomplete||task.sources.size<1||task.sources.size>256)
+          throw new EvidenceBoundaryError(request.data.cursor===null?"EVIDENCE_UNAVAILABLE":"EVIDENCE_CURSOR_STALE");
+        const [snapshot]=await tx.$queryRaw<TaskSnapshotRow[]>`SELECT * FROM public.host_evidence_task_snapshot_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${taskKey},${taskToken})`;
+        const stale=()=>{throw new EvidenceBoundaryError(request.data.cursor===null?"EVIDENCE_UNAVAILABLE":"EVIDENCE_CURSOR_STALE");};
+        if(!snapshot?.ok||counter(snapshot.out_retention_revision)!==scope.deletionRevision||task.retentionRevision!==scope.deletionRevision)return stale();
+        const sourceShape=z.array(z.strictObject({event_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),
+          event_token:z.string().regex(/^[0-9a-f]{64}$/),sequence:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),
+          recorded_at:z.iso.datetime({offset:true})})).max(256);
+        const sources=sourceShape.safeParse(snapshot.out_sources);
+        if(!sources.success||sources.data.length!==task.sources.size||sources.data.some(row=>task.sources.get(row.event_id)!==row.event_token))return stale();
+        const highwater=counter(snapshot.out_highwater),association=counter(snapshot.out_association_revision);
+        const cursorScope={owner_id:scope.ownerId,trip_id:scope.tripId,workspace_key:scope.workspaceKey,task_key:taskKey};
+        let after=0;
+        if(request.data.cursor!==null){
+          const opened=openPageCursor(request.data.cursor);
+          if(opened.from!==request.data.from||opened.to!==request.data.to||opened.cursor.high_watermark!==highwater)throw new EvidenceBoundaryError("EVIDENCE_CURSOR_STALE");
+          after=checkCursor(opened.cursor,cursorScope,new Date(),{association,retention:scope.deletionRevision}).after_sequence;
+        }
+        const partial=():EvidencePage=>({events:[],cursor:null,complete:false,status:"partial",authority:"historical_evidence_only"});
+        const incomplete=():EvidencePage=>request.data.cursor===null?partial():cursorStale();
+        if(counter(snapshot.out_unlinked_count)>0)return incomplete();
+        let deadline=process.hrtime.bigint()+BigInt(CURSOR_TTL_MS)*1_000_000n;
+        for(const source of sources.data){
+          const started=process.hrtime.bigint();
+          const [row]=await tx.$queryRaw<EventRow[]>`SELECT * FROM public.host_evidence_for_turn_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${source.event_id},${source.event_token},${true})`;
+          if(!row?.allowed||counter(row.out_retention_revision)!==scope.deletionRevision||row.out_valid_for_ms===null||row.out_valid_for_ms<=1n)return incomplete();
+          const until=started+(row.out_valid_for_ms-1n)*1_000_000n;if(until<deadline)deadline=until;
+        }
+        const matching=sources.data.filter(source=>source.sequence>after&&source.sequence<=highwater&&
+          instantAttoseconds(source.recorded_at)>=fromTick&&instantAttoseconds(source.recorded_at)<=toTick);
+        const chosen=matching.slice(0,request.data.page_size),events:EvidencePage["events"]=[];
+        for(const source of chosen){
+          const started=process.hrtime.bigint();
+          const [row]=await tx.$queryRaw<EventRow[]>`SELECT * FROM public.host_evidence_for_turn_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${source.event_id},${source.event_token},${false})`;
+          if(!row?.allowed||!row.out_entry||!row.out_body||!row.out_received_at||row.out_valid_for_ms===null||row.out_valid_for_ms<=1n)return incomplete();
+          const until=started+(row.out_valid_for_ms-1n)*1_000_000n;if(until<deadline)deadline=until;
+          events.push({owner_id:scope.ownerId,trip_id:scope.tripId,workspace_key:scope.workspaceKey,task_key:taskKey,
+            event_id:source.event_id,text:row.out_body,entry:row.out_entry,received_at:row.out_received_at.toISOString(),
+            recorded_at:source.recorded_at,sequence:source.sequence,source_reference:`host-interaction:${source.event_id}`,association_revision:association});
+        }
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        if(process.hrtime.bigint()>=deadline)return incomplete();
+        committedDeadline=deadline;
+        const more=matching.length>chosen.length,cursor=more&&chosen.length?sealPageCursor({cursor:{...cursorScope,high_watermark:highwater,
+          after_sequence:chosen.at(-1)!.sequence,association_revision:association,retention_revision:scope.deletionRevision,
+          expires_at:new Date(Date.now()+CURSOR_TTL_MS).toISOString()},from:request.data.from,to:request.data.to}):null;
+        return {events,cursor,complete:!more,status:"complete" as const,authority:"historical_evidence_only" as const};
+        });
+        if(process.hrtime.bigint()>=committedDeadline)return request.data.cursor===null?
+          {events:[],cursor:null,complete:false,status:"partial",authority:"historical_evidence_only"}:cursorStale();
+        return page;
+      });
     },
     /**
      * Assemble a registered live Turn against the authorized current TS

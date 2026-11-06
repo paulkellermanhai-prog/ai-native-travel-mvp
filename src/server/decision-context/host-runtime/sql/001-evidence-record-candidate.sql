@@ -114,8 +114,8 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT) FROM PUBLIC;
 
--- Internal, proof-bound read. There is no association implementation yet;
--- this function does not prove that an event is unlinked or single-use.
+-- Internal, proof-bound event read. It does not by itself prove a current Task
+-- association; the bounded Task snapshot and host identity must also agree.
 -- No lifecycle writer exists yet; absent/stale evidence fails closed.
 CREATE FUNCTION public.host_evidence_for_turn_candidate(p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_event TEXT,p_token TEXT,p_metadata_only BOOLEAN)
 RETURNS TABLE(allowed BOOLEAN, out_entry TEXT, out_body TEXT, out_received_at TIMESTAMPTZ, out_retention_revision BIGINT, out_valid_for_ms BIGINT)
@@ -258,6 +258,57 @@ BEGIN
 END;
 $$;
 REVOKE ALL ON FUNCTION public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT) FROM PUBLIC;
+
+-- Bounded, metadata-only snapshot of one minted Task's committed source set.
+-- The host verifies every event through host_evidence_for_turn_candidate before
+-- exposing text. Workspace FOR UPDATE linearizes association/deletion changes
+-- with the cursor snapshot; no caller-provided task string is authority alone.
+CREATE FUNCTION public.host_evidence_task_snapshot_candidate(
+  p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_task_key TEXT,p_task_token TEXT
+) RETURNS TABLE(ok BOOLEAN,out_retention_revision BIGINT,out_highwater BIGINT,out_association_revision BIGINT,out_unlinked_count BIGINT,out_sources JSONB)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+DECLARE v_retention BIGINT; v_highwater BIGINT; v_count BIGINT; v_unlinked BIGINT; v_sources JSONB;
+BEGIN
+  IF p_task_token !~ '^[0-9a-f]{64}$' OR public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT FALSE,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::JSONB; RETURN;
+  END IF;
+  SELECT retention_revision INTO v_retention FROM public."HostEvidenceWorkspace"
+    WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace
+      AND session_ref=p_session AND capability_token=p_capability FOR UPDATE;
+  IF NOT FOUND OR public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE OR NOT EXISTS (
+    SELECT 1 FROM public."HostEvidenceTaskKey" WHERE owner_id=p_owner AND trip_id=p_trip
+      AND workspace_key=p_workspace AND task_key=p_task_key) THEN
+    RETURN QUERY SELECT FALSE,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::JSONB; RETURN;
+  END IF;
+  SELECT count(*) INTO v_count FROM public."HostEvidenceTaskSource" WHERE owner_id=p_owner AND trip_id=p_trip
+    AND workspace_key=p_workspace AND task_token=p_task_token;
+  IF v_count<1 OR v_count>256 OR EXISTS (
+    SELECT 1 FROM public."HostEvidenceTaskSource" b LEFT JOIN public."HostEvidenceEvent" e ON e.event_id=b.event_id
+    WHERE b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace AND b.task_token=p_task_token
+      AND (e.event_id IS NULL OR e.owner_id IS DISTINCT FROM p_owner OR e.trip_id IS DISTINCT FROM p_trip
+        OR e.workspace_key IS DISTINCT FROM p_workspace OR e.key_token IS DISTINCT FROM b.event_token)) THEN
+    RETURN QUERY SELECT FALSE,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::JSONB; RETURN;
+  END IF;
+  SELECT COALESCE(MAX(sequence),0) INTO v_highwater FROM public."HostEvidenceEvent"
+    WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace;
+  SELECT count(*) INTO v_unlinked FROM public."HostEvidenceEvent" e
+    WHERE e.owner_id=p_owner AND e.trip_id=p_trip AND e.workspace_key=p_workspace AND e.deleted_at IS NULL
+      AND NOT EXISTS (SELECT 1 FROM public."HostEvidenceTaskSource" b WHERE b.owner_id=p_owner AND b.trip_id=p_trip
+        AND b.workspace_key=p_workspace AND b.event_id=e.event_id);
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('event_id',s.event_id,'event_token',s.event_token,
+    'sequence',s.sequence,'recorded_at',s.recorded_at) ORDER BY s.sequence),'[]'::jsonb) INTO v_sources FROM (
+    SELECT b.event_id,MIN(b.event_token) AS event_token,e.sequence,e.recorded_at
+    FROM public."HostEvidenceTaskSource" b JOIN public."HostEvidenceEvent" e ON e.event_id=b.event_id
+    WHERE b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace AND b.task_token=p_task_token
+    GROUP BY b.event_id,e.sequence,e.recorded_at
+  ) s;
+  IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN QUERY SELECT FALSE,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::BIGINT,NULL::JSONB; RETURN;
+  END IF;
+  RETURN QUERY SELECT TRUE,v_retention,v_highwater,v_count,v_unlinked,v_sources;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
 
 -- Serializes deletion with writes in the same workspace. A committed marker
 -- always precedes physical cleanup; repeat requests do not advance revision.
