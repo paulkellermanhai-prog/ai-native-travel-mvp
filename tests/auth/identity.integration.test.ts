@@ -1,3 +1,6 @@
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../../src/generated/prisma/client";
+import { evidenceAuthorization } from "../../src/server/interaction-evidence/boundaries";
 import fs from "node:fs";
 import crypto from "node:crypto";
 import { Client } from "pg";
@@ -208,4 +211,91 @@ describe.skipIf(!cfg?.authUrl)("E02-05A real password, database Session and live
     expect(() => authConfiguration({ ...configuration(), BETTER_AUTH_URL: "http://public.example.invalid" })).toThrow();
     await expect(openIdentity({ ...configuration(), AUTH_DATABASE_URL: cfg!.migrationUrl })).rejects.toThrow("unprivileged non-owner");
   });
+  it("E11 denies a second shared-trip member access to another owner's private evidence scope", async () => {
+    const f=await setup(), b=await account(f.identity), authorize=evidenceAuthorization(f.identity);
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    await expect(authorize.authorize(b.headers,scope)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(authorize.authorize(new Headers({"x-user-id":f.a.user.id}),scope)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(authorize.authorize(f.a.headers,scope)).resolves.toEqual(scope);
+    await expect(authorize.authorize(f.a.headers,{...scope,trip_id:"trip-unassigned"})).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+  });
+  it("E11 transaction proof rejects forged grants and every changed scope dimension", async () => {
+    const f=await setup(), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const grant=await authorize.authorize(f.a.headers,scope);
+    await db.$transaction(async tx=>{
+      await authorize.guard(grant,scope,tx);
+      await expect(authorize.guard({...grant},scope,tx)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+      for(const key of ["owner_id","trip_id","workspace_key","task_key"] as const) await expect(authorize.guard(grant,{...scope,[key]:"other"},tx)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    });
+  });
+  it("E11 rechecks live database membership and Session before any future storage transaction", async () => {
+    const f=await setup(), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const grant=await authorize.authorize(f.a.headers,scope);
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(db.$transaction(tx=>authorize.guard(grant,scope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,f.a.user.id]);
+    await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);
+    await expect(db.$transaction(tx=>authorize.guard(grant,scope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+  });
+
+  it("E11 snapshots a reused Headers per grant across members, membership revocation and session expiry", async () => {
+    const f=await setup(), b=await account(f.identity), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const aScope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const bScope={...aScope,owner_id:b.user.id};
+    const reused=new Headers({cookie:f.a.headers.get("cookie")!}), a=await authorize.authorize(reused,aScope);
+    reused.set("cookie",b.headers.get("cookie")!);const bGrant=await authorize.authorize(reused,bScope);
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(db.$transaction(tx=>authorize.guard(a,aScope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(bGrant,bScope,tx))).resolves.toBeUndefined();
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,f.a.user.id]);
+    await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);
+    await expect(db.$transaction(tx=>authorize.guard(a,aScope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(bGrant,bScope,tx))).resolves.toBeUndefined();
+  });
+  it("E11 failed scope and invalid-cookie attempts cannot change an existing grant", async () => {
+    const f=await setup(), b=await account(f.identity), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const reused=new Headers({cookie:f.a.headers.get("cookie")!}), grant=await authorize.authorize(reused,scope);
+    reused.set("cookie",b.headers.get("cookie")!);await expect(authorize.authorize(reused,scope)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    reused.set("cookie","better-auth.session_token=invalid");await expect(authorize.authorize(reused,scope)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(grant,scope,tx))).resolves.toBeUndefined();
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(db.$transaction(tx=>authorize.guard(grant,scope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+  });
+  it("E11 concurrent sign-ins using one Headers retain both original session proofs", async () => {
+    const f=await setup(), b=await account(f.identity), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const aScope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"}, bScope={...aScope,owner_id:b.user.id};
+    const reused=new Headers({cookie:f.a.headers.get("cookie")!});const pa=authorize.authorize(reused,aScope);
+    reused.set("cookie",b.headers.get("cookie")!);const pb=authorize.authorize(reused,bScope);const [a,bGrant]=await Promise.all([pa,pb]);
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(db.$transaction(tx=>authorize.guard(a,aScope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(bGrant,bScope,tx))).resolves.toBeUndefined();
+  });
+
+  it("E11 preserves the signing session when one user has two live sessions", async () => {
+    const f=await setup(), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    const login=await f.identity.auth.api.signInEmail({body:{email:f.a.email,password:f.a.password},headers:new Headers({origin:f.identity.config.origin}),asResponse:true});
+    expect(login.status).toBe(200);const secondCookie=login.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
+    const secondHeaders=new Headers({cookie:secondCookie}), second=await f.identity.auth.api.getSession({headers:secondHeaders});
+    expect(second?.session.id).toBeTruthy();expect(second!.session.id).not.toBe(f.a.session.session.id);
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const reused=new Headers({cookie:f.a.headers.get("cookie")!}), first=await authorize.authorize(reused,scope);
+    reused.set("cookie",secondCookie);const other=await authorize.authorize(reused,scope);
+    await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);
+    await expect(db.$transaction(tx=>authorize.guard(first,scope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(other,scope,tx))).resolves.toBeUndefined();
+  });
+
 });

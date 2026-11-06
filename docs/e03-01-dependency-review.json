@@ -1,0 +1,26 @@
+{
+  "checked_date": "2026-11-06",
+  "source": "online npm audit --json; npm ls minimatch --omit=dev --json",
+  "severity_counts": {
+    "info": 0,
+    "low": 0,
+    "moderate": 8,
+    "high": 0,
+    "critical": 0,
+    "total": 8
+  },
+  "affected_nodes": [
+    "@typescript-eslint/eslint-plugin",
+    "@typescript-eslint/parser",
+    "@typescript-eslint/type-utils",
+    "@typescript-eslint/typescript-estree",
+    "@typescript-eslint/utils",
+    "eslint-config-next",
+    "minimatch",
+    "typescript-eslint"
+  ],
+  "root_advisory": "https://github.com/advisories/GHSA-g3hv-75wg-m249",
+  "exposure": "development lint dependency chain; npm ls minimatch --omit=dev returned no dependency",
+  "action": "tracked for independent compatible maintenance; no forced upgrade/downgrade; lock unchanged",
+  "security_clearance_claimed": false
+}

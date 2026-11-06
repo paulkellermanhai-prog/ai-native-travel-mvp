@@ -1,0 +1,18 @@
+{
+  "expected_revision": 1,
+  "idempotency_key": "example-1",
+  "reason": "条件性排除卢克索，保留偏好证据",
+  "input": {
+    "kind": "dialogue",
+    "reference": "synthetic-input",
+    "text": "条件性排除卢克索，保留偏好证据",
+    "target_ids": []
+  },
+  "commands": [
+    {
+      "op": "transition",
+      "id": "candidate-luxor",
+      "event": "exclude_conditionally"
+    }
+  ]
+}

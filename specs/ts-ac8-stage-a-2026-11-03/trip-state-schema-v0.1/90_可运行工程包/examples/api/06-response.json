@@ -1,0 +1,124 @@
+{
+  "outcome": "applied",
+  "revision": 5,
+  "proposal_id": "proposal-00000000000000000000000000000013",
+  "proposal_digest": "05897b34266874a1e5bd8123b7747c588ba9408ce38500624aa1a875539b6aac",
+  "confirmation_required": false,
+  "affected_ids": [
+    "issue-dependency-skeleton-b",
+    "skeleton-b"
+  ],
+  "diff": [
+    {
+      "id": "issue-dependency-skeleton-b",
+      "before": null,
+      "after": {
+        "id": "issue-dependency-skeleton-b",
+        "type": "OpenIssue",
+        "trip_id": "trip-egypt-test",
+        "version": 1,
+        "status": "open",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "dependencies": [],
+        "source": {
+          "actor": "user",
+          "actor_id": "user-demo",
+          "reference": "synthetic-input",
+          "text": "连续编辑前创建独立暂定版本",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "updated_at": "2030-01-01T00:00:00Z",
+        "issue_kind": "dependency",
+        "question": "输入变化，需要重新核验或计算",
+        "affected_ids": [
+          "skeleton-b"
+        ],
+        "severity": "warning",
+        "required_inputs": [
+          "fresh_dependencies"
+        ],
+        "candidate_actions": [
+          "verify",
+          "calculate",
+          "confirm"
+        ],
+        "owner": "system",
+        "resolution": null,
+        "evidence_ids": []
+      }
+    },
+    {
+      "id": "skeleton-b",
+      "before": null,
+      "after": {
+        "id": "skeleton-b",
+        "type": "Skeleton",
+        "trip_id": "trip-egypt-test",
+        "version": 1,
+        "status": "active",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "dependencies": [],
+        "source": {
+          "actor": "user",
+          "actor_id": "user-demo",
+          "reference": "synthetic-input",
+          "text": "连续编辑前创建独立暂定版本",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "updated_at": "2030-01-01T00:00:00Z",
+        "purpose": "plan",
+        "stops": [
+          {
+            "entity_id": "cairo",
+            "nights": 2
+          },
+          {
+            "entity_id": "luxor",
+            "nights": 2
+          }
+        ],
+        "connections": [
+          {
+            "from_id": "cairo",
+            "to_id": "luxor",
+            "fact_ids": [
+              "fact-cairo-luxor"
+            ]
+          }
+        ],
+        "cost_fact_ids": [
+          "cost-transport"
+        ],
+        "parent_id": null,
+        "overrides": [],
+        "tradeoffs": {
+          "gains": [
+            "文化体验"
+          ],
+          "losses": [
+            "转场时间"
+          ]
+        },
+        "assessment": {
+          "status": "stale",
+          "total_nights": null,
+          "connection_minutes": [],
+          "cost_groups": [],
+          "cost_coverage": "none",
+          "unknowns": [
+            "inputs_changed"
+          ],
+          "violations": [],
+          "checked_at": null
+        }
+      }
+    }
+  ],
+  "errors": []
+}

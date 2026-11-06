@@ -2,38 +2,38 @@
   "format": "antu-e03-progress/v1",
   "maintenance_source": "docs/e03-progress.json",
   "generated_view": "docs/E03阶段看板.md",
-  "candidate_pr": 10,
-  "baseline_status": "PENDING_TECH_LEAD_GATE_A",
-  "accepted_weight_percent": 0,
-  "submitted_weight_percent": 8,
-  "scope": "E03-00 only; no mechanism iteration review or runtime implementation",
+  "candidate_pr": 12,
+  "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
+  "accepted_weight_percent": 8,
+  "submitted_weight_percent": 10,
+  "scope": "E03-01 only; R6 fixed baseline; UX02/R7 pending incremental review",
   "stages": [
     {
       "id": "E03-00",
       "name": "基线审核与可迭代性准备",
       "weight_percent": 8,
-      "status": "READY_FOR_GATE_A",
-      "accepted": false,
+      "status": "ACCEPTED",
+      "accepted": true,
       "subtasks": [
         {
           "id": "E03-00-1",
           "description": "独立核验PR #10的39来源、20 DC合同和TS/NAP引用",
-          "status": "SUBMITTED_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-00-2",
           "description": "补齐完整原参考包清单和可复现实验",
-          "status": "SUBMITTED_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-00-3",
           "description": "交付模块修改边界、E03-01启动条件和固定看板",
-          "status": "SUBMITTED_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-00-4",
           "description": "提交Gate A，不采纳或实现任何机制迭代",
-          "status": "SUBMITTED_FOR_REVIEW"
+          "status": "ACCEPTED"
         }
       ],
       "evidence": [
@@ -41,49 +41,58 @@
         "docs/E03-00模块边界与修改窗口.md",
         "specs/e03-00-reference-2026-10-29/availability.json",
         "docs/e03-00-audit-evidence.json",
-        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/10"
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/10",
+        "docs/e03-gate-a-r6-approval.json",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033"
       ],
       "execution_location": "本地授权工作区只读核查；GitHub PR #10与CI",
       "responsibilities": "执行工程师：核查、交付和证据；技术负责人：Gate A/基线批准",
       "owner_participation": "现有0.1.0恢复裁决已作为范围输入；当前无需额外产品资料或新裁决",
       "blockers": [
-        "等待技术负责人Gate A及新工程基线确认；版本治理措辞按原严格规则保留"
+        "已验收；后续来源差异须增量审核"
       ]
     },
     {
       "id": "E03-01",
       "name": "契约与工程底座",
       "weight_percent": 10,
-      "status": "WAITING_GATE_A",
+      "status": "READY_FOR_REVIEW",
       "accepted": false,
       "subtasks": [
         {
           "id": "E03-01-1",
           "description": "Gate A通过后固化已批准DC机器契约和来源锁",
-          "status": "NOT_STARTED"
+          "status": "SUBMITTED_FOR_REVIEW"
         },
         {
           "id": "E03-01-2",
           "description": "复用AJV/原始数字解码/错误与安全整数边界",
-          "status": "NOT_STARTED"
+          "status": "SUBMITTED_FOR_REVIEW"
         },
         {
           "id": "E03-01-3",
           "description": "接入参考Oracle和契约正反例，不实现业务运行逻辑",
-          "status": "NOT_STARTED"
+          "status": "SUBMITTED_FOR_REVIEW"
         },
         {
           "id": "E03-01-4",
           "description": "锁定宿主 E11 独立合同、Owner 已批准的 30 天/180 天/12 个月期限最早截止、主动删除/备份/最小审计/告知配置与隔离测试；生产启用仍受工程 Gate",
-          "status": "NOT_STARTED"
+          "status": "SUBMITTED_FOR_REVIEW"
         }
       ],
-      "evidence": [],
-      "execution_location": "后续获批独立分支；本地/CI，尚未执行",
-      "responsibilities": "执行工程师：获批后实现/验证；技术负责人：切片审核",
+      "evidence": [
+        "docs/E03-01工程交付与审核.md",
+        "docs/E03-01-E11存储设计与后续接入.md",
+        "specs/e03-01-oracle-lock.json",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/14",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42164424546",
+        "docs/E03-01-F01权限修复与复核.md"
+      ],
+      "execution_location": "独立 feat/e03-01-contract-foundation 分支；本地与 GitHub CI",
+      "responsibilities": "执行工程师：实施/验证/提交；技术负责人：切片审核",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "Gate A尚未通过；未授权启动"
+        "E03-01-F01身份换绑修复后等待最终head CI与技术负责人增量复核；E03-02尚未放行"
       ]
     },
     {
@@ -291,7 +300,7 @@
   "approved_change_registrations": [],
   "change_policy": "后续仅将已批准工程变更登记到既有阶段及新增子任务，不自动改变八阶段框架或权重；正式字段/权限/版本变化另行规格审核；不保证所有变更无需改机器契约",
   "gate_a": {
-    "status": "PENDING_TECH_LEAD_REVIEW",
-    "approval_evidence": null
+    "status": "APPROVED",
+    "approval_evidence": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033"
   }
 }
