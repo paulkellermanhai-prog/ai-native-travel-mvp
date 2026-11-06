@@ -225,6 +225,44 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,a.user.id]);
     await expect(host.unlinkTaskSourceCandidate(ticket,a.headers,command)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
   },30000);
+  it("rolls back every member of a multi-Task correction when one CAS fails",async()=>{
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    const ticket=await host.createWorkspace(trip,a.headers);
+    const keys=await Promise.all([host.mintTaskKey(ticket,a.headers,`batch_a_${randomUUID()}`),
+      host.mintTaskKey(ticket,a.headers,`batch_b_${randomUUID()}`)]);
+    const text="两个独立问题",event=await host.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`batch_event_${randomUUID()}`});
+    const tasks=keys.map((key,index)=>({task_key:key,question:`问题 ${index}`,kind:"explore",target_ids:[],branch:"actual",relation:"new",
+      related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null}));
+    const turn=await host.registerTaskIdentity(ticket,a.headers,event,{expected_revision:0,tasks,focus_keys:keys});
+    const commands=keys.map(key=>({action:"unlink" as const,task_key:key,event_id:event.event_id,source_turn_id:turn.turn_id,
+      expected_association_revision:1,idempotency_key:`batch_op_${randomUUID()}`}));
+    await expect(host.unlinkTaskSourcesBatchCandidate(ticket,a.headers,[commands[0],
+      {...commands[0],idempotency_key:`duplicate_${randomUUID()}`}])).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(host.unlinkTaskSourcesBatchCandidate(ticket,a.headers,[commands[0],{...commands[1],expected_association_revision:0}]))
+      .rejects.toMatchObject({code:"ASSOCIATION_CONFLICT"});
+    expect((await owner.query<{action:string}>('SELECT action FROM public."HostEvidenceAssociationLog" WHERE event_id=$1',[event.event_id])).rows)
+      .toEqual([{action:"link"},{action:"link"}]);
+    expect((await owner.query<{retention_revision:string}>('SELECT retention_revision FROM public."HostEvidenceWorkspace" WHERE workspace_key=$1',[event.workspace_key])).rows[0].retention_revision).toBe("0");
+    expect((await owner.query('SELECT 1 FROM public."HostEvidenceTaskSource" WHERE event_id=$1',[event.event_id])).rowCount).toBe(2);
+    const applied=await host.unlinkTaskSourcesBatchCandidate(ticket,a.headers,commands);
+    expect(applied.map(row=>row.association_revision)).toEqual([2,2]);
+    expect(applied.map(row=>row.retention_revision)).toEqual([2,2]);
+    expect(await host.unlinkTaskSourcesBatchCandidate(ticket,a.headers,commands))
+      .toEqual(applied.map(row=>({...row,replayed:true})));
+    expect((await owner.query<{action:string}>('SELECT action FROM public."HostEvidenceAssociationLog" WHERE event_id=$1 ORDER BY linked_at,link_id',[event.event_id])).rows.map(row=>row.action).sort())
+      .toEqual(["link","link","unlink","unlink"]);
+    expect((await owner.query('SELECT 1 FROM public."HostEvidenceTaskSource" WHERE event_id=$1',[event.event_id])).rowCount).toBe(0);
+    const freshKey=await host.mintTaskKey(ticket,a.headers,`post_correction_${randomUUID()}`);
+    const freshText="新的独立问题",fresh=await host.record(ticket,a.headers,{entry:"dialogue",text:freshText,idempotency_key:`fresh_${randomUUID()}`});
+    const freshTask={...tasks[0],task_key:freshKey,question:freshText,evidence:[{start:0,end:Array.from(freshText).length,quote:freshText}]};
+    const freshTurn=await host.registerTaskIdentity(ticket,a.headers,fresh,{expected_revision:0,tasks:[freshTask],focus_keys:[freshKey]});
+    expect(freshTurn.task_keys).toEqual([freshKey]);
+    await expect(host.inspectLivePacketCandidate(ticket,a.headers,freshTurn.turn_id,freshKey,4096,
+      {expected_revision:0,tasks:[freshTask],focus_keys:[freshKey]})).resolves.toMatchObject({state_revision:0});
+    const window={page_size:10,from:new Date(Date.now()-60_000).toISOString(),to:new Date(Date.now()+60_000).toISOString(),cursor:null};
+    expect(await host.readTaskEvidenceCandidate(ticket,a.headers,freshKey,window))
+      .toMatchObject({status:"partial",events:[],complete:false});
+  },30000);
   it("extends an old source only through a verified related interaction, within its twelve-month cap",async()=>{
     const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
     const ticket=await host.createWorkspace(trip,a.headers),key=await host.mintTaskKey(ticket,a.headers,"retention-task");

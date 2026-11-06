@@ -186,8 +186,8 @@ CREATE TABLE public."HostEvidenceTaskSource" (
 REVOKE ALL ON public."HostEvidenceTaskSource" FROM PUBLIC;
 
 -- Monotonic per-Task association ledger. It records no event or Task body.
--- Only verified link actions are wired to the current Turn registrar; unlink
--- and supersede require a separately trusted correction command before use.
+-- Verified links use the Turn registrar; unlink has a separate trusted host
+-- command. Supersede still lacks an approved replacement target contract.
 CREATE TABLE public."HostEvidenceAssociationHead" (
   owner_id TEXT NOT NULL,trip_id TEXT NOT NULL,workspace_key TEXT NOT NULL,
   task_token TEXT NOT NULL CHECK (task_token ~ '^[0-9a-f]{64}$'),

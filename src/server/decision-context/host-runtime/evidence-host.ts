@@ -45,6 +45,7 @@ const identityInput = z.strictObject({ expected_revision: z.number().int().nonne
 const unlinkInput = z.strictObject({action:z.literal("unlink"),task_key:z.string().regex(/^task-[0-9a-f]{32}$/),event_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),
   source_turn_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),expected_association_revision:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER-1),
   idempotency_key:z.string().min(1).max(256)});
+const unlinkBatchInput=z.array(unlinkInput).min(1).max(32);
 export class TurnIdentityError extends Error {
   constructor(readonly code: "EVENT_REUSE" | "REVISION_CHANGED" | "TARGET_NOT_FOUND") { super(`Turn identity: ${code}`); this.name = "TurnIdentityError"; }
 }
@@ -484,29 +485,41 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       return parseDCContract("turn",{runtime_contract_version:"0.1.0",runtime_id:registration.runtime_id,turn_id:registration.turn_id,revision:registration.revision,
         tasks:proposed.tasks,focus_keys:proposed.focus_keys,checkpoint_ack:null});
     },
-    /** Internal bounded historical source page; never a new instruction or write grant. */
-    /** Explicit trusted-host correction only. Model text cannot call this path. */
-    async unlinkTaskSourceCandidate(ticket:object,credential:Headers,raw:unknown) {
+    /** Explicit trusted-host correction batch. One failed member rolls back all. */
+    async unlinkTaskSourcesBatchCandidate(ticket:object,credential:Headers,raw:unknown) {
       let copy:unknown;try{copy=structuredClone(raw);}catch{return unavailable();}
-      const parsed=unlinkInput.safeParse(copy);if(!parsed.success)return unavailable();
-      const command=parsed.data,{scope,headers}=await scoped(ticket,credential);
+      const parsed=unlinkBatchInput.safeParse(copy);if(!parsed.success)return unavailable();
+      const commands=parsed.data,{scope,headers}=await scoped(ticket,credential);
       return exclusive(scope,async()=>{
-        const taskToken=taskIndex(scope,command.task_key),task=scope.tasks.get(taskToken);
-        const turn=[...scope.turns.values()].find(item=>item.result.turn_id===command.source_turn_id);
-        const eventToken=task?.sources.get(command.event_id);
-        if(!task||!turn?.sources.has(command.event_id)||!eventToken)return deny();
-        const operation=createHmac("sha256",keySecret).update("association-correction\0")
-          .update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,command.idempotency_key])).digest("hex");
-        const result=await db.$transaction(async tx=>{
+        const seen=new Set<string>(),seenOperations=new Set<string>(),batchEvent=commands[0].event_id;
+        const checked=commands.map(command=>{
+          const taskToken=taskIndex(scope,command.task_key),task=scope.tasks.get(taskToken);
+          const turn=[...scope.turns.values()].find(item=>item.result.turn_id===command.source_turn_id);
+          const eventToken=task?.sources.get(command.event_id);
+          if(command.event_id!==batchEvent||!task||!turn?.sources.has(command.event_id)||!eventToken||
+            seen.has(taskToken)||seenOperations.has(command.idempotency_key))return deny();
+          seen.add(taskToken);seenOperations.add(command.idempotency_key);
+          const operation=createHmac("sha256",keySecret).update("association-correction\0")
+            .update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,command.idempotency_key])).digest("hex");
+          return {command,taskToken,eventToken,operation};
+        });
+        const results=await db.$transaction(async tx=>{
           await tx.$queryRaw`SELECT 1 FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
           try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
-          return tx.$queryRaw<UnlinkRow[]>`SELECT * FROM public.host_evidence_unlink_task_source_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},
-            ${scope.workspaceKey},${scope.capability},${command.task_key},${taskToken},${command.event_id},${eventToken},
-            ${command.source_turn_id},${BigInt(command.expected_association_revision)},${operation})`;
-        }).then(rows=>rows[0]);
-        if(!result||result.disposition==="denied")return deny();
-        if(result.disposition==="conflict")throw new EvidenceBoundaryError("ASSOCIATION_CONFLICT");
-        const revision=counter(result.out_retention_revision),associationRevision=counter(result.out_association_revision);
+          const rows:UnlinkRow[]=[];
+          for(const {command,taskToken,eventToken,operation} of checked){
+            const [row]=await tx.$queryRaw<UnlinkRow[]>`SELECT * FROM public.host_evidence_unlink_task_source_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},
+              ${scope.workspaceKey},${scope.capability},${command.task_key},${taskToken},${command.event_id},${eventToken},
+              ${command.source_turn_id},${BigInt(command.expected_association_revision)},${operation})`;
+            if(!row||row.disposition==="denied")return deny();
+            if(row.disposition==="conflict")throw new EvidenceBoundaryError("ASSOCIATION_CONFLICT");
+            rows.push(row);
+          }
+          if(rows.some(row=>row.disposition!==rows[0].disposition))throw new EvidenceBoundaryError("ASSOCIATION_CONFLICT");
+          try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+          return rows;
+        });
+        const revision=counter(results.at(-1)!.out_retention_revision);
         if(revision>scope.deletionRevision){
           invalidatePackets(scope);clearTurnLeases(scope);scope.leaseKey=randomBytes(32);
           scope.runtimeId=`runtime-${randomUUID().replaceAll("-","")}`;
@@ -515,10 +528,16 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           scope.pendingSaves.clear();scope.pendingSaveSticky=true;
           scope.deletionRevision=revision;
         }
-        return {action:"unlink" as const,task_key:command.task_key,event_id:command.event_id,
-          association_revision:associationRevision,retention_revision:revision,replayed:result.disposition==="replayed"};
+        return results.map((row,index)=>({action:"unlink" as const,task_key:commands[index].task_key,event_id:commands[index].event_id,
+          association_revision:counter(row.out_association_revision),retention_revision:revision,
+          replayed:row.disposition==="replayed"}));
       });
     },
+    /** Single-source convenience wrapper; model text cannot call this path. */
+    async unlinkTaskSourceCandidate(ticket:object,credential:Headers,raw:unknown) {
+      return (await this.unlinkTaskSourcesBatchCandidate(ticket,credential,[raw]))[0];
+    },
+    /** Internal bounded historical source page; never a new instruction or write grant. */
     async readTaskEvidenceCandidate(ticket:object,credential:Headers,taskKey:string,raw:unknown):Promise<EvidencePage> {
       let input:unknown;try{input=structuredClone(raw);}catch{return unavailable();}
       const request=z.strictObject({page_size:z.number().int().min(1).max(PAGE_LIMIT),from:z.iso.datetime({offset:true}),
