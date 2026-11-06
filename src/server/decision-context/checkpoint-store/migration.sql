@@ -25,11 +25,13 @@ CREATE OR REPLACE FUNCTION e03_checkpoint.write_scene(
   p_saved_at text, p_expires_at text, p_delete boolean
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
 DECLARE h e03_checkpoint.heads%ROWTYPE; r e03_checkpoint.receipts%ROWTYPE;
-  rev bigint; result jsonb;
+  rev bigint; result jsonb; operation_time timestamptz; saved_time text; expires_time text; retention interval;
 BEGIN
   -- Advisory lock covers even a not-yet-existing head; identity tuple encoding is unambiguous.
   PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array(p_owner,p_trip,p_workspace)::text, 0));
   SELECT * INTO h FROM e03_checkpoint.heads WHERE owner_id=p_owner AND trip_id=p_trip AND workspace=p_workspace FOR UPDATE;
+  -- Database clock is read only after the serialization lock and row lock.
+  operation_time := clock_timestamp();
   rev := COALESCE(h.revision, 0);
   SELECT * INTO r FROM e03_checkpoint.receipts WHERE owner_id=p_owner AND trip_id=p_trip AND workspace=p_workspace AND operation_key=p_key;
   IF FOUND THEN
@@ -40,13 +42,21 @@ BEGIN
   IF rev <> p_expected THEN RETURN jsonb_build_object('fault','CHECKPOINT_CONFLICT'); END IF;
   IF rev >= 9007199254740991 THEN RETURN jsonb_build_object('fault','CHECKPOINT_STORAGE'); END IF;
   IF p_delete AND (h.revision IS NULL OR h.deleted) THEN RETURN jsonb_build_object('fault','CHECKPOINT_NOT_FOUND'); END IF;
-  IF NOT p_delete AND h.revision IS NOT NULL AND NOT h.deleted AND h.expires_at IS NOT NULL AND h.expires_at::timestamptz <= p_saved_at::timestamptz THEN
+  IF NOT p_delete AND h.revision IS NOT NULL AND NOT h.deleted AND h.expires_at IS NOT NULL AND h.expires_at::timestamptz <= operation_time THEN
     RETURN jsonb_build_object('fault','CHECKPOINT_EXPIRED');
   END IF;
-  result := jsonb_build_object('workspace_key',p_workspace,'checkpoint_revision',rev+1,'saved_at',p_saved_at,
-    'expires_at',p_expires_at,'payload_digest',p_payload_digest,'durable',true,'deleted',p_delete);
+  saved_time := to_char(operation_time AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+  expires_time := NULL;
+  IF NOT p_delete AND p_expires_at IS NOT NULL THEN
+    -- Caller conveys only configured duration; it cannot move the operation clock.
+    retention := p_expires_at::timestamptz - p_saved_at::timestamptz;
+    IF retention <= interval '0 seconds' THEN RETURN jsonb_build_object('fault','CHECKPOINT_POLICY'); END IF;
+    expires_time := to_char((operation_time + retention) AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"');
+  END IF;
+  result := jsonb_build_object('workspace_key',p_workspace,'checkpoint_revision',rev+1,'saved_at',saved_time,
+    'expires_at',expires_time,'payload_digest',p_payload_digest,'durable',true,'deleted',p_delete);
   INSERT INTO e03_checkpoint.heads(owner_id,trip_id,workspace,revision,payload,payload_digest,saved_at,expires_at,deleted)
-    VALUES(p_owner,p_trip,p_workspace,rev+1,p_payload,p_payload_digest,p_saved_at,p_expires_at,p_delete)
+    VALUES(p_owner,p_trip,p_workspace,rev+1,p_payload,p_payload_digest,saved_time,expires_time,p_delete)
     ON CONFLICT(owner_id,trip_id,workspace) DO UPDATE SET revision=EXCLUDED.revision,payload=EXCLUDED.payload,
     payload_digest=EXCLUDED.payload_digest,saved_at=EXCLUDED.saved_at,expires_at=EXCLUDED.expires_at,deleted=EXCLUDED.deleted;
   IF p_delete THEN DELETE FROM e03_checkpoint.receipts WHERE owner_id=p_owner AND trip_id=p_trip AND workspace=p_workspace; END IF;
@@ -58,16 +68,17 @@ CREATE OR REPLACE FUNCTION e03_checkpoint.read_scene(p_owner text,p_trip text,p_
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
 DECLARE h e03_checkpoint.heads%ROWTYPE;
 BEGIN
+  PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array(p_owner,p_trip,p_workspace)::text, 0));
   SELECT * INTO h FROM e03_checkpoint.heads WHERE owner_id=p_owner AND trip_id=p_trip AND workspace=p_workspace;
   IF NOT FOUND OR h.deleted THEN RETURN jsonb_build_object('fault','CHECKPOINT_NOT_FOUND'); END IF;
-  IF h.expires_at IS NOT NULL AND h.expires_at::timestamptz <= p_now::timestamptz THEN RETURN jsonb_build_object('fault','CHECKPOINT_EXPIRED'); END IF;
+  IF h.expires_at IS NOT NULL AND h.expires_at::timestamptz <= clock_timestamp() THEN RETURN jsonb_build_object('fault','CHECKPOINT_EXPIRED'); END IF;
   RETURN jsonb_build_object('revision',h.revision,'saved_at',h.saved_at,'expires_at',h.expires_at,'payload_digest',h.payload_digest,'payload',h.payload);
 END $$;
 
 CREATE OR REPLACE FUNCTION e03_checkpoint.list_scenes(p_owner text,p_trip text,p_now text)
 RETURNS jsonb LANGUAGE sql SECURITY DEFINER SET search_path = pg_catalog AS $$
   SELECT COALESCE(jsonb_agg(jsonb_build_object('workspace_key',workspace,'checkpoint_revision',revision,
-    'saved_at',saved_at,'expires_at',expires_at,'available',NOT deleted AND (expires_at IS NULL OR expires_at::timestamptz > p_now::timestamptz)) ORDER BY workspace),'[]'::jsonb)
+    'saved_at',saved_at,'expires_at',expires_at,'available',NOT deleted AND (expires_at IS NULL OR expires_at::timestamptz > clock_timestamp())) ORDER BY workspace),'[]'::jsonb)
   FROM e03_checkpoint.heads WHERE owner_id=p_owner AND trip_id=p_trip
 $$;
 
@@ -84,6 +95,11 @@ BEGIN
   IF public.authorize_trip_session(p_session,p_user,p_trip) IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','ACCESS_DENIED');
   END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('user-'||p_user,p_trip,p_workspace)::text, 0));
+  -- Linearization point: Session/membership are locked and rechecked after the checkpoint lock.
+  IF public.authorize_trip_session(p_session,p_user,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN jsonb_build_object('fault','ACCESS_DENIED');
+  END IF;
   RETURN e03_checkpoint.write_scene('user-'||p_user,p_trip,p_workspace,p_expected,p_key,p_request_digest,
     p_payload,p_payload_digest,p_saved_at,p_expires_at,p_delete);
 END $$;
@@ -95,16 +111,28 @@ BEGIN
   IF public.authorize_trip_session(p_session,p_user,p_trip) IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','ACCESS_DENIED');
   END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('user-'||p_user,p_trip,p_workspace)::text, 0));
+  IF public.authorize_trip_session(p_session,p_user,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN jsonb_build_object('fault','ACCESS_DENIED');
+  END IF;
   RETURN e03_checkpoint.read_scene('user-'||p_user,p_trip,p_workspace,p_now);
 END $$;
 
+DROP FUNCTION IF EXISTS e03_checkpoint.session_list_scenes(text,text,text,text);
 CREATE OR REPLACE FUNCTION e03_checkpoint.session_list_scenes(
-  p_session text, p_user text, p_trip text, p_now text
+  p_session text, p_user text, p_trip text, p_now text, p_workspace text
 ) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog AS $$
 BEGIN
   IF public.authorize_trip_session(p_session,p_user,p_trip) IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','ACCESS_DENIED');
   END IF;
-  RETURN e03_checkpoint.list_scenes('user-'||p_user,p_trip,p_now);
+  -- The first check may have waited for a Session/membership row lock; repeat
+  -- while those rows are already held so natural expiry is checked afterwards.
+  IF public.authorize_trip_session(p_session,p_user,p_trip) IS DISTINCT FROM TRUE THEN
+    RETURN jsonb_build_object('fault','ACCESS_DENIED');
+  END IF;
+  RETURN (SELECT COALESCE(jsonb_agg(item),'[]'::jsonb)
+    FROM jsonb_array_elements(e03_checkpoint.list_scenes('user-'||p_user,p_trip,p_now)) AS item
+    WHERE item->>'workspace_key' = p_workspace);
 END $$;
 REVOKE ALL ON ALL FUNCTIONS IN SCHEMA e03_checkpoint FROM PUBLIC;

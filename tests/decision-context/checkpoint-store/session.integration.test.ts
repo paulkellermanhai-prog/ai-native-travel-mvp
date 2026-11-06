@@ -30,7 +30,7 @@ describe.skipIf(!cfg)("checkpoint Session wrapper in real PostgreSQL", () => {
     roleCreated = true;
     await owner.query(`GRANT CONNECT ON DATABASE "${db.replaceAll('"','""')}" TO "${role}"`);
     await owner.query(`GRANT USAGE ON SCHEMA e03_checkpoint TO "${role}"`);
-    await owner.query(`GRANT EXECUTE ON FUNCTION e03_checkpoint.session_write_scene(text,text,text,text,bigint,text,text,jsonb,text,text,text,boolean), e03_checkpoint.session_read_scene(text,text,text,text,text), e03_checkpoint.session_list_scenes(text,text,text,text) TO "${role}"`);
+    await owner.query(`GRANT EXECUTE ON FUNCTION e03_checkpoint.session_write_scene(text,text,text,text,bigint,text,text,jsonb,text,text,text,boolean), e03_checkpoint.session_read_scene(text,text,text,text,text), e03_checkpoint.session_list_scenes(text,text,text,text,text) TO "${role}"`);
     url.username = role; url.password = password; pool = new Pool({ connectionString:url.toString() });
   });
   afterAll(async () => {
@@ -53,26 +53,133 @@ describe.skipIf(!cfg)("checkpoint Session wrapper in real PostgreSQL", () => {
         if (!session) throw new Error("Synthetic account must have a real Session");
         return {user,session};
       }
-      const a = await account(), b = await account(), trip = `trip-cp-${randomBytes(8).toString("hex")}`;
+      const a = await account(), b = await account(), c = await account(), d = await account(), e = await account(), f = await account(), trip = `trip-cp-${randomBytes(8).toString("hex")}`;
       await trips.createTrip(trip,await issueInternalCapability(secret,trip,{role:"system",id:"cp-test"}));
-      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[trip,a.user.id,b.user.id]);
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3),($1,$4),($1,$5),($1,$6),($1,$7)',[trip,a.user.id,b.user.id,c.user.id,d.user.id,e.user.id,f.user.id]);
       const payload = structuredClone((JSON.parse(readFileSync("tests/decision-context/fixtures/r6-contracts.json", "utf8")) as {schema:string;value:CheckpointPayload}[]).find((r) => r.schema === "checkpoint-payload")!.value);
       payload.trip_id = trip;
-      const aRepo = new PgCheckpointRepository(pool,null,undefined,{sessionId:a.session.session.id,userId:a.user.id});
-      const bRepo = new PgCheckpointRepository(pool,null,undefined,{sessionId:b.session.session.id,userId:b.user.id});
+      const aRepo = new PgCheckpointRepository(pool,null,undefined,{sessionId:a.session.session.id,userId:a.user.id,trip,workspace:"host-workspace"});
+      const bRepo = new PgCheckpointRepository(pool,null,undefined,{sessionId:b.session.session.id,userId:b.user.id,trip,workspace:"host-workspace"});
       const aScope = {owner:userActorId(a.user.id),trip,workspace:"host-workspace"}, now = new Date();
       expect((await aRepo.save(aScope,0,"save",payload,now)).checkpoint_revision).toBe(1);
+      const otherRepo = new PgCheckpointRepository(pool,null,undefined,{sessionId:a.session.session.id,userId:a.user.id,trip,workspace:"other-workspace"});
+      expect((await otherRepo.save({...aScope,workspace:"other-workspace"},0,"save-other",payload,now)).checkpoint_revision).toBe(1);
       await expect(bRepo.load({...aScope,owner:userActorId(b.user.id)},now)).rejects.toMatchObject({code:"CHECKPOINT_NOT_FOUND"});
-      await expect(aRepo.load({...aScope,workspace:"other-workspace"},now)).rejects.toMatchObject({code:"CHECKPOINT_NOT_FOUND"});
+      await expect(aRepo.load({...aScope,workspace:"other-workspace"},now)).rejects.toMatchObject({code:"ACCESS_DENIED"});
+      expect((await aRepo.list(aScope.owner,trip,now)).map((row) => row.workspace_key)).toEqual(["host-workspace"]);
+      expect((await otherRepo.list(aScope.owner,trip,now)).map((row) => row.workspace_key)).toEqual(["other-workspace"]);
       await expect(pool.query("SELECT * FROM e03_checkpoint.heads")).rejects.toThrow();
       await expect(pool.query("SELECT e03_checkpoint.read_scene($1,$2,$3,$4)",[aScope.owner,trip,aScope.workspace,now.toISOString()])).rejects.toThrow();
-      const forged = new PgCheckpointRepository(pool,null,undefined,{sessionId:a.session.session.id,userId:b.user.id});
+      await expect(pool.query("SELECT e03_checkpoint.list_scenes($1,$2,$3)",[aScope.owner,trip,now.toISOString()])).rejects.toThrow();
+      await expect(pool.query("SELECT e03_checkpoint.write_scene($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11)",
+        [aScope.owner,trip,aScope.workspace,1,"forged","digest",JSON.stringify(payload),"digest",now.toISOString(),null,false])).rejects.toThrow();
+      // The SQL wrapper still accepts a server-supplied workspace string. This
+      // deliberate counterexample is why a real host ownership proof remains required.
+      const rawOther = await pool.query<{value:{payload?:unknown}}>("SELECT e03_checkpoint.session_read_scene($1,$2,$3,$4,$5) AS value",
+        [a.session.session.id,a.user.id,trip,"other-workspace",now.toISOString()]);
+      expect(rawOther.rows[0].value.payload).toBeTruthy();
+      const forged = new PgCheckpointRepository(pool,null,undefined,{sessionId:a.session.session.id,userId:b.user.id,trip,workspace:"host-workspace"});
       await expect(forged.load({...aScope,owner:userActorId(b.user.id)},now)).rejects.toMatchObject({code:"ACCESS_DENIED"});
+      for (const [who,operation] of [[b,"read"],[c,"write"]] as const) {
+        const scoped = {...aScope,owner:userActorId(who.user.id)};
+        const repo = new PgCheckpointRepository(pool,null,undefined,{sessionId:who.session.session.id,userId:who.user.id,trip,workspace:"host-workspace"});
+        await repo.save(scoped,0,`${operation}-initial`,payload,now);
+        const locker = new Client({connectionString:cfg!.migrationUrl}); await locker.connect();
+        try {
+          await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()+interval \'2 seconds\' WHERE id=$1',[who.session.session.id]);
+          await locker.query("BEGIN");
+          await locker.query("SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array($1::text,$2::text,$3::text)::text,0))",[scoped.owner,trip,scoped.workspace]);
+          const operationPromise = operation === "read" ? repo.load(scoped,now) : repo.save(scoped,1,"after-expiry",payload,now);
+          const pending = operationPromise.then((value) => ({value}), (error) => ({error}));
+          const deadline = Date.now()+7000; let observedLock = false, expired = false;
+          while (Date.now()<deadline && !(observedLock && expired)) {
+            const observed = await owner.query<{waiting:boolean;expired:boolean}>(
+              'SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type=\'Lock\' AND query LIKE $3) AS waiting, (SELECT "expiresAt" <= clock_timestamp() FROM "AuthSession" WHERE id=$2) AS expired',
+              [role,who.session.session.id,`%session_${operation}_scene%`]);
+            observedLock ||= observed.rows[0].waiting; expired ||= observed.rows[0].expired;
+            if (!(observedLock && expired)) await new Promise((resolve) => setTimeout(resolve,20));
+          }
+          expect(observedLock).toBe(true); expect(expired).toBe(true);
+          await locker.query("COMMIT");
+          expect(await pending).toMatchObject({error:{code:"ACCESS_DENIED"}});
+        } finally { await locker.query("ROLLBACK").catch(() => undefined); await locker.end(); }
+      }
+      // A membership revocation that has the row lock first must win over a
+      // later read which is waiting to acquire the shared authorization lock.
+      const dScope = {...aScope,owner:userActorId(d.user.id)};
+      const dRepo = new PgCheckpointRepository(pool,null,undefined,{sessionId:d.session.session.id,userId:d.user.id,trip,workspace:"host-workspace"});
+      await dRepo.save(dScope,0,"before-revoke",payload,now);
+      const revoker = new Client({connectionString:cfg!.migrationUrl}); await revoker.connect();
+      try {
+        await revoker.query("BEGIN");
+        await revoker.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,d.user.id]);
+        const pending = dRepo.load(dScope,now).then((value) => ({value}), (error) => ({error}));
+        const deadline = Date.now()+5000; let observedLock = false;
+        while (Date.now()<deadline && !observedLock) {
+          observedLock = (await owner.query<{waiting:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock' AND query LIKE '%session_read_scene%') AS waiting",[role])).rows[0].waiting;
+          if (!observedLock) await new Promise((resolve) => setTimeout(resolve,20));
+        }
+        expect(observedLock).toBe(true);
+        await revoker.query("COMMIT");
+        expect(await pending).toMatchObject({error:{code:"ACCESS_DENIED"}});
+      } finally { await revoker.query("ROLLBACK").catch(() => undefined); await revoker.end(); }
+      // Opposite order: authorization owns the membership lock before an
+      // unrelated checkpoint lock clears; revocation must wait for the write.
+      const eScope = {...aScope,owner:userActorId(e.user.id)};
+      const eRepo = new PgCheckpointRepository(pool,null,undefined,{sessionId:e.session.session.id,userId:e.user.id,trip,workspace:"host-workspace"});
+      await eRepo.save(eScope,0,"e-initial",payload,now);
+      const checkpointLock = new Client({connectionString:cfg!.migrationUrl}), laterRevoker = new Client({connectionString:cfg!.migrationUrl});
+      await checkpointLock.connect(); await laterRevoker.connect();
+      try {
+        await checkpointLock.query("BEGIN");
+        await checkpointLock.query("SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array($1::text,$2::text,$3::text)::text,0))",[eScope.owner,trip,eScope.workspace]);
+        const pending = eRepo.save(eScope,1,"e-before-revoke",payload,now);
+        let waiting = false, deadline = Date.now()+5000;
+        while (Date.now()<deadline && !waiting) {
+          waiting = (await owner.query<{waiting:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock' AND query LIKE '%session_write_scene%') AS waiting",[role])).rows[0].waiting;
+          if (!waiting) await new Promise((resolve) => setTimeout(resolve,20));
+        }
+        expect(waiting).toBe(true);
+        const pid = (await laterRevoker.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;
+        const revokeAfter = laterRevoker.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,e.user.id]);
+        waiting = false; deadline = Date.now()+5000;
+        while (Date.now()<deadline && !waiting) {
+          waiting = (await owner.query<{waiting:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid=$1 AND wait_event_type='Lock') AS waiting",[pid])).rows[0].waiting;
+          if (!waiting) await new Promise((resolve) => setTimeout(resolve,20));
+        }
+        expect(waiting).toBe(true);
+        await checkpointLock.query("COMMIT");
+        expect((await pending).checkpoint_revision).toBe(2);
+        await revokeAfter;
+        await expect(eRepo.load(eScope,now)).rejects.toMatchObject({code:"ACCESS_DENIED"});
+      } finally { await checkpointLock.query("ROLLBACK").catch(() => undefined); await checkpointLock.end(); await laterRevoker.end(); }
+      // Once post-lock authorization has succeeded, it is the linearization
+      // point. A later natural expiry does not retroactively cancel that write;
+      // the next operation must reauthorize and fail.
+      const fScope = {...aScope,owner:userActorId(f.user.id)};
+      let fEntered!: () => void, fRelease!: () => void;
+      const fAtCommit = new Promise<void>((resolve) => { fEntered = resolve; });
+      const fGate = new Promise<void>((resolve) => { fRelease = resolve; });
+      await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()+interval \'2 seconds\' WHERE id=$1',[f.session.session.id]);
+      const fRepo = new PgCheckpointRepository(pool,null,async (point) => { if (point === "before_commit") { fEntered(); await fGate; } },
+        {sessionId:f.session.session.id,userId:f.user.id,trip,workspace:"host-workspace"});
+      const fWrite = fRepo.save(fScope,0,"linearized-before-expiry",payload,now);
+      await Promise.race([fAtCommit,fWrite.then(() => { throw new Error("write completed before test gate"); })]);
+      try {
+        const deadline = Date.now()+7000; let expired = false;
+        while (Date.now()<deadline && !expired) {
+          expired = (await owner.query<{expired:boolean}>('SELECT "expiresAt" <= clock_timestamp() AS expired FROM "AuthSession" WHERE id=$1',[f.session.session.id])).rows[0].expired;
+          if (!expired) await new Promise((resolve) => setTimeout(resolve,20));
+        }
+        expect(expired).toBe(true);
+      } finally { fRelease(); }
+      expect((await fWrite).checkpoint_revision).toBe(1);
+      await expect(fRepo.load(fScope,now)).rejects.toMatchObject({code:"ACCESS_DENIED"});
       let enter!: () => void, release!: () => void, revoked = false;
       const entered = new Promise<void>((resolve) => { enter = resolve; });
       const gate = new Promise<void>((resolve) => { release = resolve; });
       const racing = new PgCheckpointRepository(pool,null,async (point) => { if (point === "before_commit") { enter(); await gate; } },
-        {sessionId:a.session.session.id,userId:a.user.id});
+        {sessionId:a.session.session.id,userId:a.user.id,trip,workspace:"host-workspace"});
       const write = racing.save(aScope,1,"authorized-before-revocation",payload,now);
       await Promise.race([entered,write.then(() => { throw new Error("write completed before test gate"); })]);
       const pid = (await owner.query<{pid:number}>("SELECT pg_backend_pid() AS pid")).rows[0].pid;

@@ -16,6 +16,18 @@ let admin: Pool, runtime: Pool, runtimeUrl: string, roleCreated = false;
 const now = new Date("2030-01-01T00:00:00Z");
 const sample = (JSON.parse(readFileSync("tests/decision-context/fixtures/r6-contracts.json", "utf8")) as {schema:string; value:unknown}[]).find((x) => x.schema === "checkpoint-payload")!.value;
 const scope = () => ({ owner: randomUUID(), trip: "trip-egypt-test", workspace: "workspace" });
+async function waitFor(predicate: () => Promise<boolean>, label: string) {
+  const end = Date.now() + 7000;
+  while (Date.now() < end) { if (await predicate()) return; await new Promise((resolve) => setTimeout(resolve,20)); }
+  throw new Error(`Timed out waiting for ${label}`);
+}
+async function waitingFor(functionName: string) {
+  const row = await admin.query<{ waiting:boolean }>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock' AND query LIKE $2) AS waiting", [role, `%${functionName}%`]);
+  return row.rows[0].waiting;
+}
+async function expiredAt(timestamp: string) {
+  return (await admin.query<{expired:boolean}>("SELECT clock_timestamp() >= $1::timestamptz AS expired",[timestamp])).rows[0].expired;
+}
 
 describe.skipIf(!run)("E03 checkpoint isolated PostgreSQL repository candidate", () => {
   beforeAll(async () => {
@@ -94,12 +106,36 @@ describe.skipIf(!run)("E03 checkpoint isolated PostgreSQL repository candidate",
     await expect(repo.save(s, 0, "old", sample, now)).rejects.toMatchObject({ code: "CHECKPOINT_CONFLICT" });
     await expect(repo.load(s, now)).rejects.toMatchObject({ code: "CHECKPOINT_NOT_FOUND" });
   });
-  it("separates keys and enforces explicit expiry and superseded receipts", async () => {
-    const s = scope(), repo = new PgCheckpointRepository(runtime, 10);
+  it("separates keys and enforces superseded receipts", async () => {
+    const s = scope(), repo = new PgCheckpointRepository(runtime, null);
     await repo.save(s, 0, "first", sample, now);
     await expect(repo.load({ ...s, owner: randomUUID() }, now)).rejects.toMatchObject({ code: "CHECKPOINT_NOT_FOUND" });
     await repo.save(s, 1, "next", sample, now);
     await expect(repo.save(s, 0, "first", sample, now)).rejects.toMatchObject({ code: "CHECKPOINT_SUPERSEDED" });
-    await expect(repo.load(s, new Date(now.getTime() + 10000))).rejects.toMatchObject({ code: "CHECKPOINT_EXPIRED" });
   });
+  it.each(["save","load"] as const)("uses post-lock database time when %s waits across expiry", async (operation) => {
+    const s = scope(), repo = new PgCheckpointRepository(runtime, 2);
+    const before = (await admin.query<{time:Date}>("SELECT clock_timestamp() AS time")).rows[0].time;
+    const initial = await repo.save(s,0,"initial",sample,now);
+    const after = (await admin.query<{time:Date}>("SELECT clock_timestamp() AS time")).rows[0].time;
+    expect(initial.expires_at).not.toBeNull();
+    expect(Date.parse(initial.expires_at!) - Date.parse(initial.saved_at)).toBe(2000);
+    expect(Date.parse(initial.saved_at)).toBeGreaterThanOrEqual(before.getTime()-1);
+    expect(Date.parse(initial.saved_at)).toBeLessThanOrEqual(after.getTime()+1); // DB clock, not supplied now
+    const locker = await admin.connect();
+    try {
+      await locker.query("BEGIN");
+      await locker.query("SELECT pg_advisory_xact_lock(hashtextextended(jsonb_build_array($1::text,$2::text,$3::text)::text,0))",[s.owner,s.trip,s.workspace]);
+      const pending = (operation === "save" ? repo.save(s,1,"after-expiry",sample,now) : repo.load(s,now))
+        .then((value) => ({value}), (error) => ({error}));
+      await waitFor(() => waitingFor(operation === "save" ? "write_scene" : "read_scene"),"checkpoint lock");
+      await waitFor(() => expiredAt(initial.expires_at!),"checkpoint deadline");
+      await locker.query("COMMIT");
+      expect(await pending).toMatchObject({error:{code:"CHECKPOINT_EXPIRED"}});
+      expect(await repo.revision(s,now)).toBe(1);
+      expect((await repo.list(s.owner,s.trip,now))[0].available).toBe(false);
+      // A replay returns its original historical ACK only; it does not extend the deadline.
+      expect(await repo.save(s,0,"initial",sample,now)).toEqual(initial);
+    } finally { await locker.query("ROLLBACK").catch(() => undefined); locker.release(); }
+  }, 15000);
 });
