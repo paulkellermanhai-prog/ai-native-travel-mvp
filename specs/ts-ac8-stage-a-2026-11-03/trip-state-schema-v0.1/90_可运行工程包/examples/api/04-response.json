@@ -1,0 +1,10 @@
+{
+  "outcome": "rejected",
+  "revision": 3,
+  "proposal_id": "proposal-0000000000000000000000000000000a",
+  "proposal_digest": "f9a247069d88c178f21fc198fff876e3dbb56ff673235e029ba49ca543ac4a8f",
+  "confirmation_required": false,
+  "affected_ids": [],
+  "diff": [],
+  "errors": []
+}

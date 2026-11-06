@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trip-state.example/spec/0.1/change-request.schema.json",
+  "title": "change-request",
+  "type": "object",
+  "properties": {
+    "expected_revision": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 1,
+      "description": "非空文本"
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "description": "非空文本"
+    },
+    "input": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "dialogue",
+            "map",
+            "timeline",
+            "tool",
+            "system"
+          ]
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "description": "非空文本"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "非空文本"
+        },
+        "target_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "minItems": 0,
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "kind",
+        "reference",
+        "text",
+        "target_ids"
+      ],
+      "additionalProperties": false
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "$ref": "https://trip-state.example/spec/0.1/command.schema.json"
+      },
+      "minItems": 1
+    }
+  },
+  "required": [
+    "expected_revision",
+    "idempotency_key",
+    "reason",
+    "input",
+    "commands"
+  ],
+  "additionalProperties": false
+}

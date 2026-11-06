@@ -66,10 +66,22 @@ jobs:
           npm ls --all
           npm run specs:verify
           npm run contracts:check
+          npm run dc:check
       - name: Verify proposed DC 0.1 calibration offline
         run: '"$TRIP_STATE_PYTHON" scripts/check-dc-calibration.py'
       - name: Verify separate DC-AC8 R6 source snapshot
         run: '"$TRIP_STATE_PYTHON" scripts/check-dc-ac8-r6.py'
+      - name: Pinned accepted R6 and corresponding AC8 TS reference regression
+        env:
+          E03_01_REFERENCE_EVIDENCE_PATH: ${{ runner.temp }}/e03-01-reference.json
+        run: '"$TRIP_STATE_PYTHON" scripts/e03-01-reference.py'
+      - name: Preserve E03-01 pinned reference evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e03-01-reference
+          path: ${{ runner.temp }}/e03-01-reference.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Audit E03-00 baseline and original reference availability
         env:
           E03_00_EVIDENCE_PATH: ${{ runner.temp }}/e03-00-reference-audit.json
