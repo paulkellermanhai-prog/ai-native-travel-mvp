@@ -2,7 +2,8 @@ import { validateNapMessage } from "./contracts";
 
 type Step = {step_id: string; kind: string; depends_on: string[]; arguments: Record<string, unknown>; change_request: unknown; user_message: string | null};
 type Action = {action_id: string; task_key: string; packet_id: string; attention: string; steps: Step[]};
-type Plan = {basis: {packet_id: string; task_key: string}[]; actions: Action[]};
+type Basis = {packet_id: string; task_key: string; turn_id: string; state_revision: number; snapshot_digest: string; expires_at: string};
+type Plan = {basis: Basis[]; actions: Action[]};
 
 export class NapPlanIntegrityError extends Error {
   constructor() { super("NAP candidate plan: INTERNAL_REFERENCE"); this.name = "NapPlanIntegrityError"; }
@@ -16,6 +17,16 @@ export class NapPlanIntegrityError extends Error {
 export function validatePlanInternalIntegrity(value: unknown): void {
   validateNapMessage("DecisionPlan", value);
   const plan = value as Plan;
+  const packets = new Map<string, Basis>();
+  for (const basis of plan.basis) {
+    const prior = packets.get(basis.packet_id);
+    // Repeated identical claims are harmless. Compare the exact copied expiry string;
+    // normalizing different representations would weaken the host's exact-basis check.
+    if (prior && (prior.task_key !== basis.task_key || prior.turn_id !== basis.turn_id ||
+      prior.state_revision !== basis.state_revision || prior.snapshot_digest !== basis.snapshot_digest ||
+      prior.expires_at !== basis.expires_at)) throw new NapPlanIntegrityError();
+    packets.set(basis.packet_id, basis);
+  }
   const actionIds = new Set<string>();
   const steps = new Map<string, Step>();
   let primaryCount = 0;
@@ -24,7 +35,7 @@ export function validatePlanInternalIntegrity(value: unknown): void {
     actionIds.add(action.action_id);
     if (action.attention === "primary" && ++primaryCount > 1) throw new NapPlanIntegrityError();
     // This checks the self-reported plan only; the host must match basis against real packets.
-    if (!plan.basis.some(b => b.packet_id === action.packet_id && b.task_key === action.task_key)) throw new NapPlanIntegrityError();
+    if (packets.get(action.packet_id)?.task_key !== action.task_key) throw new NapPlanIntegrityError();
     for (const step of action.steps) {
       if (steps.has(step.step_id)) throw new NapPlanIntegrityError();
       if (!["read", "query", "calculate"].includes(step.kind) && Object.keys(step.arguments).length !== 0) throw new NapPlanIntegrityError();

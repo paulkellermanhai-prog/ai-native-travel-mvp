@@ -22,6 +22,31 @@ describe("candidate plan internal integrity, not authorization", () => {
     const a = action("first", [step("s1")]);
     for (const altered of [{...a, packet_id: "other"}, {...a, task_key: "other"}]) expect(() => validatePlanInternalIntegrity(plan([altered]))).toThrow();
   });
+  it("rejects contradictory declarations for the same packet even when one matches the action", () => {
+    const input = plan([action("first", [step("s1")])]);
+    const conflicts = [
+      {...basis, task_key: "other_task"},
+      {...basis, turn_id: "other_turn"},
+      {...basis, state_revision: 1},
+      {...basis, snapshot_digest: "b".repeat(64)},
+      {...basis, expires_at: "2030-01-02T00:00:00Z"},
+      // Even equivalent time representations must be exact copied basis strings.
+      {...basis, expires_at: "2030-01-01T00:00:00+00:00"},
+    ];
+    for (const conflict of conflicts) {
+      expect(() => validatePlanInternalIntegrity({...input, basis: [basis, conflict]})).toThrow();
+      expect(() => validatePlanInternalIntegrity({...input, actions: [], basis: [conflict, basis]})).toThrow();
+    }
+  });
+  it("allows identical repeated basis claims and distinct packets with distinct tasks", () => {
+    const second = {...basis, packet_id: "packet2", task_key: "task2", turn_id: "turn2", expires_at: "2030-01-02T00:00:00Z"};
+    const firstAction = action("first", [step("s1")]);
+    const secondAction = {...action("second", [step("s2", ["s1"])]), packet_id: "packet2", task_key: "task2"};
+    const input = {...plan([firstAction, secondAction]), basis: [basis, {...basis}, second]};
+    const before = structuredClone(input);
+    expect(() => validatePlanInternalIntegrity(input)).not.toThrow();
+    expect(input).toEqual(before);
+  });
   it("rejects duplicate actions, duplicate steps and multiple primary actions", () => {
     expect(() => validatePlanInternalIntegrity(plan([action("a", [step("s1")]), action("a", [step("s2")])]))).toThrow();
     expect(() => validatePlanInternalIntegrity(plan([action("a", [step("s1")]), action("b", [step("s1")])]))).toThrow();
