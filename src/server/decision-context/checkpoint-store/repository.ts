@@ -7,7 +7,7 @@ import type { Ack, CheckpointPayload, SceneListResult } from "../contracts.gener
 /** A storage key, never an authentication proof. Only a future trusted host may bind it. */
 export type StorageScope = Readonly<{ owner: string; trip: string; workspace: string }>;
 /** Server-derived values from a real, verified Session; not a client JSON contract. */
-export type VerifiedSession = Readonly<{ sessionId: string; userId: string }>;
+export type VerifiedSession = Readonly<{ sessionId: string; userId: string; trip: string; workspace: string }>;
 type Fault = "before_commit" | "after_commit";
 type Result = { fault?: string; ack?: Ack };
 type Saved = { revision: number; saved_at: string; expires_at: string | null; payload_digest: string; payload: CheckpointPayload; fault?: string };
@@ -25,28 +25,35 @@ const stamp = (value: Date): string => value.toISOString().replace(/\.(\d{3})Z$/
  * never expose this interface to HTTP. Pool must use a role with EXECUTE-only privileges.
  */
 export class PgCheckpointRepository {
+  private readonly session?: VerifiedSession;
   constructor(private readonly pool: Pool, private readonly retentionSeconds: number | null,
-    private readonly fault?: (point: Fault) => void | Promise<void>, private readonly session?: VerifiedSession) {
+    private readonly fault?: (point: Fault) => void | Promise<void>, session?: VerifiedSession) {
     if (retentionSeconds !== null && (!Number.isSafeInteger(retentionSeconds) || retentionSeconds <= 0)) fail("CHECKPOINT_POLICY");
     if (fault && process.env.NODE_ENV !== "test") fail("CHECKPOINT_POLICY");
+    this.session = session ? Object.freeze({ ...session }) : undefined;
   }
 
   private requireOwner(owner: string) {
-    if (this.session && (!this.session.sessionId || !this.session.userId || owner !== `user-${this.session.userId}`)) fail("ACCESS_DENIED");
+    if (this.session && (!this.session.sessionId || !this.session.userId || !this.session.trip || !this.session.workspace || owner !== `user-${this.session.userId}`)) fail("ACCESS_DENIED");
+  }
+  private requireTrip(trip: string) { if (this.session && trip !== this.session.trip) fail("ACCESS_DENIED"); }
+  private requireWorkspace(workspace: string) {
+    if (this.session && workspace !== this.session.workspace) fail("ACCESS_DENIED");
   }
 
   async save(scope: StorageScope, expected: number, key: string, input: unknown, now: Date): Promise<Ack> {
+    const boundScope = { ...scope };
     const candidate = input as Partial<CheckpointPayload>;
-    const payload = validateCheckpoint(input, scope.trip, candidate?.captured_state_revision ?? -1);
-    return this.write(scope, expected, key, payload, now, false);
+    const payload = validateCheckpoint(input, boundScope.trip, candidate?.captured_state_revision ?? -1);
+    return this.write(boundScope, expected, key, payload, now, false);
   }
 
   async delete(scope: StorageScope, expected: number, key: string, now: Date): Promise<Ack> {
-    return this.write(scope, expected, key, null, now, true);
+    return this.write({ ...scope }, expected, key, null, now, true);
   }
 
   private async write(scope: StorageScope, expected: number, key: string, payload: CheckpointPayload | null, now: Date, deleted: boolean): Promise<Ack> {
-    checkScope(scope); this.requireOwner(scope.owner); checkRevision(expected);
+    checkScope(scope); this.requireOwner(scope.owner); this.requireTrip(scope.trip); this.requireWorkspace(scope.workspace); checkRevision(expected);
     if (!key || key.length > 512 || !Number.isFinite(now.getTime())) fail("CHECKPOINT_POLICY");
     const savedAt = stamp(now);
     let expires: string | null = null;
@@ -89,7 +96,7 @@ export class PgCheckpointRepository {
   }
 
   async load(scope: StorageScope, now: Date): Promise<Saved> {
-    checkScope(scope); this.requireOwner(scope.owner);
+    checkScope(scope); this.requireOwner(scope.owner); this.requireTrip(scope.trip); this.requireWorkspace(scope.workspace);
     if (!Number.isFinite(now.getTime())) fail("CHECKPOINT_POLICY");
     let saved: Saved;
     try { saved = this.session
@@ -106,11 +113,11 @@ export class PgCheckpointRepository {
   }
 
   async list(owner: string, trip: string, now: Date): Promise<SceneListResult["checkpoints"]> {
-    checkScope({ owner, trip, workspace: "_" }); this.requireOwner(owner);
+    checkScope({ owner, trip, workspace: "_" }); this.requireOwner(owner); this.requireTrip(trip);
     if (!Number.isFinite(now.getTime())) fail("CHECKPOINT_POLICY");
     let value: SceneListResult["checkpoints"] | { fault: string };
     try { value = this.session
-      ? (await this.pool.query<{ value: SceneListResult["checkpoints"] | { fault: string } }>("SELECT e03_checkpoint.session_list_scenes($1,$2,$3,$4) AS value", [this.session.sessionId, this.session.userId, trip, now.toISOString()])).rows[0].value
+      ? (await this.pool.query<{ value: SceneListResult["checkpoints"] | { fault: string } }>("SELECT e03_checkpoint.session_list_scenes($1,$2,$3,$4,$5) AS value", [this.session.sessionId, this.session.userId, trip, now.toISOString(), this.session.workspace])).rows[0].value
       : (await this.pool.query<{ value: SceneListResult["checkpoints"] }>("SELECT e03_checkpoint.list_scenes($1,$2,$3) AS value", [owner, trip, now.toISOString()])).rows[0].value; }
     catch { return fail("CHECKPOINT_STORAGE"); }
     if (!Array.isArray(value)) return fail(value.fault || "CHECKPOINT_STORAGE");
@@ -118,7 +125,7 @@ export class PgCheckpointRepository {
   }
 
   async revision(scope: StorageScope, now: Date): Promise<number> {
-    checkScope(scope);
+    checkScope(scope); this.requireWorkspace(scope.workspace);
     const rows = await this.list(scope.owner, scope.trip, now);
     const value = rows.find((row) => row.workspace_key === scope.workspace)?.checkpoint_revision ?? 0;
     checkRevision(value);

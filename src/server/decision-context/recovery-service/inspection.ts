@@ -34,7 +34,7 @@ export async function openRecoveryInspection(workspace: string, env: Partial<Nod
       const initialPrincipal = await principal(headers);
       // Real Session ID is derived from the verified Cookie; PG revalidates it and
       // the membership inside every checkpoint read transaction.
-      const repo = new PgCheckpointRepository(pool, null, undefined, initialPrincipal);
+      const repo = new PgCheckpointRepository(pool, null, undefined, { ...initialPrincipal, trip: tripId, workspace });
       const state = await trips.state(tripId, headers); // actual session + trip membership
       if (!state || state.trip_id !== tripId) throw new CheckpointError("ACCESS_DENIED");
       const scope = { owner: userActorId(initialPrincipal.userId), trip: tripId, workspace };
