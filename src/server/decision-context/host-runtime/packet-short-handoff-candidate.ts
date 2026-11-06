@@ -4,6 +4,8 @@ import { canonicalJson } from "../../trip-state/command-json";
 import type { State } from "../../trip-state/contracts.generated";
 import { emptyDeliveryLedger, preparePage, type DeliveryLedger, type PacketCandidate } from "../packet-core/packet";
 
+export type HandoffDeadline = { monotonicNs:bigint; wallMs:number };
+
 /**
  * Internal test candidate. The caller MUST hold the real Session, membership,
  * workspace, source and state locks, and perform a final authorization and
@@ -34,10 +36,13 @@ export function createShortPacketHandoffCandidate(candidate:PacketCandidate,post
   function ledger(value:PacketCandidate):DeliveryLedger {
     return {packetId,deliveredIds:value.assembly.context.selected_object_ids.filter(id=>delivered.has(hash("id",id).toString("hex"))).sort()};
   }
-  function begin(response:ServerResponse,body:unknown,ids:readonly string[],isInitial:boolean) {
+  function begin(response:ServerResponse,body:unknown,ids:readonly string[],isInitial:boolean,deadline?:HandoffDeadline) {
     if(closed||busy||!(response instanceof ServerResponse)||response.headersSent||response.writableEnded||response.destroyed)return unavailable();
     const bytes=Buffer.from(JSON.stringify(body),"utf8"), keys=ids.map(id=>hash("id",id).toString("hex"));
     if(keys.some(key=>!manifest.has(key)))return unavailable();
+    // Serialization may consume the remaining authorization window. Check
+    // monotonic time immediately before synchronously queuing any bytes.
+    if(deadline&&(process.hrtime.bigint()>=deadline.monotonicNs||Date.now()>=deadline.wallMs))return unavailable();
     busy=true; active=response;
     const finished=new Promise<void>((resolve,reject)=> {
       let settled=false;
@@ -46,7 +51,11 @@ export function createShortPacketHandoffCandidate(candidate:PacketCandidate,post
       const fail=()=>{if(!settled){settled=true;cleanup();response.destroy();reject(new Error("DELIVERY_UNAVAILABLE"));}};
       const timer=setTimeout(fail,10_000);
       response.once("finish",done);response.once("close",fail);response.once("error",fail);
-      try {response.writeHead(200,{"content-type":"application/json; charset=utf-8","content-length":bytes.length,"cache-control":"no-store","vary":"Cookie"});response.end(bytes);}
+      try {
+        response.writeHead(200,{"content-type":"application/json; charset=utf-8","content-length":bytes.length,"cache-control":"no-store","vary":"Cookie"});
+        if(deadline&&(process.hrtime.bigint()>=deadline.monotonicNs||Date.now()>=deadline.wallMs)){fail();return;}
+        response.end(bytes);
+      }
       catch {fail();}
     });
     // A socket error can precede the database commit; attach a handler now.
@@ -65,15 +74,16 @@ export function createShortPacketHandoffCandidate(candidate:PacketCandidate,post
     };
   }
   return {
-    beginPacket(response:ServerResponse,value:PacketCandidate) {
-      const pinned=structuredClone(value);validate(pinned);return begin(response,pinned.packet,pinned.packet.objects.map(item=>item.id),true);
+    revalidate(value:PacketCandidate) { validate(value); },
+    beginPacket(response:ServerResponse,value:PacketCandidate,deadline?:HandoffDeadline) {
+      const pinned=structuredClone(value);validate(pinned);return begin(response,pinned.packet,pinned.packet.objects.map(item=>item.id),true,deadline);
     },
-    beginPage(response:ServerResponse,value:PacketCandidate,request:unknown,before:{state:State;now:Date},after:{state:State;now:Date}) {
+    beginPage(response:ServerResponse,value:PacketCandidate,request:unknown,before:{state:State;now:Date},after:{state:State;now:Date},deadline?:HandoffDeadline) {
       const pinned=structuredClone(value),snapshots=structuredClone({before,after});validate(pinned);if(!initialSent)return unavailable();
       let page:ReturnType<typeof preparePage>;
       try {page=preparePage(pinned,structuredClone(request),ledger(pinned),snapshots.before,snapshots.after);}
       catch(error) {if(error&&typeof error==="object"&&"code" in error&&["PACKET_STALE","PACKET_EXPIRED","EVIDENCE_CHANGED","SNAPSHOT_MISMATCH"].includes(String(error.code)))invalidate();throw error;}
-      return begin(response,page,page.objects.map(item=>item.id),false);
+      return begin(response,page,page.objects.map(item=>item.id),false,deadline);
     },
     progress(){if(closed)return unavailable();return {initial_sent:initialSent,delivered_count:delivered.size,remaining_count:manifest.size-delivered.size,pending:busy};},
     invalidate,

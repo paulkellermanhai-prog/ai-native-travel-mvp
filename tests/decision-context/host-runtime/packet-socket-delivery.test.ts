@@ -122,4 +122,16 @@ describe("isolated Packet socket and private delivery ledger",()=> {
       expect(()=>tracker.progress()).toThrow("DELIVERY_UNAVAILABLE");
     });
   },30000);
+  it("destroys a response if the deadline passes while preparing headers",async()=> {
+    const {candidate}=fixture(),tracker=createShortPacketHandoffCandidate(candidate,async()=>{});
+    await serverRun(async(_path,res)=> {
+      const writeHead=res.writeHead.bind(res);
+      res.writeHead=((...args:Parameters<typeof res.writeHead>)=>{Atomics.wait(new Int32Array(new SharedArrayBuffer(4)),0,0,120);return writeHead(...args);}) as typeof res.writeHead;
+      const deadline={monotonicNs:process.hrtime.bigint()+50_000_000n,wallMs:Date.now()+50};
+      const pending=tracker.beginPacket(res,candidate,deadline);await pending.afterCommit();
+    },async origin=> {
+      await expect(fetch(origin)).rejects.toThrow();
+      expect(()=>tracker.progress()).toThrow("DELIVERY_UNAVAILABLE");
+    });
+  },30000);
 });

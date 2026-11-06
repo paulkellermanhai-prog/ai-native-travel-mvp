@@ -690,6 +690,141 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
       expect((await fetch(`${origin}/page`,{headers:{cookie}})).status).toBe(403);await done;
     } finally {tracker?.invalidate();if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await wired.close();}
   },30000);
+  it("uses host-owned packet and page state across separate real Session/PG/socket requests", async()=> {
+    const t=`trip_formal_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"host-packet-fixture"}));
+    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    const a=await account(),b=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[t,a.user.id,b.user.id]);
+    const objects=structuredClone(base.objects.filter(item=>["egypt","aswan"].includes(item.id)));for(const item of objects)item.trip_id=t;
+    await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}',$2::jsonb) WHERE "tripId"=$1`,[t,JSON.stringify(objects)]);
+    let holdAfter=false,holdBefore=false,holdFinal=false,signalAfter!:()=>void,releaseAfter!:()=>void,signalBefore!:()=>void,releaseBefore!:()=>void,signalFinal!:()=>void,releaseFinal!:()=>void;
+    const afterEntered=new Promise<void>(resolve=>{signalAfter=resolve;}),afterGate=new Promise<void>(resolve=>{releaseAfter=resolve;});
+    const beforeEntered=new Promise<void>(resolve=>{signalBefore=resolve;}),beforeGate=new Promise<void>(resolve=>{releaseBefore=resolve;});
+    const finalEntered=new Promise<void>(resolve=>{signalFinal=resolve;}),finalGate=new Promise<void>(resolve=>{releaseFinal=resolve;});
+    const wired=await openEvidenceHost(env,{beforePacketHandoff:async()=>{if(holdBefore){signalBefore();await beforeGate;}},afterFinalPacketCheck:async()=>{if(holdFinal){signalFinal();await finalGate;}},afterPacketHandoffCommit:async()=>{if(holdAfter){signalAfter();await afterGate;}}});
+    let ticket=await wired.createWorkspace(t,a.headers),key=await wired.mintTaskKey(ticket,a.headers,"formal-task");
+    const otherTicket=await wired.createWorkspace(t,a.headers);
+    const text="了解阿斯旺",makeInput=()=>({expected_revision:0,tasks:[{task_key:key,question:text,kind:"explore",target_ids:["aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null}],focus_keys:[key]});
+    let event=await wired.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`formal_${randomUUID()}`});
+    let turnId=(await wired.registerTaskIdentity(ticket,a.headers,event,makeInput())).turn_id;
+    let done:Promise<void>=Promise.resolve(),lastError="";
+    const server=http.createServer((req,res)=> {done=(async()=> {
+      try {
+        const headers=new Headers({cookie:req.headers.cookie??""});
+        if(req.url==="/open")await wired.sendLivePacketCandidate(ticket,headers,turnId,key,2,makeInput(),res);
+        else {const chunks:Buffer[]=[];for await(const chunk of req)chunks.push(Buffer.from(chunk));await wired.sendLivePacketPageCandidate(req.url==="/wrong-scope"?otherTicket:ticket,headers,JSON.parse(Buffer.concat(chunks).toString("utf8")),makeInput(),res);}
+      } catch(error) {lastError=error&&typeof error==="object"&&"code" in error?String(error.code):"internal";if(!res.headersSent&&!res.destroyed){res.writeHead(403);res.end();}}
+    })();});
+    try {
+      server.listen(0,"127.0.0.1");await once(server,"listening");const address=server.address();if(!address||typeof address==="string")throw new Error("missing socket");
+      const origin=`http://127.0.0.1:${address.port}`,cookie=a.headers.get("cookie")??"";
+      const open=await fetch(`${origin}/open`,{headers:{cookie}});expect(open.status).toBe(200);
+      let packet=await open.json() as {packet_id:string;deferred_ids:string[]};await done;expect(packet.deferred_ids).toEqual(["aswan"]);
+      let page={runtime_contract_version:"0.1.0",packet_id:packet.packet_id,object_ids:["aswan"]};
+      const call=(value:unknown,auth=cookie)=>fetch(`${origin}/page`,{method:"POST",headers:{cookie:auth},body:JSON.stringify(value)});
+      expect((await fetch(`${origin}/wrong-scope`,{method:"POST",headers:{cookie},body:JSON.stringify(page)})).status).toBe(403);await done;
+      expect((await call({...page,delivered_ids:["aswan"]})).status).toBe(403);await done;
+      const result=await call(page);expect(result.status).toBe(200);expect((await result.json() as {objects:Array<{id:string}>}).objects.map(item=>item.id)).toEqual(["aswan"]);await done;
+      await wired.deleteEvent(ticket,a.headers,event.event_id);
+      expect((await call(page)).status).toBe(403);await done;
+      // Fresh unrelated work gets a new workspace and private ledger; the
+      // deleted packet cannot be revived by retaining its packet ID.
+      ticket=await wired.createWorkspace(t,a.headers);key=await wired.mintTaskKey(ticket,a.headers,"formal-fresh-task");
+      event=await wired.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`fresh_${randomUUID()}`});
+      turnId=(await wired.registerTaskIdentity(ticket,a.headers,event,makeInput())).turn_id;
+      const nextPacket=await fetch(`${origin}/open`,{headers:{cookie}});expect(nextPacket.status).toBe(200);
+      packet=await nextPacket.json() as {packet_id:string;deferred_ids:string[]};await done;
+      page={runtime_contract_version:"0.1.0",packet_id:packet.packet_id,object_ids:["aswan"]};
+      expect((await call(page,b.headers.get("cookie")??"")).status).toBe(403);await done;
+      // Pause after the read transaction committed: revoke must not wait on
+      // the subsequent network completion or postflight work.
+      holdAfter=true;const inflight=call(page);await afterEntered;
+      try {
+        const revoked=owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[t,a.user.id]);
+        expect(await Promise.race([revoked.then(()=>true),new Promise<boolean>(resolve=>setTimeout(()=>resolve(false),1500))])).toBe(true);
+      } finally {holdAfter=false;releaseAfter();}
+      expect((await inflight).status).toBe(200);await done;expect(lastError).toBe("EVIDENCE_ACCESS_DENIED");
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[t,a.user.id]);
+      expect((await call(page)).status).toBe(403);await done; // old ledger did not revive
+      ticket=await wired.createWorkspace(t,a.headers);key=await wired.mintTaskKey(ticket,a.headers,"expiry-task");
+      event=await wired.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`expiry_${randomUUID()}`});
+      turnId=(await wired.registerTaskIdentity(ticket,a.headers,event,makeInput())).turn_id;
+      await owner.query(`UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()+interval '2 seconds' WHERE id=$1`,[a.session.session.id]);
+      holdBefore=true;const expired=fetch(`${origin}/open`,{headers:{cookie}});await beforeEntered;
+      try {
+        let crossed=false;for(let i=0;i<100;i++) {
+          const check=await owner.query<{expired:boolean}>(`SELECT "expiresAt"<=clock_timestamp() AS expired FROM "AuthSession" WHERE id=$1`,[a.session.session.id]);
+          if(check.rows[0].expired){crossed=true;break;}await new Promise(resolve=>setTimeout(resolve,50));
+        }
+        expect(crossed).toBe(true);
+      } finally {holdBefore=false;releaseBefore();}
+      const rejected=await expired;expect(rejected.status).toBe(403);expect(await rejected.text()).not.toContain(text);await done;
+      // A process pause after the final database check can cross the exact
+      // session deadline. The monotonic handoff budget must reject before
+      // writeHead/end, not rely on the later postflight.
+      const c=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[t,c.user.id]);
+      ticket=await wired.createWorkspace(t,c.headers);key=await wired.mintTaskKey(ticket,c.headers,"final-gap-task");
+      event=await wired.record(ticket,c.headers,{entry:"dialogue",text,idempotency_key:`final_gap_${randomUUID()}`});
+      turnId=(await wired.registerTaskIdentity(ticket,c.headers,event,makeInput())).turn_id;
+      await owner.query(`UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()+interval '2 seconds' WHERE id=$1`,[c.session.session.id]);
+      holdFinal=true;const gap=fetch(`${origin}/open`,{headers:{cookie:c.headers.get("cookie")??""}});await finalEntered;
+      try {
+        let crossed=false;for(let i=0;i<100;i++) {
+          const check=await owner.query<{expired:boolean}>(`SELECT "expiresAt"<=clock_timestamp() AS expired FROM "AuthSession" WHERE id=$1`,[c.session.session.id]);
+          if(check.rows[0].expired){crossed=true;break;}await new Promise(resolve=>setTimeout(resolve,50));
+        }
+        expect(crossed).toBe(true);
+      } finally {holdFinal=false;releaseFinal();}
+      const gapRejected=await gap;expect(gapRejected.status).toBe(403);expect(await gapRejected.text()).not.toContain(text);await done;
+    } finally {releaseAfter();releaseBefore();releaseFinal();if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await wired.close();}
+  },30000);
+  it("does not start a socket response if its source expires after the final database check",async()=> {
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
+    let signal!:()=>void,release!:()=>void;const entered=new Promise<void>(resolve=>{signal=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+    const wired=await openEvidenceHost(env,{afterFinalPacketCheck:async()=>{signal();await gate;}});
+    const ticket=await wired.createWorkspace(trip,a.headers),key=await wired.mintTaskKey(ticket,a.headers,"source-expiry-gap"),text="原话";
+    const event=await wired.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`source_gap_${randomUUID()}`});
+    const task={task_key:key,question:text,kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:2,quote:text}],progress:"open",progress_evidence:null};
+    const input={expected_revision:0,tasks:[task],focus_keys:[key]},turn=await wired.registerTaskIdentity(ticket,a.headers,event,input);
+    await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '180 days'+interval '3 seconds' WHERE event_id=$1`,[event.event_id]);
+    let done:Promise<void>=Promise.resolve();
+    const server=http.createServer((req,res)=>{done=wired.sendLivePacketCandidate(ticket,new Headers({cookie:req.headers.cookie??""}),turn.turn_id,key,2,input,res).then(()=>undefined,()=>{if(!res.headersSent&&!res.destroyed){res.writeHead(403);res.end();}});});
+    try {
+      server.listen(0,"127.0.0.1");await once(server,"listening");const address=server.address();if(!address||typeof address==="string")throw new Error("missing socket");
+      const request=fetch(`http://127.0.0.1:${address.port}`,{headers:{cookie:a.headers.get("cookie")??""}});await entered;
+      try {
+        let crossed=false;for(let i=0;i<120;i++) {
+          const row=await owner.query<{expired:boolean}>(`SELECT clock_timestamp()>=recorded_at+interval '180 days' AS expired FROM public."HostEvidenceEvent" WHERE event_id=$1`,[event.event_id]);
+          if(row.rows[0].expired){crossed=true;break;}await new Promise(resolve=>setTimeout(resolve,50));
+        }
+        expect(crossed).toBe(true);
+      } finally {release();}
+      const rejected=await request;expect(rejected.status).toBe(403);expect(await rejected.text()).not.toContain(text);await done;
+    } finally {release();if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await wired.close();}
+  },30000);
+  it("does not send across an unselected fact's activation after the final check",async()=> {
+    const t=`trip_fact_gap_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"fact-gap-fixture"}));
+    await owner.query('INSERT INTO public."HostEvidenceTripLifecycle" (trip_id,source_revision,ended_at) VALUES ($1,0,NULL)',[t]);
+    const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[t,a.user.id]);
+    const boundary=(await owner.query<{at:Date}>("SELECT clock_timestamp()+interval '3 seconds' AS at")).rows[0].at;
+    const objects=structuredClone(base.objects.filter(item=>["egypt","aswan","cairo","luxor","fact-cairo-luxor"].includes(item.id)));
+    for(const item of objects) {item.trip_id=t;if(item.type==="ExternalFact"){item.observed_at=boundary.toISOString();item.expires_at=new Date(boundary.getTime()+3_600_000).toISOString();}}
+    await owner.query(`UPDATE public."TripStateDocument" SET snapshot=jsonb_set(snapshot,'{objects}',$2::jsonb) WHERE "tripId"=$1`,[t,JSON.stringify(objects)]);
+    let signal!:()=>void,release!:()=>void;const entered=new Promise<void>(resolve=>{signal=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+    const wired=await openEvidenceHost(env,{afterFinalPacketCheck:async()=>{signal();await gate;}});
+    const ticket=await wired.createWorkspace(t,a.headers),key=await wired.mintTaskKey(ticket,a.headers,"fact-gap"),text="阿斯旺";
+    const event=await wired.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`fact_gap_${randomUUID()}`});
+    const task={task_key:key,question:text,kind:"explore",target_ids:["aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:3,quote:text}],progress:"open",progress_evidence:null};
+    const input={expected_revision:0,tasks:[task],focus_keys:[key]},turn=await wired.registerTaskIdentity(ticket,a.headers,event,input);
+    let done:Promise<void>=Promise.resolve();const server=http.createServer((req,res)=>{done=wired.sendLivePacketCandidate(ticket,new Headers({cookie:req.headers.cookie??""}),turn.turn_id,key,4096,input,res).then(()=>undefined,()=>{if(!res.headersSent&&!res.destroyed){res.writeHead(403);res.end();}});});
+    try {
+      server.listen(0,"127.0.0.1");await once(server,"listening");const address=server.address();if(!address||typeof address==="string")throw new Error("missing socket");
+      const request=fetch(`http://127.0.0.1:${address.port}`,{headers:{cookie:a.headers.get("cookie")??""}});await entered;
+      try {let crossed=false;for(let i=0;i<120;i++){const row=await owner.query<{crossed:boolean}>("SELECT clock_timestamp()>=$1::timestamptz AS crossed",[boundary]);if(row.rows[0].crossed){crossed=true;break;}await new Promise(resolve=>setTimeout(resolve,50));}expect(crossed).toBe(true);} finally {release();}
+      const rejected=await request;expect(rejected.status).toBe(403);expect(await rejected.text()).not.toContain(text);await done;
+    } finally {release();if(server.listening)await new Promise<void>((resolve,reject)=>server.close(error=>error?reject(error):resolve()));await wired.close();}
+  },30000);
   it("atomically records verified scene events and serializes their removal with deletion", async () => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
     const ticket=await host.createWorkspace(trip,a.headers);

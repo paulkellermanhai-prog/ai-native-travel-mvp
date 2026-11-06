@@ -1,7 +1,8 @@
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { ServerResponse } from "node:http";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { z } from "zod";
-import { PrismaClient } from "../../../generated/prisma/client";
+import { PrismaClient, type Prisma } from "../../../generated/prisma/client";
 import { databaseEnvSchema } from "../../../lib/env";
 import { openIdentity } from "../../auth/config";
 import { sessionHost, userActorId } from "../../auth/authorization";
@@ -17,18 +18,22 @@ import { classifyRecovery } from "../recovery-core";
 import { buildRestoredSceneCandidate } from "../integration/restored-scene-candidate";
 import { assembleContextSnapshot, validateContextSnapshot } from "../context-assembly";
 import { buildPacketCandidate, checkPacketTurn, type PacketCandidate } from "../packet-core/packet";
+import { createShortPacketHandoffCandidate, type HandoffDeadline } from "./packet-short-handoff-candidate";
 import { parseStateReferences } from "../../trip-state/references";
 import { checkStateCounters } from "../../trip-state/numbers";
+import { instantAttoseconds } from "../../trip-state/conditions";
 
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
 type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>; incomplete: boolean; fingerprint: string; eventSequence: number; retentionRevision: number };
+type PacketMemory = { packetId:string; turnId:string; taskHash:string; budget:number; at:number; contextId:string; expiresAt:number; warning:boolean;
+  runtimeId:string; tracker:ReturnType<typeof createShortPacketHandoffCandidate>; postflight:(()=>Promise<void>)|null; invalidate:()=>void };
 type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string; capability: string; runtimeId: string;
   recoveredEvents: Set<string>; recoveryWatermark: number | null; deletionRevision: number; pendingSaves: Set<string>; pendingSaveSticky: boolean; inflightSaves: number; keyEpochs: Map<string,number>; tasks: Map<string, TaskMemory>;
   turns: Map<string, { digest: string; result: Pick<Registration,"turn_id"|"revision">; sources: Map<string,string>; sequence: number }>;
-  invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; packetInvalidators:Set<()=>void>; disposed: boolean; tail: Promise<void> };
+  invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; packetInvalidators:Set<()=>void>; packets:Map<string,PacketMemory>; disposed: boolean; tail: Promise<void> };
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
 type DeleteRow = { disposition: string; deletion_revision: bigint | null; accepted_at: Date | null; cleanup_pending: boolean | null; event_highwater: bigint | null };
-type EventRow = { allowed: boolean; out_entry: "dialogue" | "map" | "timeline" | "comparison" | null; out_body: string | null; out_received_at: Date | null; out_retention_revision: bigint | null };
+type EventRow = { allowed: boolean; out_entry: "dialogue" | "map" | "timeline" | "comparison" | null; out_body: string | null; out_received_at: Date | null; out_retention_revision: bigint | null; out_valid_for_ms:bigint|null };
 const identityInput = z.strictObject({ expected_revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), tasks: z.unknown(), focus_keys: z.unknown() });
 export class TurnIdentityError extends Error {
   constructor(readonly code: "EVENT_REUSE" | "REVISION_CHANGED" | "TARGET_NOT_FOUND") { super(`Turn identity: ${code}`); this.name = "TurnIdentityError"; }
@@ -45,7 +50,7 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void> }) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void> }) {
   if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
@@ -87,7 +92,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   // Task keys may contain user text; retain only a keyed, scope-bound index.
   const taskIndex = (scope: Scope, key: string) => createHmac("sha256",keySecret).update("task-identity\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,key]),"utf8").digest("hex");
   const taskFingerprint = (scope: Scope, task: unknown) => createHmac("sha256",keySecret).update("task-value\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,task]),"utf8").digest("hex");
-  function invalidatePackets(scope:Scope) { for(const invalidate of scope.packetInvalidators) { try { invalidate(); } catch { /* durable deletion must not be undone by local cleanup */ } } scope.packetInvalidators.clear(); }
+  function invalidatePackets(scope:Scope) { for(const invalidate of scope.packetInvalidators) { try { invalidate(); } catch { /* durable deletion must not be undone by local cleanup */ } } scope.packetInvalidators.clear(); scope.packets.clear(); }
   async function exclusive<T>(scope: Scope, action: () => Promise<T>): Promise<T> {
     const previous = scope.tail; let release!: () => void;
     scope.tail = new Promise<void>(resolve => { release = resolve; });
@@ -116,10 +121,75 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     if (current.ownerId !== scope.ownerId || current.sessionId !== scope.sessionId) return deny();
     return { scope, headers: current.headers };
   }
+  /** Rebuild from the authorized event and caller-supplied task; no Task text is cached. */
+  async function packetFromCurrent(tx:Prisma.TransactionClient,scope:Scope,headers:Headers,raw:unknown,turnId:string,taskHash:string,budget:number,seed?:PacketMemory) {
+    const input=identityInput.safeParse(raw); if(!input.success)return unavailable();
+    const found=[...scope.turns.entries()].find(([,entry])=>entry.result.turn_id===turnId);
+    if(!found||closed||scope.disposed)return deny();
+    const [eventId,registered]=found,token=registered.sources.get(eventId); if(!token)return unavailable();
+    const [document]=await tx.$queryRaw<Array<{revision:bigint;snapshot:string}>>`SELECT "revision", "snapshot"::text AS snapshot FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+    try {await host.guard!(scope.tripId,headers,tx);} catch {return deny();}
+    if(!document)return deny();
+    let deadline:HandoffDeadline|undefined;
+    const applyBudget=(started:bigint,startedWall:number,remaining:bigint|null)=> {
+      if(remaining===null||remaining<=1n)return unavailable();
+      const bounded=remaining>300_001n?300_000n:remaining-1n;
+      const end=started+bounded*1_000_000n,wall=startedWall+Number(bounded);
+      deadline={monotonicNs:deadline===undefined||end<deadline.monotonicNs?end:deadline.monotonicNs,wallMs:deadline===undefined||wall<deadline.wallMs?wall:deadline.wallMs};
+    };
+    const read=async(id:string,key:string,metadata:boolean)=> {
+      const started=process.hrtime.bigint(),startedWall=Date.now();
+      const [row]=await tx.$queryRaw<EventRow[]>`SELECT * FROM public.host_evidence_for_turn_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${id},${key},${metadata})`;
+      if(!row?.allowed||counter(row.out_retention_revision)!==scope.deletionRevision)return unavailable();applyBudget(started,startedWall,row.out_valid_for_ms);return row;
+    };
+    const source=await read(eventId,token,false);
+    if(!source.out_entry||!source.out_body||!source.out_received_at)return unavailable();
+    for(const [id,key] of registered.sources)await read(id,key,true);
+    const state=parseStateReferences(decodeCommandJson(document.snapshot));checkStateCounters(state);
+    if(state.trip_id!==scope.tripId||BigInt(state.revision)!==document.revision||state.revision!==registered.result.revision)return unavailable();
+    const event={event_id:eventId,entry:source.out_entry,text:source.out_body,reference:`host-interaction:${eventId}`,received_at:source.out_received_at.toISOString()};
+    const body=parseDCContract("open-turn",{runtime_contract_version:"0.1.0",trip_id:scope.tripId,expected_revision:input.data.expected_revision,event,tasks:input.data.tasks,focus_keys:input.data.focus_keys});
+    if(body.expected_revision!==registered.result.revision||createHmac("sha256",keySecret!).update(canonicalJson(body),"utf8").digest("hex")!==registered.digest)return unavailable();
+    const task=body.tasks.find(item=>taskIndex(scope,item.task_key)===taskHash),current=scope.tasks.get(taskHash);
+    if(!task||!current||current.incomplete||current.retentionRevision!==scope.deletionRevision||current.fingerprint!==taskFingerprint(scope,task))return unavailable();
+    if(seed&&(seed.runtimeId!==scope.runtimeId||(!seed.warning&&(scope.pendingSaveSticky||scope.pendingSaves.size>0||scope.inflightSaves>0))))return unavailable();
+    const at=seed?new Date(seed.at):new Date(),assembly=assembleContextSnapshot(state,task.task_key,task.target_ids,at);
+    if(seed)assembly.context.id=seed.contextId;
+    const turn=parseDCContract("turn",{runtime_contract_version:"0.1.0",runtime_id:scope.runtimeId,turn_id:turnId,revision:registered.result.revision,tasks:body.tasks,focus_keys:body.focus_keys,checkpoint_ack:null});
+    const pending={event,base_revision:registered.result.revision,processing_status:"unprocessed" as const,proposal_id:null,result_revision:registered.result.revision,errors:[]};
+    const request=parseDCContract("assemble",{runtime_contract_version:"0.1.0",turn_id:turnId,task_key:task.task_key,body_budget_bytes:budget});
+    const warning=seed?.warning??(scope.pendingSaveSticky||scope.pendingSaves.size>0||scope.inflightSaves>0);
+    const candidate=buildPacketCandidate({request,packetId:seed?.packetId??`packet-${randomUUID().replaceAll("-","")}`,task,pending,assembly,state,now:at,recoveredInput:false,saveUnacknowledged:warning});
+    checkPacketTurn(candidate,turn,pending);if(seed)seed.tracker.revalidate(candidate);
+    const recheck=async()=>{
+      for(const [id,key] of registered.sources)await read(id,key,true);
+      try {await host.guard!(scope.tripId,headers,tx);} catch{return deny();}
+      validateContextSnapshot(assembly,state,new Date());
+      const started=process.hrtime.bigint(),startedWall=Date.now();
+      const [clock]=await tx.$queryRaw<Array<{remaining:bigint|null}>>`SELECT FLOOR(EXTRACT(EPOCH FROM (${assembly.context.expires_at}::timestamptz-clock_timestamp()))*1000)::BIGINT AS remaining`;
+      applyBudget(started,startedWall,clock?.remaining??null);
+      // Unselected facts can begin or stop affecting C12/conditions without a
+      // revision change. Bound the handoff by *all* fact transitions, not
+      // just the selected facts used to compute Context.expires_at.
+      const facts=state.objects.filter(item=>item.type==="ExternalFact");
+      if(facts.length) {
+        const tickStart=process.hrtime.bigint(),tickWall=Date.now();
+        const [dbClock]=await tx.$queryRaw<Array<{millis:bigint}>>`SELECT FLOOR(EXTRACT(EPOCH FROM clock_timestamp())*1000)::BIGINT AS millis`;
+        if(!dbClock)return unavailable();
+        const unit=1_000_000_000_000_000n;
+        for(const fact of facts)for(const value of [fact.observed_at,fact.expires_at]) {
+          const instant=instantAttoseconds(value),millis=instant>=0n?instant/unit:(instant-(unit-1n))/unit;
+          if(millis>=dbClock.millis)applyBudget(tickStart,tickWall,millis-dbClock.millis-1n);
+        }
+      }
+    };
+    await recheck();
+    return {candidate,state,recheck,deadline:()=>deadline??unavailable(),at:at.getTime(),warning};
+  }
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
       const p = await authorized(tripId, credential);
-      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, deletionRevision:0, pendingSaves:new Set(), pendingSaveSticky:false, inflightSaves:0, keyEpochs:new Map(), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), packetInvalidators:new Set(), disposed:false, tail: Promise.resolve() };
+      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, deletionRevision:0, pendingSaves:new Set(), pendingSaveSticky:false, inflightSaves:0, keyEpochs:new Map(), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), packetInvalidators:new Set(), packets:new Map(), disposed:false, tail: Promise.resolve() };
       try {
         await db.$transaction(async tx => {
           try { await host.guard!(tripId, p.headers, tx); } catch { return deny(); }
@@ -377,6 +447,58 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           return result;
         } catch(error) { invalidatePackets(scope); if (error instanceof EvidenceBoundaryError) throw error; return unavailable(); }
       });
+    },
+    /** Internal socket integration candidate; not mounted on a public route. */
+    async sendLivePacketCandidate(ticket:object,credential:Headers,turnId:string,taskKey:string,bodyBudgetBytes:number,raw:unknown,response:ServerResponse) {
+      let input:unknown;try {input=structuredClone(raw);} catch {return unavailable();}
+      const {scope,headers}=await scoped(ticket,credential),credentialCopy=new Headers({cookie:headers.get("cookie")??""});
+      if(!(response instanceof ServerResponse))return unavailable();
+      const taskHash=taskIndex(scope,taskKey);let record:PacketMemory|undefined;
+      try {
+        const handoff=await exclusive(scope,async()=>db.$transaction(async tx=> {
+          for(const item of scope.packets.values())if(item.expiresAt<=Date.now())item.invalidate();
+          if(scope.packets.size>=256)return unavailable();
+          const built=await packetFromCurrent(tx,scope,headers,input,turnId,taskHash,bodyBudgetBytes);
+          const holder:{value?:PacketMemory}={};
+          const tracker=createShortPacketHandoffCandidate(built.candidate,async()=>{if(!holder.value?.postflight)return unavailable();await holder.value.postflight();});
+          const invalidate=()=>{memory.postflight=null;tracker.invalidate();scope.packets.delete(memory.packetId);scope.packetInvalidators.delete(invalidate);};
+          const memory:PacketMemory={packetId:built.candidate.packet.packet_id,turnId,taskHash,budget:bodyBudgetBytes,at:built.at,contextId:built.candidate.assembly.context.id,
+            expiresAt:Math.min(built.at+300_000,Date.parse(built.candidate.assembly.context.expires_at)),warning:built.warning,runtimeId:scope.runtimeId,tracker,postflight:null,invalidate};
+          holder.value=memory;
+          record=memory;scope.packets.set(memory.packetId,memory);scope.packetInvalidators.add(invalidate);
+          memory.postflight=async()=> {
+            const next=await scoped(ticket,credentialCopy);if(next.scope!==scope||scope.packets.get(memory.packetId)!==memory)return deny();
+            await exclusive(scope,async()=>db.$transaction(async postTx=>{const current=await packetFromCurrent(postTx,scope,next.headers,input,turnId,taskHash,bodyBudgetBytes,memory);await current.recheck();}));
+          };
+          await testHooks?.beforePacketHandoff?.(); await built.recheck();
+          if(testHooks?.afterFinalPacketCheck)await testHooks.afterFinalPacketCheck();
+          return tracker.beginPacket(response,built.candidate,built.deadline());
+        }));
+        try {await testHooks?.afterPacketHandoffCommit?.();await handoff.afterCommit();return {packet_id:record!.packetId};} finally {if(record)record.postflight=null;}
+      } catch(error) {record?.invalidate();if(error instanceof EvidenceBoundaryError)throw error;return unavailable();}
+    },
+    /** Independent internal page candidate; task material is revalidated, never cached in the ledger. */
+    async sendLivePacketPageCandidate(ticket:object,credential:Headers,pageValue:unknown,raw:unknown,response:ServerResponse) {
+      let input:unknown,pageInput:unknown;try {input=structuredClone(raw);pageInput=structuredClone(pageValue);} catch{return unavailable();}
+      const {scope,headers}=await scoped(ticket,credential),credentialCopy=new Headers({cookie:headers.get("cookie")??""});
+      const page=parseDCContract("page-request",pageInput);if(!(response instanceof ServerResponse))return unavailable();
+      let record:PacketMemory|undefined,ownsPostflight=false;
+      try {
+        const handoff=await exclusive(scope,async()=>db.$transaction(async tx=> {
+          record=scope.packets.get(page.packet_id);
+          const memory=record;if(!memory||memory.runtimeId!==scope.runtimeId||memory.expiresAt<=Date.now()||memory.postflight)return unavailable();
+          ownsPostflight=true;
+          const built=await packetFromCurrent(tx,scope,headers,input,memory.turnId,memory.taskHash,memory.budget,memory);
+          memory.postflight=async()=> {
+            const next=await scoped(ticket,credentialCopy);if(next.scope!==scope||scope.packets.get(memory.packetId)!==memory)return deny();
+            await exclusive(scope,async()=>db.$transaction(async postTx=>{const current=await packetFromCurrent(postTx,scope,next.headers,input,memory.turnId,memory.taskHash,memory.budget,memory);await current.recheck();}));
+          };
+          await testHooks?.beforePacketHandoff?.();await built.recheck();const now=new Date();
+          if(testHooks?.afterFinalPacketCheck)await testHooks.afterFinalPacketCheck();
+          return memory.tracker.beginPage(response,built.candidate,page,{state:built.state,now},{state:built.state,now},built.deadline());
+        }));
+        try {await testHooks?.afterPacketHandoffCommit?.();await handoff.afterCommit();return {packet_id:record!.packetId};} finally {if(record)record.postflight=null;}
+      } catch(error) {if(ownsPostflight)record?.invalidate();if(error instanceof EvidenceBoundaryError)throw error;return unavailable();}
     },
     /**
      * Internal bounded save only. Drafts, errors and non-unprocessed states
