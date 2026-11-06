@@ -17,7 +17,7 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
   let created = false;
   const secret = randomBytes(32).toString("hex"), trip = `trip_e11_${randomBytes(8).toString("hex")}`;
   const env = { ...process.env, DATABASE_URL: config?.runtimeUrl, AUTH_DATABASE_URL: config?.authUrl,
-    BETTER_AUTH_URL: "http://127.0.0.1:3117", BETTER_AUTH_SECRET: randomBytes(32).toString("hex") };
+    BETTER_AUTH_URL: "http://127.0.0.1:3117", BETTER_AUTH_SECRET: randomBytes(32).toString("hex"), E11_IDEMPOTENCY_SECRET: randomBytes(32).toString("hex") };
   async function account() {
     const email = `${randomUUID()}@example.invalid`, password = randomBytes(24).toString("base64url");
     const user = (await identity.auth.api.signUpEmail({ body: { name: "E11 test", email, password } })).user;
@@ -56,11 +56,23 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     const a = await account(), b = await account();
     await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)', [trip, a.user.id, b.user.id]);
     const workspace = await host.createWorkspace(trip, a.headers);
-    const input = { entry: "dialogue", text: "原话 🌏", idempotency_key: `key_${randomUUID()}` };
+    const input = { entry: "dialogue", text: "原话 🌏", idempotency_key: `key_含个人原话_${randomUUID()}` };
     const [first, second] = await Promise.all([host.record(workspace, a.headers, input), host.record(workspace, a.headers, input)]);
     expect(first.event_id).toBe(second.event_id);
     expect([first.replayed, second.replayed].sort()).toEqual([false, true]);
     expect(first.durable).toBe(true);
+    const login = await identity.auth.api.signInEmail({ body: { email: a.email, password: a.password }, headers: new Headers({ origin: identity.config.origin }), asResponse: true });
+    const otherHeaders = new Headers({ cookie: login.headers.getSetCookie().map(c => c.split(";")[0]).join("; ") });
+    const otherSession = await identity.auth.api.getSession({ headers: otherHeaders });
+    if (!otherSession) throw new Error("Expected second authenticated Session");
+    expect(otherSession.session.id).not.toBe(a.session.session.id);
+    await expect(host.record(workspace, otherHeaders, input)).rejects.toMatchObject({ code: "EVIDENCE_ACCESS_DENIED" });
+    const direct = await runtime.query("SELECT * FROM public.host_evidence_record_candidate($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)",
+      [otherSession.session.id, a.user.id, trip, first.workspace_key, "event_direct", "dialogue", "x", new Date(), "b".repeat(64), "a".repeat(64)]);
+    expect(direct.rows).toMatchObject([{ disposition: "denied", out_event_id: null, out_sequence: null }]);
+    const directDelete = await runtime.query("SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5)",
+      [otherSession.session.id, a.user.id, trip, first.workspace_key, first.event_id]);
+    expect(directDelete.rows).toMatchObject([{ disposition: "denied", deletion_revision: null }]);
     await expect(host.record(workspace, a.headers, { ...input, text: "不同正文" })).rejects.toMatchObject({ code: "EVENT_KEY_CONFLICT" });
     await expect(host.record(workspace, b.headers, input)).rejects.toMatchObject({ code: "EVIDENCE_ACCESS_DENIED" });
     await expect(host.record({ ...workspace }, a.headers, input)).rejects.toMatchObject({ code: "EVIDENCE_ACCESS_DENIED" });
@@ -77,8 +89,10 @@ describe.skipIf(!config?.authUrl)("E11 host recording and deletion with real Ses
     await expect(host.record(workspace, a.headers, input)).rejects.toMatchObject({ code: "EVIDENCE_DELETED" });
     await owner.query("SELECT public.host_evidence_cleanup_candidate($1)", [first.event_id]);
     await owner.query("SELECT public.host_evidence_cleanup_candidate($1)", [first.event_id]);
-    const cleaned = await owner.query('SELECT body,input_digest,session_ref,deleted_at FROM public."HostEvidenceEvent" WHERE event_id=$1', [first.event_id]);
+    const cleaned = await owner.query('SELECT body,input_digest,session_ref,key_token,deleted_at FROM public."HostEvidenceEvent" WHERE event_id=$1', [first.event_id]);
     expect(cleaned.rows[0]).toMatchObject({ body: null, input_digest: null, session_ref: null }); expect(cleaned.rows[0].deleted_at).toBeTruthy();
+    expect(cleaned.rows[0].key_token).toMatch(/^[0-9a-f]{64}$/);
+    expect(cleaned.rows[0].key_token).not.toContain(input.idempotency_key);
     expect((await host.deleteEvent(workspace, a.headers, first.event_id)).cleanup_pending).toBe(false);
     await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2', [trip, a.user.id]);
     await expect(host.record(workspace, a.headers, input)).rejects.toMatchObject({ code: "EVIDENCE_ACCESS_DENIED" });

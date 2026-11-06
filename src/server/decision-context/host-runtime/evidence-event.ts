@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID } from "node:crypto";
 import { EvidenceBoundaryError, recordInputSchema, scopeSchema, type RecordInput } from "../../interaction-evidence/contracts";
 
 /** An internal persistence candidate, never an authorization or a durable receipt. */
@@ -6,6 +6,14 @@ export type PreparedEvidenceEvent = {
   ownerId: string; tripId: string; workspaceKey: string; sessionId: string;
   eventId: string; receivedAt: Date; input: RecordInput; inputDigest: string;
 };
+
+/** An opaque lookup token, so a client-supplied key is not retained as plaintext. */
+export function evidenceKeyToken(secret: string, scope: { ownerId: string; tripId: string; workspaceKey: string }, key: string): string {
+  if (typeof secret !== "string" || Buffer.byteLength(secret, "utf8") < 32 || typeof key !== "string" || key.length < 1 || key.length > 256) {
+    throw new EvidenceBoundaryError("EVIDENCE_UNAVAILABLE");
+  }
+  return createHmac("sha256", secret).update(JSON.stringify([scope.ownerId, scope.tripId, scope.workspaceKey, key]), "utf8").digest("hex");
+}
 
 /**
  * The caller must supply the principal obtained from the authenticated session and

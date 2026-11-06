@@ -6,7 +6,7 @@ import { openIdentity } from "../../auth/config";
 import { sessionHost, userActorId } from "../../auth/authorization";
 import { runtimeRoleSafetySql } from "../../database/runtime-role-safety.mjs";
 import { EvidenceBoundaryError, type EventReceipt, type DeleteReceipt } from "../../interaction-evidence/contracts";
-import { prepareEvidenceEvent } from "./evidence-event";
+import { evidenceKeyToken, prepareEvidenceEvent } from "./evidence-event";
 
 type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string };
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
@@ -25,6 +25,8 @@ const counter = (n: bigint | null): number => {
  */
 export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env) {
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
+  const keySecret = env.E11_IDEMPOTENCY_SECRET;
+  if (typeof keySecret !== "string" || Buffer.byteLength(keySecret, "utf8") < 32) return unavailable();
   const url = new URL(connection);
   url.searchParams.set("options", `${url.searchParams.get("options") ?? ""} -c timezone=UTC`.trim());
   const identity = await openIdentity(env);
@@ -81,10 +83,11 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     async record(ticket: object, credential: Headers, value: unknown): Promise<EventReceipt> {
       const { scope, headers } = await scoped(ticket, credential);
       const event = prepareEvidenceEvent({ userId: scope.ownerId, sessionId: scope.sessionId }, scope.tripId, scope.workspaceKey, value, new Date());
+      const keyToken = evidenceKeyToken(keySecret, scope, event.input.idempotency_key);
       try {
         const row = await db.$transaction(async tx => {
           try { await host.guard!(scope.tripId, headers, tx); } catch { return deny(); }
-          const [result] = await tx.$queryRaw<RecordRow[]>`SELECT * FROM public.host_evidence_record_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${event.eventId},${event.input.entry},${event.input.text},${event.receivedAt},${event.input.idempotency_key},${event.inputDigest})`;
+          const [result] = await tx.$queryRaw<RecordRow[]>`SELECT * FROM public.host_evidence_record_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${event.eventId},${event.input.entry},${event.input.text},${event.receivedAt},${keyToken},${event.inputDigest})`;
           if (!result || result.disposition === "denied") return deny();
           if (result.disposition === "deleted") throw new EvidenceBoundaryError("EVIDENCE_DELETED");
           if (result.disposition === "conflict") throw new EvidenceBoundaryError("EVENT_KEY_CONFLICT");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { prepareEvidenceEvent } from "../../../src/server/decision-context/host-runtime/evidence-event";
+import { evidenceKeyToken, prepareEvidenceEvent } from "../../../src/server/decision-context/host-runtime/evidence-event";
 
 describe("host evidence event preparation", () => {
   const principal = { userId: "user-a", sessionId: "session-a" };
@@ -24,5 +24,16 @@ describe("host evidence event preparation", () => {
     expect(() => prepareEvidenceEvent(principal, "../trip", "workspace-a", data, new Date())).toThrow();
     expect(() => prepareEvidenceEvent(principal, "trip-a", "workspace-a", data, new Date(NaN))).toThrow();
     expect(() => prepareEvidenceEvent({ ...principal, sessionId: "" }, "trip-a", "workspace-a", data, new Date())).toThrow();
+  });
+  it("uses a keyed, scope-bound opaque token instead of retaining a sensitive idempotency key", () => {
+    const scope = { ownerId: "user-a", tripId: "trip-a", workspaceKey: "workspace-a" };
+    const secret = "s".repeat(32), key = "涉及隐私的原话";
+    const token = evidenceKeyToken(secret, scope, key);
+    expect(token).toMatch(/^[0-9a-f]{64}$/);
+    expect(token).not.toContain(key);
+    expect(evidenceKeyToken(secret, scope, key)).toBe(token);
+    expect(evidenceKeyToken(secret, { ...scope, workspaceKey: "workspace-b" }, key)).not.toBe(token);
+    expect(evidenceKeyToken("x".repeat(32), scope, key)).not.toBe(token);
+    expect(() => evidenceKeyToken("short", scope, key)).toThrow();
   });
 });

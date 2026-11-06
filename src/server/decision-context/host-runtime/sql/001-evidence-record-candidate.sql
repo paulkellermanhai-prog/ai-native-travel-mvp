@@ -5,6 +5,7 @@ CREATE TABLE public."HostEvidenceWorkspace" (
   owner_id TEXT NOT NULL CHECK (char_length(owner_id) BETWEEN 1 AND 256),
   trip_id TEXT NOT NULL CHECK (trip_id ~ '^[A-Za-z][A-Za-z0-9_-]{0,95}$'),
   workspace_key TEXT NOT NULL CHECK (workspace_key ~ '^[A-Za-z][A-Za-z0-9_-]{0,95}$'),
+  session_ref TEXT NOT NULL CHECK (char_length(session_ref) BETWEEN 1 AND 256),
   retention_revision BIGINT NOT NULL DEFAULT 0 CHECK (retention_revision BETWEEN 0 AND 9007199254740991),
   PRIMARY KEY (owner_id,trip_id,workspace_key)
 );
@@ -20,11 +21,11 @@ CREATE TABLE public."HostEvidenceEvent" (
   body TEXT CHECK (body IS NULL OR char_length(body) BETWEEN 1 AND 16000),
   received_at TIMESTAMPTZ(6) NOT NULL,
   recorded_at TIMESTAMPTZ(6) NOT NULL DEFAULT clock_timestamp(),
-  idempotency_key TEXT NOT NULL CHECK (char_length(idempotency_key) BETWEEN 1 AND 256),
+  key_token TEXT NOT NULL CHECK (key_token ~ '^[0-9a-f]{64}$'),
   input_digest TEXT CHECK (input_digest IS NULL OR input_digest ~ '^[0-9a-f]{64}$'),
   policy TEXT NOT NULL CHECK (policy = 'DC-AC8-PRIVACY-01'),
   deleted_at TIMESTAMPTZ(6),
-  UNIQUE (owner_id, trip_id, workspace_key, idempotency_key),
+  UNIQUE (owner_id, trip_id, workspace_key, key_token),
   FOREIGN KEY (owner_id,trip_id,workspace_key) REFERENCES public."HostEvidenceWorkspace" (owner_id,trip_id,workspace_key),
   CHECK (deleted_at IS NOT NULL OR (body IS NOT NULL AND input_digest IS NOT NULL AND session_ref IS NOT NULL))
 );
@@ -45,7 +46,7 @@ CREATE FUNCTION public.host_evidence_workspace_candidate(p_session TEXT,p_owner 
 RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 BEGIN
   IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN RETURN FALSE; END IF;
-  INSERT INTO public."HostEvidenceWorkspace" (owner_id,trip_id,workspace_key) VALUES (p_owner,p_trip,p_workspace);
+  INSERT INTO public."HostEvidenceWorkspace" (owner_id,trip_id,workspace_key,session_ref) VALUES (p_owner,p_trip,p_workspace,p_session);
   RETURN TRUE;
 END;
 $$;
@@ -64,21 +65,21 @@ BEGIN
     RETURN QUERY SELECT 'denied'::TEXT, NULL::TEXT, NULL::BIGINT, NULL::TIMESTAMPTZ;
     RETURN;
   END IF;
-  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace FOR SHARE;
+  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND session_ref=p_session FOR SHARE;
   IF NOT FOUND THEN
     RETURN QUERY SELECT 'denied'::TEXT, NULL::TEXT, NULL::BIGINT, NULL::TIMESTAMPTZ;
     RETURN;
   END IF;
-  INSERT INTO public."HostEvidenceEvent" (owner_id,trip_id,workspace_key,event_id,session_ref,entry,body,received_at,idempotency_key,input_digest,policy)
+  INSERT INTO public."HostEvidenceEvent" (owner_id,trip_id,workspace_key,event_id,session_ref,entry,body,received_at,key_token,input_digest,policy)
     VALUES (p_owner,p_trip,p_workspace,p_event,p_session,p_entry,p_body,p_received,p_key,p_digest,'DC-AC8-PRIVACY-01')
-    ON CONFLICT (owner_id,trip_id,workspace_key,idempotency_key) DO NOTHING
+    ON CONFLICT (owner_id,trip_id,workspace_key,key_token) DO NOTHING
     RETURNING * INTO e;
   IF FOUND THEN
     RETURN QUERY SELECT 'inserted'::TEXT, e.event_id, e.sequence, e.recorded_at;
     RETURN;
   END IF;
   SELECT * INTO e FROM public."HostEvidenceEvent" WHERE owner_id=p_owner AND trip_id=p_trip
-    AND workspace_key=p_workspace AND idempotency_key=p_key FOR UPDATE;
+    AND workspace_key=p_workspace AND key_token=p_key FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'event receipt unavailable'; END IF;
   IF e.deleted_at IS NOT NULL THEN
     RETURN QUERY SELECT 'deleted'::TEXT, NULL::TEXT, NULL::BIGINT, NULL::TIMESTAMPTZ;
@@ -101,7 +102,7 @@ BEGIN
   IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
     RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN; RETURN;
   END IF;
-  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace FOR UPDATE;
+  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND session_ref=p_session FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN; RETURN; END IF;
   SELECT * INTO e FROM public."HostEvidenceEvent" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND event_id=p_event FOR UPDATE;
   IF NOT FOUND THEN RETURN QUERY SELECT 'missing'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN; RETURN; END IF;
