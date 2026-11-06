@@ -68,6 +68,8 @@ jobs:
           npm run contracts:check
       - name: Verify proposed DC 0.1 calibration offline
         run: '"$TRIP_STATE_PYTHON" scripts/check-dc-calibration.py'
+      - name: Verify separate DC-AC8 R6 source snapshot
+        run: '"$TRIP_STATE_PYTHON" scripts/check-dc-ac8-r6.py'
       - name: Audit E03-00 baseline and original reference availability
         env:
           E03_00_EVIDENCE_PATH: ${{ runner.temp }}/e03-00-reference-audit.json
