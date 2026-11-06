@@ -12,10 +12,10 @@ export const traces = JSON.parse(fs.readFileSync(`${source}/examples/scenario-tr
 export const scenario = traces[0];
 export const clock = () => new Date("2030-01-01T00:00:00Z");
 export function uuids(start = 1000) { let counter = start; return () => (counter++).toString(16).padStart(32, "0"); }
-export function oracle<T>(payload: unknown): T {
+export function oracle<T>(payload: unknown, sourceRoot?: string): T {
   return JSON.parse(execFileSync(process.env.TRIP_STATE_PYTHON ?? "python3", ["tests/support/command-oracle.py"], {
     input: JSON.stringify(payload), encoding: "utf8", timeout: 20000, maxBuffer: 16 * 1024 * 1024,
-    env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },
+    env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1", ...(sourceRoot ? { TRIP_STATE_SOURCE_ROOT: sourceRoot } : {}) },
   })) as T;
 }
 export function requestAt(step: number, revision: number, key = `extension-${step}`): CommandRequest {

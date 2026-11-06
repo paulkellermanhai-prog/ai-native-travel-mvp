@@ -11,6 +11,7 @@ import { issueInternalCapability, openInternalTripService } from "../../src/serv
 import { openSyntheticStorageHarness, openTripStateReader, openTripCommandService } from "../../src/server/trip-state/internal/persistence";
 import { grantIdentityRuntime } from "../../scripts/grant-identity-runtime.mjs";
 import { requestAt } from "../support/command-fixtures";
+import { readContextSelection } from "../../src/server/decision-context/context-read";
 
 const file = process.env.E02_STORAGE_ENV_FILE;
 const cfg = file ? JSON.parse(fs.readFileSync(file, "utf8")) as { authUrl: string; migrationUrl: string; runtimeUrl: string; database: string } : null;
@@ -400,6 +401,24 @@ describe.skipIf(!cfg?.authUrl)("E02-05A real password, database Session and live
     const stale=goal();stale.idempotency_key="fresh-stale-key";const conflict=await f.service.submit(f.tripId,stale,f.a.headers);
     expect(conflict).toMatchObject({outcome:"conflict",revision:1,errors:[{code:"VERSION_CONFLICT"}]});
     expect((await owner.query('SELECT count(*)::int AS n FROM "TripStateHistory" WHERE "tripId"=$1',[f.tripId])).rows[0].n).toBe(1);
+  });
+
+  it("DC reads an authorized single TS revision even if another member commits after the snapshot", async () => {
+    const f=await setup(), b=await account(f.identity);
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    expect(await f.service.submit(f.tripId,goal(),f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+    let snapshotReads=0;
+    const interleaved={state:async (tripId:string,credential:unknown)=>{
+      snapshotReads++;const state=await f.service.state(tripId,credential);
+      expect(await f.service.submit(f.tripId,requestAt(2,1,`dc-activate-${crypto.randomUUID()}`),b.headers)).toMatchObject({outcome:"applied",revision:2});
+      return state;
+    }};
+    const before=await readContextSelection(interleaved,f.tripId,f.a.headers,[]);
+    expect(snapshotReads).toBe(1);expect(before).toMatchObject({trip_id:f.tripId,revision:1,selected_object_ids:[]});
+    const after=await readContextSelection(f.service,f.tripId,f.a.headers,[]);
+    expect(after).toMatchObject({trip_id:f.tripId,revision:2,selected_object_ids:["goal-new"],assembled_from_versions:[{id:"goal-new",version:2}]});
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(readContextSelection(f.service,f.tripId,f.a.headers,[])).rejects.toMatchObject({code:"PERMISSION"});
   });
 
 });
