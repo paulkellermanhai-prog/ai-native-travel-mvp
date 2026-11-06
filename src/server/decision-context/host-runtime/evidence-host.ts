@@ -172,6 +172,13 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     if (current.ownerId !== scope.ownerId || current.sessionId !== scope.sessionId) return deny();
     return { scope, headers: current.headers };
   }
+  async function taskSourcesCurrent(tx:Prisma.TransactionClient,scope:Scope,taskToken:string,sources:Map<string,string>) {
+    if(sources.size<1||sources.size>256)return unavailable();
+    for(const [eventId,eventToken] of sources){
+      const [row]=await tx.$queryRaw<Array<{ok:boolean}>>`SELECT public.host_evidence_task_source_current_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${taskToken},${eventId},${eventToken}) AS ok`;
+      if(!row?.ok)return unavailable();
+    }
+  }
   /** Rebuild from the authorized event and caller-supplied task; no Task text is cached. */
   async function packetFromCurrent(tx:Prisma.TransactionClient,scope:Scope,headers:Headers,raw:unknown,turnId:string,taskHash:string,budget:number,seed?:PacketMemory) {
     const input=identityInput.safeParse(raw); if(!input.success)return unavailable();
@@ -203,6 +210,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     if(body.expected_revision!==registered.result.revision||createHmac("sha256",keySecret!).update(canonicalJson(body),"utf8").digest("hex")!==registered.digest)return unavailable();
     const task=body.tasks.find(item=>taskIndex(scope,item.task_key)===taskHash),current=scope.tasks.get(taskHash);
     if(!task||!current||current.incomplete||current.retentionRevision!==scope.deletionRevision||current.fingerprint!==taskFingerprint(scope,task))return unavailable();
+    await taskSourcesCurrent(tx,scope,taskHash,current.sources);
     if(seed&&(seed.runtimeId!==scope.runtimeId||(!seed.warning&&(scope.pendingSaveSticky||scope.pendingSaves.size>0||scope.inflightSaves>0))))return unavailable();
     const at=seed?new Date(seed.at):new Date(),assembly=assembleContextSnapshot(state,task.task_key,task.target_ids,at);
     if(seed)assembly.context.id=seed.contextId;
@@ -214,6 +222,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     checkPacketTurn(candidate,turn,pending);if(seed)seed.tracker.revalidate(candidate);
     const recheck=async()=>{
       for(const [id,key] of registered.sources)await read(id,key,true);
+      await taskSourcesCurrent(tx,scope,taskHash,current.sources);
       try {await host.guard!(scope.tripId,headers,tx);} catch{return deny();}
       validateContextSnapshot(assembly,state,new Date());
       const started=process.hrtime.bigint(),startedWall=Date.now();
@@ -415,7 +424,10 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           return { replay: null, body: checked, fingerprint, retentionRevision };
         });
         if (closed) return unavailable();
-        if (result.replay) {rememberTurn(scope,result.replay.turn_id,parsed.data);return { ...structuredClone(result.replay), runtime_id: scope.runtimeId };}
+        if (result.replay) {
+          if(result.replay.task_keys.some(key=>scope.tasks.get(taskIndex(scope,key))?.incomplete!==false))return unavailable();
+          rememberTurn(scope,result.replay.turn_id,parsed.data);return { ...structuredClone(result.replay), runtime_id: scope.runtimeId };
+        }
         const checked = result.body!;
         const registration: Registration = { turn_id:proposedTurnId, revision:checked.expected_revision, task_keys:checked.tasks.map(task => task.task_key), focus_keys:[...checked.focus_keys] };
         const sources = new Map<string,string>([[proof.eventId,proof.token]]);
@@ -426,7 +438,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           for (const [id,token] of taskSources) sources.set(id,token);
           scope.tasks.set(taskIndex(scope,task.task_key),{ kind:task.kind, branch:task.branch, progress:task.progress, sources:taskSources, incomplete:false, fingerprint:taskFingerprint(scope,task), eventSequence:receipt.sequence, retentionRevision:result.retentionRevision });
         }
-        scope.turns.set(proof.eventId,{ digest:result.fingerprint, result:{turn_id:registration.turn_id,revision:registration.revision}, sources, sequence:receipt.sequence });
+        scope.turns.set(proof.eventId,{ digest:result.fingerprint, result:{turn_id:registration.turn_id,revision:registration.revision}, sources,sequence:receipt.sequence });
         rememberTurn(scope,registration.turn_id,parsed.data);
         return { ...registration, runtime_id: scope.runtimeId };
       });
@@ -519,15 +531,9 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
           return rows;
         });
-        const revision=counter(results.at(-1)!.out_retention_revision);
-        if(revision>scope.deletionRevision){
-          invalidatePackets(scope);clearTurnLeases(scope);scope.leaseKey=randomBytes(32);
-          scope.runtimeId=`runtime-${randomUUID().replaceAll("-","")}`;
-          for(const memory of scope.tasks.values())memory.incomplete=true;
-          for(const eventId of scope.turns.keys())scope.invalidTurns.add(eventId);
-          scope.pendingSaves.clear();scope.pendingSaveSticky=true;
-          scope.deletionRevision=revision;
-        }
+        const revision=counter(results.at(-1)!.out_retention_revision),affected=new Set(checked.map(item=>item.taskToken));
+        for(const token of affected){const memory=scope.tasks.get(token);if(memory)memory.incomplete=true;}
+        for(const packet of [...scope.packets.values()])if(affected.has(packet.taskHash))packet.invalidate();
         return results.map((row,index)=>({action:"unlink" as const,task_key:commands[index].task_key,event_id:commands[index].event_id,
           association_revision:counter(row.out_association_revision),retention_revision:revision,
           replayed:row.disposition==="replayed"}));
@@ -651,6 +657,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
             const task=body.tasks.find(item=>item.task_key===request.task_key),current=scope.tasks.get(taskIndex(scope,request.task_key));
             if (!task || !current || current.incomplete || current.retentionRevision!==scope.deletionRevision ||
                 current.fingerprint!==taskFingerprint(scope,task)) return unavailable();
+            const taskToken=taskIndex(scope,request.task_key);await taskSourcesCurrent(tx,scope,taskToken,current.sources);
             const turn=parseDCContract("turn",{runtime_contract_version:"0.1.0",runtime_id:scope.runtimeId,turn_id:registered.result.turn_id,
               revision:registered.result.revision,tasks:body.tasks,focus_keys:body.focus_keys,checkpoint_ack:null});
             const pending={event:{event_id:eventId,entry:source.out_entry,text:source.out_body,reference:`host-interaction:${eventId}`,received_at:source.out_received_at.toISOString()},
@@ -661,6 +668,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
             checkPacketTurn(candidate,turn,pending);
             const recheck=async()=> {
               for (const [id,token] of registered.sources) await read(id,token,true);
+              await taskSourcesCurrent(tx,scope,taskToken,current.sources);
               try { await host.guard!(scope.tripId,headers,tx); } catch { return deny(); }
               validateContextSnapshot(assembly,state,new Date());
             };
@@ -782,6 +790,11 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           tasks:parsed.data.tasks,focus_keys:parsed.data.focus_keys});
         if(createHmac("sha256",keySecret!).update(canonicalJson(body),"utf8").digest("hex")!==registered.digest||
           canonicalJson([turn.tasks,turn.focus_keys])!==canonicalJson([body.tasks,body.focus_keys]))return unavailable();
+        for(const task of body.tasks){
+          const token=taskIndex(scope,task.task_key),current=scope.tasks.get(token);
+          if(!current||current.incomplete||current.retentionRevision!==scope.deletionRevision||current.fingerprint!==taskFingerprint(scope,task))return unavailable();
+          await taskSourcesCurrent(tx,scope,token,current.sources);
+        }
         try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
         checkTurnLease(scope,turn.turn_id,lease.id);
         const bytes=Buffer.from(JSON.stringify(turn),"utf8");
