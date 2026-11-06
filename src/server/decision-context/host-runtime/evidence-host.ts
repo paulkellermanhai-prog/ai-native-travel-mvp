@@ -13,13 +13,14 @@ import { parseDCContract } from "../contracts";
 import { canonicalJson, decodeCommandJson, digest } from "../../trip-state/command-json";
 import { CheckpointError, checkpointDigest, validateCheckpoint } from "../checkpoint-core";
 import type { CheckpointPayload } from "../contracts.generated";
+import { classifyRecovery } from "../recovery-core";
 import { parseStateReferences } from "../../trip-state/references";
 import { checkStateCounters } from "../../trip-state/numbers";
 
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
 type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>; incomplete: boolean; fingerprint: string };
-type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string; capability: string;
-  tasks: Map<string, TaskMemory>;
+type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string; capability: string; runtimeId: string;
+  recoveredEvents: Set<string>; recoveryWatermark: number | null; tasks: Map<string, TaskMemory>;
   turns: Map<string, { digest: string; result: Pick<Registration,"turn_id"|"revision">; sources: Map<string,string> }>;
   invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; disposed: boolean; tail: Promise<void> };
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
@@ -41,7 +42,8 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void> }) {
+  if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
   if (typeof keySecret !== "string" || Buffer.byteLength(keySecret, "utf8") < 32) return unavailable();
@@ -54,8 +56,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     const [evidenceRole] = await db.$queryRaw<Array<{ denied: boolean }>>`
       WITH principals AS (SELECT oid FROM pg_roles WHERE pg_has_role(current_user,oid,'USAGE') OR pg_has_role(current_user,oid,'SET')),
       evidence_tables AS (SELECT c.oid,c.relowner FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
-        WHERE n.nspname='public' AND c.relname IN ('HostEvidenceWorkspace','HostEvidenceEvent','HostEvidenceCleanup','HostEvidenceTripLifecycle','HostEvidenceTaskSource') AND c.relkind='r')
-      SELECT (SELECT count(*) FROM evidence_tables) <> 5 OR EXISTS (
+        WHERE n.nspname='public' AND c.relname IN ('HostEvidenceWorkspace','HostEvidenceEvent','HostEvidenceCleanup','HostEvidenceTripLifecycle','HostEvidenceTaskSource','HostEvidenceScene') AND c.relkind='r')
+      SELECT (SELECT count(*) FROM evidence_tables) <> 6 OR EXISTS (
         SELECT 1 FROM evidence_tables c CROSS JOIN principals p WHERE c.relowner=p.oid
           OR has_table_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,DELETE,TRUNCATE,REFERENCES,TRIGGER,MAINTAIN')
           OR has_any_column_privilege(p.oid,c.oid,'SELECT,INSERT,UPDATE,REFERENCES')) OR EXISTS (
@@ -78,7 +80,6 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   } catch (error) { await Promise.all([db.$disconnect(), identity.close()]); throw error; }
   const host = sessionHost(identity), workspaces = new WeakMap<object, Scope>(), eventProofs = new WeakMap<object, { scope: Scope; eventId: string; token: string }>();
   const activeScopes = new Set<Scope>();
-  const runtimeId = `runtime_${randomUUID()}`;
   let closed = false;
   // Task keys may contain user text; retain only a keyed, scope-bound index.
   const taskIndex = (scope: Scope, key: string) => createHmac("sha256",keySecret).update("task-identity\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,key]),"utf8").digest("hex");
@@ -114,7 +115,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
       const p = await authorized(tripId, credential);
-      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), disposed:false, tail: Promise.resolve() };
+      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), disposed:false, tail: Promise.resolve() };
       try {
         await db.$transaction(async tx => {
           try { await host.guard!(tripId, p.headers, tx); } catch { return deny(); }
@@ -126,11 +127,14 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       const ticket = Object.freeze({}); workspaces.set(ticket, scope); activeScopes.add(scope); return ticket;
     },
     async record(ticket: object, credential: Headers, value: unknown): Promise<EventReceipt> {
+      const startingScope = ticket && typeof ticket === "object" ? workspaces.get(ticket) : undefined;
+      const startingRuntime = startingScope?.runtimeId, receivedAt=new Date();
       let snapshot: unknown; try { snapshot=structuredClone(value); } catch { return unavailable(); }
       const { scope, headers } = await scoped(ticket, credential);
-      const event = prepareEvidenceEvent({ userId: scope.ownerId, sessionId: scope.sessionId }, scope.tripId, scope.workspaceKey, snapshot, new Date());
+      if (scope!==startingScope) return deny();
+      const event = prepareEvidenceEvent({ userId: scope.ownerId, sessionId: scope.sessionId }, scope.tripId, scope.workspaceKey, snapshot, receivedAt);
       const keyToken = evidenceKeyToken(keySecret, scope, event.input.idempotency_key);
-      return exclusive(scope, async () => { try {
+      return exclusive(scope, async () => { if (scope.runtimeId!==startingRuntime) return unavailable(); try {
         const row = await db.$transaction(async tx => {
           try { await host.guard!(scope.tripId, headers, tx); } catch { return deny(); }
           const [result] = await tx.$queryRaw<RecordRow[]>`SELECT * FROM public.host_evidence_record_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${event.eventId},${event.input.entry},${event.input.text},${event.receivedAt},${keyToken},${event.inputDigest})`;
@@ -180,6 +184,9 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       if (!proof || proof.scope !== scope) return deny();
       const parsed = identityInput.safeParse(snapshot); if (!parsed.success) return unavailable();
       return exclusive(scope, async () => {
+        if (eventProofs.get(receipt) !== proof) return deny();
+        if (scope.recoveredEvents.has(proof.eventId) || (scope.recoveryWatermark!==null && receipt.sequence<=scope.recoveryWatermark))
+          throw new CheckpointError("RECOVERED_EVENT_REPLAY");
         if (closed || scope.invalidTurns.has(proof.eventId)) return unavailable();
         const result = await db.$transaction(async tx => {
           const [document] = await tx.$queryRaw<Array<{ revision: bigint; snapshot: string }>>`SELECT "revision", "snapshot"::text AS snapshot FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
@@ -235,7 +242,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           return { replay: null, body: checked, fingerprint };
         });
         if (closed) return unavailable();
-        if (result.replay) return { ...structuredClone(result.replay), runtime_id: runtimeId };
+        if (result.replay) return { ...structuredClone(result.replay), runtime_id: scope.runtimeId };
         const checked = result.body!;
         const registration: Registration = { turn_id:`turn_${randomUUID()}`, revision:checked.expected_revision, task_keys:checked.tasks.map(task => task.task_key), focus_keys:[...checked.focus_keys] };
         const sources = new Map<string,string>([[proof.eventId,proof.token]]);
@@ -247,7 +254,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           scope.tasks.set(taskIndex(scope,task.task_key),{ kind:task.kind, branch:task.branch, progress:task.progress, sources:taskSources, incomplete:false, fingerprint:taskFingerprint(scope,task) });
         }
         scope.turns.set(proof.eventId,{ digest:result.fingerprint, result:{turn_id:registration.turn_id,revision:registration.revision}, sources });
-        return { ...registration, runtime_id: runtimeId };
+        return { ...registration, runtime_id: scope.runtimeId };
       });
     },
     /**
@@ -256,9 +263,13 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
      * This does not install a recovered scene or expose checkpoint payloads.
      */
     async saveCheckpoint(ticket: object, credential: Headers, input: unknown, expectedRevision: number, operationKey: string) {
+      const startingScope=ticket && typeof ticket === "object" ? workspaces.get(ticket) : undefined;
+      const startingRuntime=startingScope?.runtimeId;
       let snapshot: unknown; try { snapshot=structuredClone(input); } catch { throw new CheckpointError("CONTRACT_INVALID"); }
       const { scope, headers } = await scoped(ticket, credential);
+      if (scope!==startingScope) return deny();
       return exclusive(scope, async () => {
+        if (scope.runtimeId!==startingRuntime) throw new CheckpointError("RECOVERY_UNAVAILABLE");
         if (!Number.isSafeInteger(expectedRevision) || expectedRevision < 0 || typeof operationKey !== "string" || !operationKey || operationKey.length > 256)
           throw new CheckpointError("CHECKPOINT_POLICY");
         const captured = snapshot as Partial<CheckpointPayload>;
@@ -271,13 +282,14 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           if (!registered || registered.incomplete || registered.fingerprint !== taskFingerprint(scope,row.task)) throw new CheckpointError("RECOVERY_UNAVAILABLE");
         }
         const requestDigest=digest({expected_revision:expectedRevision,payload,deleted:false});
+        const keyToken=createHmac("sha256",keySecret).update("checkpoint-key\0").update(canonicalJson([scope.ownerId,scope.tripId,scope.workspaceKey,operationKey]),"utf8").digest("hex");
         const payloadDigest=checkpointDigest(payload), now=new Date().toISOString();
         let commitSent=false;
         try {
           const value=await db.$transaction(async tx => {
             await tx.$queryRaw`SELECT 1 FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
             try { await host.guard!(scope.tripId,headers,tx); } catch { return deny(); }
-            const [row]=await tx.$queryRaw<Array<{value:{fault?:string;ack?:unknown}}>>`SELECT public.host_checkpoint_save_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${BigInt(expectedRevision)},${operationKey},${requestDigest},${JSON.stringify(payload)}::jsonb,${payloadDigest},${now},${null}) AS value`;
+            const [row]=await tx.$queryRaw<Array<{value:{fault?:string;ack?:unknown}}>>`SELECT public.host_checkpoint_save_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${BigInt(expectedRevision)},${keyToken},${requestDigest},${JSON.stringify(payload)}::jsonb,${payloadDigest},${now},${null}) AS value`;
             if (!row?.value) throw new CheckpointError("CHECKPOINT_STORAGE");
             if (row.value.fault) throw new CheckpointError(row.value.fault);
             const parsed=parseDCContract("scene-ack",{runtime_contract_version:"0.1.0",ack:row.value.ack});
@@ -289,6 +301,62 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         } catch(error) {
           if (error instanceof CheckpointError || error instanceof EvidenceBoundaryError) throw error;
           throw new CheckpointError(commitSent ? "CHECKPOINT_ACK_UNKNOWN" : "CHECKPOINT_STORAGE");
+        }
+      });
+    },
+    /**
+     * Internal same-process installation candidate. No original text, Packet,
+     * Grant or scene-restored response crosses this method. A new authenticated
+     * event is required before an installed task can be used for a new turn.
+     */
+    async restoreCheckpoint(ticket: object, credential: Headers) {
+      const { scope, headers }=await scoped(ticket,credential);
+      return exclusive(scope,async()=> {
+        try {
+          const restored=await db.$transaction(async tx=> {
+            const [document]=await tx.$queryRaw<Array<{revision:bigint;snapshot:string}>>`SELECT "revision", "snapshot"::text AS snapshot FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+            try { await host.guard!(scope.tripId,headers,tx); } catch { return deny(); }
+            if (!document) return deny();
+            const [row]=await tx.$queryRaw<Array<{value:{fault?:string;revision?:number;payload_digest?:string;payload?:unknown;sources?:unknown;event_highwater?:number}}>>`SELECT public.host_checkpoint_read_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability}) AS value`;
+            if (!row?.value) throw new CheckpointError("CHECKPOINT_STORAGE");
+            if (row.value.fault) throw new CheckpointError(row.value.fault);
+            const state=parseStateReferences(decodeCommandJson(document.snapshot)); checkStateCounters(state);
+            if (state.trip_id!==scope.tripId || BigInt(state.revision)!==document.revision) throw new CheckpointError("REVISION_CHANGED");
+            const payload=validateCheckpoint(row.value.payload,scope.tripId,state.revision);
+            if (typeof row.value.payload_digest!=="string" || checkpointDigest(payload)!==row.value.payload_digest ||
+                !Number.isSafeInteger(row.value.revision) || !Number.isSafeInteger(row.value.event_highwater) || row.value.event_highwater!<0 || !Array.isArray(row.value.sources)) throw new CheckpointError("CHECKPOINT_CORRUPT");
+            const sourceShape=z.strictObject({task_token:z.string().regex(/^[0-9a-f]{64}$/),event_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),event_token:z.string().regex(/^[0-9a-f]{64}$/)});
+            const sourceRows=z.array(sourceShape).safeParse(row.value.sources);
+            if (!sourceRows.success) throw new CheckpointError("CHECKPOINT_CORRUPT");
+            const installed=new Map<string,TaskMemory>();
+            for (const item of payload.tasks) {
+              const token=taskIndex(scope,item.task.task_key), sources=new Map<string,string>();
+              for (const source of sourceRows.data) if (source.task_token===token) sources.set(source.event_id,source.event_token);
+              if (!sources.has(item.event.event_id)) throw new CheckpointError("RECOVERY_UNAVAILABLE");
+              installed.set(token,{kind:item.task.kind,branch:item.task.branch,progress:item.task.progress,sources,incomplete:false,fingerprint:taskFingerprint(scope,item.task)});
+            }
+            const classified=classifyRecovery(payload,state);
+            await testHooks?.beforeRestoreRecheck?.();
+            const [recheck]=await tx.$queryRaw<Array<{value:{fault?:string;revision?:number}}>>`SELECT public.host_checkpoint_inspect_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability}) AS value`;
+            if (!recheck?.value) throw new CheckpointError("CHECKPOINT_STORAGE");
+            if (recheck.value.fault) throw new CheckpointError(recheck.value.fault);
+            if (recheck.value.revision!==row.value.revision) throw new CheckpointError("CHECKPOINT_CONFLICT");
+            return { installed,eventIds:payload.tasks.map(item=>item.event.event_id),checkpointRevision:row.value.revision!,
+              savedRevision:classified.saved_state_revision,currentRevision:classified.current_state_revision,taskCount:payload.tasks.length,watermark:row.value.event_highwater! };
+          });
+          await testHooks?.afterRestoreCommit?.();
+          if (closed || scope.disposed) return deny();
+          // Atomic within this host's per-workspace executor. Cross-process
+          // delivery and the real Packet/Grant host remain separately gated.
+          const runtimeId=`runtime-${randomUUID().replaceAll("-","")}`;
+          for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
+          scope.receipts.clear(); scope.replayReceipts.clear(); scope.turns.clear(); scope.invalidTurns.clear();
+          scope.recoveredEvents=new Set(restored.eventIds); scope.recoveryWatermark=restored.watermark; scope.tasks=restored.installed; scope.runtimeId=runtimeId;
+          return {runtime_id:runtimeId,checkpoint_revision:restored.checkpointRevision,saved_state_revision:restored.savedRevision,
+            current_state_revision:restored.currentRevision,restored_task_count:restored.taskCount};
+        } catch(error) {
+          if (error instanceof CheckpointError || error instanceof EvidenceBoundaryError) throw error;
+          throw new CheckpointError("CHECKPOINT_STORAGE");
         }
       });
     },
@@ -318,7 +386,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       await exclusive(scope,async()=> {
         scope.disposed=true; scope.capability="";
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
-        scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear();
+        scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null;
         workspaces.delete(ticket); activeScopes.delete(scope);
       });
     },
@@ -327,7 +395,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       for (const scope of activeScopes) {
         scope.disposed=true; scope.capability="";
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
-        scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear();
+        scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null;
       }
       activeScopes.clear(); await Promise.all([db.$disconnect(), identity.close()]);
     },

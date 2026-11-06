@@ -75,7 +75,7 @@ BEGIN
     RETURN QUERY SELECT 'denied'::TEXT, NULL::TEXT, NULL::BIGINT, NULL::TIMESTAMPTZ;
     RETURN;
   END IF;
-  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND session_ref=p_session AND capability_token=p_capability FOR SHARE;
+  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND session_ref=p_session AND capability_token=p_capability FOR UPDATE;
   IF NOT FOUND THEN
     RETURN QUERY SELECT 'denied'::TEXT, NULL::TEXT, NULL::BIGINT, NULL::TIMESTAMPTZ;
     RETURN;
@@ -160,6 +160,20 @@ CREATE TABLE public."HostEvidenceTaskSource" (
   FOREIGN KEY(owner_id,trip_id,workspace_key) REFERENCES public."HostEvidenceWorkspace"(owner_id,trip_id,workspace_key)
 );
 REVOKE ALL ON public."HostEvidenceTaskSource" FROM PUBLIC;
+
+-- E11-owned scene companion, not a Checkpoint or Trip State table. It is
+-- isolated and retains the same source/retention barriers as the event store.
+-- This candidate has no expiry scheduler, production migration or grant.
+CREATE TABLE public."HostEvidenceScene" (
+  owner_id TEXT NOT NULL, trip_id TEXT NOT NULL, workspace_key TEXT NOT NULL,
+  scene_ref TEXT NOT NULL CHECK (scene_ref ~ '^[0-9a-f]{64}$'),
+  checkpoint_revision BIGINT NOT NULL CHECK (checkpoint_revision BETWEEN 1 AND 9007199254740991),
+  payload_digest TEXT NOT NULL CHECK (payload_digest ~ '^[0-9a-f]{64}$'),
+  payload JSONB NOT NULL,
+  PRIMARY KEY(owner_id,trip_id,workspace_key), UNIQUE(scene_ref),
+  FOREIGN KEY(owner_id,trip_id,workspace_key) REFERENCES public."HostEvidenceWorkspace"(owner_id,trip_id,workspace_key)
+);
+REVOKE ALL ON public."HostEvidenceScene" FROM PUBLIC;
 
 -- Only the trusted host calls this after validating the Task against the
 -- source and current state. The source is re-authorized and held to commit.

@@ -18,7 +18,7 @@ $$;
 REVOKE ALL ON FUNCTION public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
 
 CREATE FUNCTION public.host_checkpoint_sources_valid_candidate(
-  p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_payload JSONB
+  p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_payload JSONB,p_restore BOOLEAN DEFAULT FALSE
 ) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
 DECLARE item JSONB; src RECORD; task_hash TEXT; direct_ok BOOLEAN; count_sources INT;
   doc_revision BIGINT; doc_snapshot JSONB; actual_versions JSONB; supplied_versions JSONB; life public."HostEvidenceTripLifecycle"%ROWTYPE; checked_at TIMESTAMPTZ;
@@ -29,7 +29,7 @@ BEGIN
   PERFORM 1 FROM e03_checkpoint.heads WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace FOR UPDATE;
   SELECT "revision", "snapshot" INTO doc_revision,doc_snapshot FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
   IF jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR p_payload->>'trip_id' IS DISTINCT FROM p_trip OR
-     (p_payload->>'captured_state_revision')::BIGINT IS DISTINCT FROM doc_revision OR
+     (NOT p_restore AND (p_payload->>'captured_state_revision')::BIGINT IS DISTINCT FROM doc_revision) OR
      jsonb_typeof(p_payload->'tasks') IS DISTINCT FROM 'array' OR jsonb_array_length(p_payload->'tasks')=0 OR
      jsonb_typeof(p_payload->'drafts') IS DISTINCT FROM 'array' OR jsonb_array_length(p_payload->'drafts')<>0 OR
      jsonb_typeof(p_payload->'captured_object_versions') IS DISTINCT FROM 'array' OR
@@ -38,12 +38,12 @@ BEGIN
     INTO actual_versions FROM jsonb_array_elements(doc_snapshot->'objects') AS x(v);
   SELECT COALESCE(jsonb_agg(v ORDER BY v->>'id'),'[]'::JSONB) INTO supplied_versions
     FROM jsonb_array_elements(p_payload->'captured_object_versions') AS x(v);
-  IF supplied_versions IS DISTINCT FROM actual_versions THEN RETURN FALSE; END IF;
+  IF NOT p_restore AND supplied_versions IS DISTINCT FROM actual_versions THEN RETURN FALSE; END IF;
   FOR item IN SELECT value FROM jsonb_array_elements(p_payload->'tasks') LOOP
     IF jsonb_typeof(item->'task') IS DISTINCT FROM 'object' OR jsonb_typeof(item->'event') IS DISTINCT FROM 'object' OR
        jsonb_typeof(item->'errors') IS DISTINCT FROM 'array' OR jsonb_array_length(item->'errors')<>0 OR
        item->>'processing_status' IS DISTINCT FROM 'unprocessed' OR
-       (item->>'base_revision')::BIGINT IS DISTINCT FROM doc_revision OR (item->>'result_revision')::BIGINT IS DISTINCT FROM doc_revision THEN RETURN FALSE; END IF;
+       (item->>'base_revision')::BIGINT IS DISTINCT FROM (p_payload->>'captured_state_revision')::BIGINT OR (item->>'result_revision')::BIGINT IS DISTINCT FROM (p_payload->>'captured_state_revision')::BIGINT THEN RETURN FALSE; END IF;
     task_hash := encode(sha256(convert_to(p_capability || (item->'task')::text,'UTF8')),'hex');
     direct_ok := FALSE; count_sources := 0;
     FOR src IN SELECT e.*, b.event_token FROM public."HostEvidenceTaskSource" b
@@ -73,7 +73,7 @@ BEGIN
 EXCEPTION WHEN data_exception THEN RETURN FALSE;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,BOOLEAN) FROM PUBLIC;
 
 -- R6 allows a previously saved view to remain exactly as-is even if its
 -- targets later become historical. A new view must resolve against the locked
@@ -82,8 +82,9 @@ CREATE FUNCTION public.host_checkpoint_view_valid_candidate(p_owner TEXT,p_trip 
 RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
 DECLARE old_view JSONB; snap JSONB; ref JSONB; selected TEXT;
 BEGIN
-  SELECT payload->'view' INTO old_view FROM e03_checkpoint.heads
-    WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace AND NOT deleted;
+  SELECT e.payload->'view' INTO old_view FROM e03_checkpoint.heads h JOIN public."HostEvidenceScene" e
+    ON e.owner_id=p_owner AND e.trip_id=p_trip AND e.workspace_key=p_workspace AND e.scene_ref=h.payload->>'e11_scene_ref'
+    WHERE h.owner_id='user-'||p_owner AND h.trip_id=p_trip AND h.workspace=p_workspace AND NOT h.deleted;
   IF old_view IS NOT NULL AND old_view=p_view THEN RETURN TRUE; END IF;
   SELECT "snapshot" INTO snap FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
   IF jsonb_typeof(p_view) IS DISTINCT FROM 'object' OR jsonb_typeof(p_view->'comparison_refs') IS DISTINCT FROM 'array' OR
@@ -104,7 +105,7 @@ CREATE FUNCTION public.host_checkpoint_save_candidate(
   p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_expected BIGINT,p_key TEXT,
   p_request_digest TEXT,p_payload JSONB,p_payload_digest TEXT,p_saved_at TEXT,p_expires_at TEXT
 ) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
-DECLARE result JSONB;
+DECLARE result JSONB; v_ref TEXT; before_revision BIGINT; current_scene public."HostEvidenceScene"%ROWTYPE;
 BEGIN
   IF public.host_checkpoint_sources_valid_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,p_payload) IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE');
@@ -112,7 +113,29 @@ BEGIN
   IF public.host_checkpoint_view_valid_candidate(p_owner,p_trip,p_workspace,p_payload->'view') IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','SCENE_REFERENCES');
   END IF;
-  result := e03_checkpoint.write_scene('user-'||p_owner,p_trip,p_workspace,p_expected,p_key,p_request_digest,p_payload,p_payload_digest,p_saved_at,p_expires_at,FALSE);
+  SELECT revision INTO before_revision FROM e03_checkpoint.heads
+    WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace FOR UPDATE;
+  before_revision := COALESCE(before_revision,0);
+  v_ref := encode(sha256(convert_to(p_capability || p_key || p_payload_digest,'UTF8')),'hex');
+  -- The Checkpoint stores only a capability-derived reference. Original text
+  -- and task payload remain inside the restricted E11-owned scene companion.
+  result := e03_checkpoint.write_scene('user-'||p_owner,p_trip,p_workspace,p_expected,p_key,p_request_digest,
+    jsonb_build_object('e11_scene_ref',v_ref),p_payload_digest,p_saved_at,p_expires_at,FALSE);
+  IF result ? 'ack' THEN
+    IF before_revision=p_expected THEN
+      INSERT INTO public."HostEvidenceScene"(owner_id,trip_id,workspace_key,scene_ref,checkpoint_revision,payload_digest,payload)
+        VALUES(p_owner,p_trip,p_workspace,v_ref,p_expected+1,p_payload_digest,p_payload)
+        ON CONFLICT(owner_id,trip_id,workspace_key) DO UPDATE SET scene_ref=EXCLUDED.scene_ref,
+          checkpoint_revision=EXCLUDED.checkpoint_revision,payload_digest=EXCLUDED.payload_digest,payload=EXCLUDED.payload;
+    ELSE
+      SELECT * INTO current_scene FROM public."HostEvidenceScene"
+        WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace FOR SHARE;
+      IF NOT FOUND OR current_scene.scene_ref IS DISTINCT FROM v_ref OR current_scene.checkpoint_revision IS DISTINCT FROM (result->'ack'->>'checkpoint_revision')::BIGINT OR
+         current_scene.payload_digest IS DISTINCT FROM p_payload_digest OR current_scene.payload IS DISTINCT FROM p_payload THEN
+        RAISE EXCEPTION 'checkpoint companion mismatch' USING ERRCODE='23514';
+      END IF;
+    END IF;
+  END IF;
   IF public.host_checkpoint_sources_valid_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,p_payload) IS DISTINCT FROM TRUE THEN
     RAISE EXCEPTION 'checkpoint source expired during save' USING ERRCODE='42501';
   END IF;
@@ -121,28 +144,63 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT) FROM PUBLIC;
 
--- This bounded inspection returns metadata only. It intentionally does not
--- return payload or constitute a scene restoration / response delivery.
-CREATE FUNCTION public.host_checkpoint_inspect_candidate(
+-- Full snapshot is an internal trusted-host read only. It is never an HTTP
+-- response; callers must not publish it without the original E11 barrier.
+CREATE FUNCTION public.host_checkpoint_read_candidate(
   p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT
 ) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
-DECLARE saved JSONB;
+DECLARE saved JSONB; scene public."HostEvidenceScene"%ROWTYPE; sources JSONB; current_revision BIGINT; event_highwater BIGINT;
 BEGIN
   IF public.host_checkpoint_scope_candidate(p_session,p_owner,p_trip,p_workspace,p_capability) IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE');
   END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('user-'||p_owner,p_trip,p_workspace)::text,0));
   saved := e03_checkpoint.read_scene('user-'||p_owner,p_trip,p_workspace,clock_timestamp()::text);
-  -- A natural expiry or revocation while waiting may not expose even a fault.
   IF public.host_checkpoint_scope_candidate(p_session,p_owner,p_trip,p_workspace,p_capability) IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE');
   END IF;
   IF saved ? 'fault' THEN RETURN saved; END IF;
-  IF public.host_checkpoint_sources_valid_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,saved->'payload') IS DISTINCT FROM TRUE THEN
+  SELECT * INTO scene FROM public."HostEvidenceScene" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace
+    AND scene_ref=saved->'payload'->>'e11_scene_ref' FOR SHARE;
+  IF NOT FOUND OR scene.checkpoint_revision IS DISTINCT FROM (saved->>'revision')::BIGINT OR scene.payload_digest IS DISTINCT FROM saved->>'payload_digest' THEN
+    RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE');
+  END IF;
+  SELECT "revision" INTO current_revision FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
+  IF public.host_checkpoint_sources_valid_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,scene.payload,TRUE) IS DISTINCT FROM TRUE THEN
+    RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE');
+  END IF;
+  IF (scene.payload->>'captured_state_revision')::BIGINT > current_revision THEN RETURN jsonb_build_object('fault','STATE_BEHIND_CHECKPOINT'); END IF;
+  IF saved->>'expires_at' IS NOT NULL AND (saved->>'expires_at')::TIMESTAMPTZ <= clock_timestamp() THEN RETURN jsonb_build_object('fault','CHECKPOINT_EXPIRED'); END IF;
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('task_token',b.task_token,'event_id',b.event_id,'event_token',b.event_token) ORDER BY b.task_token,b.event_id),'[]'::JSONB)
+    INTO sources FROM public."HostEvidenceTaskSource" b
+    WHERE b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace AND EXISTS (
+      SELECT 1 FROM jsonb_array_elements(scene.payload->'tasks') AS x(item)
+      WHERE b.task_digest=encode(sha256(convert_to(p_capability || (x.item->'task')::text,'UTF8')),'hex'));
+  -- Hold all source locks through one final database-clock/auth recheck.
+  IF public.host_checkpoint_sources_valid_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,scene.payload,TRUE) IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE');
   END IF;
   IF saved->>'expires_at' IS NOT NULL AND (saved->>'expires_at')::TIMESTAMPTZ <= clock_timestamp() THEN RETURN jsonb_build_object('fault','CHECKPOINT_EXPIRED'); END IF;
-  RETURN jsonb_build_object('revision',saved->'revision','saved_at',saved->'saved_at','expires_at',saved->'expires_at');
+  -- Record takes the same workspace row FOR UPDATE; no in-flight earlier
+  -- event can commit beyond this snapshot while the shared lock is held.
+  SELECT COALESCE(MAX(sequence),0) INTO event_highwater FROM public."HostEvidenceEvent" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace;
+  IF public.host_checkpoint_sources_valid_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,scene.payload,TRUE) IS DISTINCT FROM TRUE THEN
+    RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE');
+  END IF;
+  IF saved->>'expires_at' IS NOT NULL AND (saved->>'expires_at')::TIMESTAMPTZ <= clock_timestamp() THEN RETURN jsonb_build_object('fault','CHECKPOINT_EXPIRED'); END IF;
+  RETURN (saved-'payload')||jsonb_build_object('payload',scene.payload,'sources',sources,'event_highwater',event_highwater);
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
+
+CREATE FUNCTION public.host_checkpoint_inspect_candidate(
+  p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT
+) RETURNS JSONB LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
+DECLARE saved JSONB;
+BEGIN
+  saved := public.host_checkpoint_read_candidate(p_session,p_owner,p_trip,p_workspace,p_capability);
+  IF saved ? 'fault' THEN RETURN saved; END IF;
+  RETURN saved-'payload'-'payload_digest'-'sources'-'event_highwater';
 END;
 $$;
 REVOKE ALL ON FUNCTION public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
@@ -168,14 +226,15 @@ BEGIN
   IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
     RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN; RETURN;
   END IF;
-  SELECT EXISTS (SELECT 1 FROM e03_checkpoint.heads h
-    CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(h.payload->'tasks')='array' THEN h.payload->'tasks' ELSE '[]'::JSONB END) x(item)
+  SELECT EXISTS (SELECT 1 FROM public."HostEvidenceScene" e
+    CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(e.payload->'tasks')='array' THEN e.payload->'tasks' ELSE '[]'::JSONB END) x(item)
     JOIN public."HostEvidenceTaskSource" b ON b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace
       AND b.task_digest=encode(sha256(convert_to(p_capability || (x.item->'task')::text,'UTF8')),'hex') AND b.event_id=p_event
-    WHERE h.owner_id='user-'||p_owner AND h.trip_id=p_trip AND h.workspace=p_workspace AND NOT h.deleted) INTO affected;
+    WHERE e.owner_id=p_owner AND e.trip_id=p_trip AND e.workspace_key=p_workspace) INTO affected;
   SELECT * INTO result FROM public.host_evidence_delete_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,p_event);
   IF result.disposition='deleted' THEN
     IF affected THEN
+      DELETE FROM public."HostEvidenceScene" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace;
       DELETE FROM e03_checkpoint.receipts WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace;
       UPDATE e03_checkpoint.heads SET payload=NULL,payload_digest=NULL,deleted=TRUE
         WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace;
