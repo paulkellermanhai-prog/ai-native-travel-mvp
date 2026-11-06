@@ -20,10 +20,15 @@ REVOKE ALL ON FUNCTION public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEX
 CREATE FUNCTION public.host_checkpoint_sources_valid_candidate(
   p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_payload JSONB,p_restore BOOLEAN DEFAULT FALSE
 ) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
-DECLARE item JSONB; src RECORD; task_hash TEXT; direct_ok BOOLEAN; count_sources INT;
-  doc_revision BIGINT; doc_snapshot JSONB; actual_versions JSONB; supplied_versions JSONB; life public."HostEvidenceTripLifecycle"%ROWTYPE; checked_at TIMESTAMPTZ;
+DECLARE item JSONB; src RECORD; scope_event RECORD; task_hash TEXT; direct_ok BOOLEAN; question_anchored BOOLEAN; count_sources INT;
+  doc_revision BIGINT; retention_revision BIGINT; event_count BIGINT; doc_snapshot JSONB; actual_versions JSONB; supplied_versions JSONB; actual_deferred JSONB; supplied_deferred JSONB; life public."HostEvidenceTripLifecycle"%ROWTYPE; checked_at TIMESTAMPTZ;
 BEGIN
   IF public.host_checkpoint_scope_candidate(p_session,p_owner,p_trip,p_workspace,p_capability) IS DISTINCT FROM TRUE THEN RETURN FALSE; END IF;
+  -- Existing Task question/free-text fields do not prove complete provenance.
+  -- After any workspace deletion, do not recreate a scene from old inputs.
+  SELECT w.retention_revision INTO retention_revision FROM public."HostEvidenceWorkspace" w
+    WHERE w.owner_id=p_owner AND w.trip_id=p_trip AND w.workspace_key=p_workspace;
+  IF retention_revision IS DISTINCT FROM 0 THEN RETURN FALSE; END IF;
   -- Locks follow TS -> auth -> workspace -> lifecycle -> checkpoint -> source.
   PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('user-'||p_owner,p_trip,p_workspace)::text,0));
   PERFORM 1 FROM e03_checkpoint.heads WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace FOR UPDATE;
@@ -34,18 +39,47 @@ BEGIN
      jsonb_typeof(p_payload->'drafts') IS DISTINCT FROM 'array' OR jsonb_array_length(p_payload->'drafts')<>0 OR
      jsonb_typeof(p_payload->'captured_object_versions') IS DISTINCT FROM 'array' OR
      jsonb_typeof(doc_snapshot->'objects') IS DISTINCT FROM 'array' THEN RETURN FALSE; END IF;
+  -- TS object identifiers are not yet proven opaque or source-complete. Keep
+  -- the candidate closed for saved TS identifiers rather than assuming that
+  -- their presence in the authoritative document proves their origin.
+  IF jsonb_array_length(p_payload->'captured_object_versions')<>0 OR
+     jsonb_typeof(p_payload->'view'->'comparison_refs') IS DISTINCT FROM 'array' OR
+     jsonb_array_length(p_payload->'view'->'comparison_refs')<>0 OR
+     p_payload->'view'->>'selected_id' IS NOT NULL OR
+     jsonb_typeof(p_payload->'deferred_issue_ids') IS DISTINCT FROM 'array' OR
+     jsonb_array_length(p_payload->'deferred_issue_ids')<>0 THEN RETURN FALSE; END IF;
   SELECT COALESCE(jsonb_agg(jsonb_build_object('id',v->'id','version',v->'version') ORDER BY v->>'id'),'[]'::JSONB)
     INTO actual_versions FROM jsonb_array_elements(doc_snapshot->'objects') AS x(v);
   SELECT COALESCE(jsonb_agg(v ORDER BY v->>'id'),'[]'::JSONB) INTO supplied_versions
     FROM jsonb_array_elements(p_payload->'captured_object_versions') AS x(v);
   IF NOT p_restore AND supplied_versions IS DISTINCT FROM actual_versions THEN RETURN FALSE; END IF;
+  IF NOT p_restore THEN
+    IF jsonb_typeof(p_payload->'deferred_issue_ids') IS DISTINCT FROM 'array' THEN RETURN FALSE; END IF;
+    SELECT COALESCE(jsonb_agg(v->'id' ORDER BY v->>'id'),'[]'::JSONB) INTO actual_deferred
+      FROM jsonb_array_elements(doc_snapshot->'objects') AS x(v) WHERE v->>'type'='OpenIssue' AND v->>'status'='dismissed';
+    SELECT COALESCE(jsonb_agg(v ORDER BY v#>>'{}'),'[]'::JSONB) INTO supplied_deferred
+      FROM jsonb_array_elements(p_payload->'deferred_issue_ids') AS x(v);
+    IF supplied_deferred IS DISTINCT FROM actual_deferred THEN RETURN FALSE; END IF;
+  END IF;
+  -- Full source attribution is unavailable. Treat every event in this workspace
+  -- as a possible dependency; never silently sample beyond the internal bound.
+  SELECT count(*) INTO event_count FROM (SELECT 1 FROM public."HostEvidenceEvent"
+    WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace LIMIT 257) bounded;
+  IF event_count>256 THEN RETURN FALSE; END IF;
+  FOR scope_event IN SELECT sequence,recorded_at,deleted_at,body IS NULL AS missing FROM public."HostEvidenceEvent"
+    WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace ORDER BY sequence FOR SHARE LOOP
+    IF scope_event.deleted_at IS NOT NULL OR scope_event.missing THEN RETURN FALSE; END IF;
+  END LOOP;
   FOR item IN SELECT value FROM jsonb_array_elements(p_payload->'tasks') LOOP
     IF jsonb_typeof(item->'task') IS DISTINCT FROM 'object' OR jsonb_typeof(item->'event') IS DISTINCT FROM 'object' OR
+       jsonb_typeof(item->'task'->'target_ids') IS DISTINCT FROM 'array' OR jsonb_array_length(item->'task'->'target_ids')<>0 OR
        jsonb_typeof(item->'errors') IS DISTINCT FROM 'array' OR jsonb_array_length(item->'errors')<>0 OR
        item->>'processing_status' IS DISTINCT FROM 'unprocessed' OR
        (item->>'base_revision')::BIGINT IS DISTINCT FROM (p_payload->>'captured_state_revision')::BIGINT OR (item->>'result_revision')::BIGINT IS DISTINCT FROM (p_payload->>'captured_state_revision')::BIGINT THEN RETURN FALSE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM public."HostEvidenceTaskKey" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace
+      AND task_key=item->'task'->>'task_key') THEN RETURN FALSE; END IF;
     task_hash := encode(sha256(convert_to(p_capability || (item->'task')::text,'UTF8')),'hex');
-    direct_ok := FALSE; count_sources := 0;
+    direct_ok := FALSE; question_anchored := FALSE; count_sources := 0;
     FOR src IN SELECT e.*, b.event_token FROM public."HostEvidenceTaskSource" b
       JOIN public."HostEvidenceEvent" e ON e.event_id=b.event_id
       WHERE b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace AND b.task_digest=task_hash
@@ -53,17 +87,25 @@ BEGIN
       count_sources := count_sources+1;
       IF src.owner_id<>p_owner OR src.trip_id<>p_trip OR src.workspace_key<>p_workspace OR src.key_token<>src.event_token OR
          src.deleted_at IS NOT NULL OR src.body IS NULL THEN RETURN FALSE; END IF;
+      -- Without full free-text provenance, this candidate requires the entire
+      -- question to be literal in a verified, retained source in this scope.
+      IF (item->'task'->>'question') IS NOT NULL AND length(item->'task'->>'question')>0 AND
+         position((item->'task'->>'question') IN src.body)>0 THEN question_anchored := TRUE; END IF;
       IF src.event_id=item->'event'->>'event_id' AND src.entry=item->'event'->>'entry' AND src.body=item->'event'->>'text' AND
          item->'event'->>'reference' = 'host-interaction:'||src.event_id AND
          src.received_at=(item->'event'->>'received_at')::TIMESTAMPTZ THEN direct_ok := TRUE; END IF;
     END LOOP;
-    IF count_sources=0 OR NOT direct_ok THEN RETURN FALSE; END IF;
+    IF count_sources=0 OR NOT direct_ok OR NOT question_anchored THEN RETURN FALSE; END IF;
   END LOOP;
   SELECT * INTO life FROM public."HostEvidenceTripLifecycle" WHERE trip_id=p_trip AND source_revision=doc_revision FOR SHARE;
   IF NOT FOUND OR public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN RETURN FALSE; END IF;
   checked_at := clock_timestamp();
   IF life.ended_at IS NOT NULL AND (life.ended_at>checked_at OR checked_at>=life.ended_at+interval '30 days') THEN RETURN FALSE; END IF;
-  -- Recheck every dependency against one fresh DB clock after all waits.
+  -- Recheck every potentially relevant workspace event against one fresh
+  -- database clock, even when it was not declared as a Task dependency.
+  IF EXISTS (SELECT 1 FROM public."HostEvidenceEvent" e WHERE e.owner_id=p_owner AND e.trip_id=p_trip AND e.workspace_key=p_workspace
+    AND (e.recorded_at>checked_at OR checked_at>=e.recorded_at+interval '180 days' OR checked_at>=e.recorded_at+interval '12 months')) THEN RETURN FALSE; END IF;
+  -- Also recheck each verified Task dependency.
   IF EXISTS (SELECT 1 FROM jsonb_array_elements(p_payload->'tasks') AS x(item)
     JOIN public."HostEvidenceTaskSource" b ON b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace
       AND b.task_digest=encode(sha256(convert_to(p_capability || (x.item->'task')::text,'UTF8')),'hex')
@@ -154,6 +196,8 @@ BEGIN
   IF public.host_checkpoint_scope_candidate(p_session,p_owner,p_trip,p_workspace,p_capability) IS DISTINCT FROM TRUE THEN
     RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE');
   END IF;
+  IF EXISTS (SELECT 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip
+    AND workspace_key=p_workspace AND retention_revision<>0) THEN RETURN jsonb_build_object('fault','RECOVERY_UNAVAILABLE'); END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('user-'||p_owner,p_trip,p_workspace)::text,0));
   saved := e03_checkpoint.read_scene('user-'||p_owner,p_trip,p_workspace,clock_timestamp()::text);
   IF public.host_checkpoint_scope_candidate(p_session,p_owner,p_trip,p_workspace,p_capability) IS DISTINCT FROM TRUE THEN
@@ -205,47 +249,50 @@ END;
 $$;
 REVOKE ALL ON FUNCTION public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;
 
--- Candidate deletion serializes with checkpoint save/inspection. If the stored
--- snapshot depends on this event, scrub that snapshot and its idempotency
--- receipts in the same transaction; unrelated checkpoints remain available.
+-- Candidate deletion serializes with checkpoint save/inspection. Because
+-- Task questions may contain undisclosed sources, ANY deletion invalidates the
+-- workspace scene and previous Task source bindings. This is an intentionally
+-- conservative internal gate, not the final unrelated-task product behavior.
 CREATE FUNCTION public.host_checkpoint_delete_event_candidate(
   p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_event TEXT
-) RETURNS TABLE(disposition TEXT,deletion_revision BIGINT,accepted_at TIMESTAMPTZ,cleanup_pending BOOLEAN)
+) RETURNS TABLE(disposition TEXT,deletion_revision BIGINT,accepted_at TIMESTAMPTZ,cleanup_pending BOOLEAN,event_highwater BIGINT)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
-DECLARE result RECORD; affected BOOLEAN;
+DECLARE result RECORD; v_highwater BIGINT;
 BEGIN
   PERFORM 1 FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
   IF NOT FOUND OR public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
-    RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN; RETURN;
+    RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN,NULL::BIGINT; RETURN;
   END IF;
   PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace
     AND session_ref=p_session AND capability_token=p_capability FOR UPDATE;
-  IF NOT FOUND THEN RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN; RETURN; END IF;
+  IF NOT FOUND THEN RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN,NULL::BIGINT; RETURN; END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('user-'||p_owner,p_trip,p_workspace)::text,0));
   PERFORM 1 FROM e03_checkpoint.heads WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace FOR UPDATE;
   IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
-    RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN; RETURN;
+    RETURN QUERY SELECT 'denied'::TEXT,NULL::BIGINT,NULL::TIMESTAMPTZ,NULL::BOOLEAN,NULL::BIGINT; RETURN;
   END IF;
-  SELECT EXISTS (SELECT 1 FROM public."HostEvidenceScene" e
-    CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN jsonb_typeof(e.payload->'tasks')='array' THEN e.payload->'tasks' ELSE '[]'::JSONB END) x(item)
-    JOIN public."HostEvidenceTaskSource" b ON b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace
-      AND b.task_digest=encode(sha256(convert_to(p_capability || (x.item->'task')::text,'UTF8')),'hex') AND b.event_id=p_event
-    WHERE e.owner_id=p_owner AND e.trip_id=p_trip AND e.workspace_key=p_workspace) INTO affected;
   SELECT * INTO result FROM public.host_evidence_delete_candidate(p_session,p_owner,p_trip,p_workspace,p_capability,p_event);
   IF result.disposition='deleted' THEN
-    IF affected THEN
+    -- Persist the *first* deletion cutoff, so retries do not erase newer work.
+    SELECT cutoff_sequence INTO v_highwater FROM public."HostEvidenceCleanup" WHERE event_id=p_event FOR UPDATE;
+    IF v_highwater IS NULL THEN
       DELETE FROM public."HostEvidenceScene" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace;
       DELETE FROM e03_checkpoint.receipts WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace;
       UPDATE e03_checkpoint.heads SET payload=NULL,payload_digest=NULL,deleted=TRUE
         WHERE owner_id='user-'||p_owner AND trip_id=p_trip AND workspace=p_workspace;
+      DELETE FROM public."HostEvidenceTaskSource" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace;
+      DELETE FROM public."HostEvidenceTaskKey" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace;
+      SELECT COALESCE(MAX(sequence),0) INTO v_highwater FROM public."HostEvidenceEvent"
+        WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace;
+      UPDATE public."HostEvidenceWorkspace" SET invalid_before_sequence=GREATEST(invalid_before_sequence,v_highwater)
+        WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace;
+      UPDATE public."HostEvidenceCleanup" SET cutoff_sequence=v_highwater WHERE event_id=p_event;
     END IF;
-    DELETE FROM public."HostEvidenceTaskSource" b WHERE b.owner_id=p_owner AND b.trip_id=p_trip AND b.workspace_key=p_workspace
-      AND b.task_digest IN (SELECT task_digest FROM public."HostEvidenceTaskSource" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND event_id=p_event);
   END IF;
   IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
     RAISE EXCEPTION 'checkpoint deletion authorization expired' USING ERRCODE='42501';
   END IF;
-  RETURN QUERY SELECT result.disposition,result.deletion_revision,result.accepted_at,result.cleanup_pending;
+  RETURN QUERY SELECT result.disposition,result.deletion_revision,result.accepted_at,result.cleanup_pending,v_highwater;
 END;
 $$;
 REVOKE ALL ON FUNCTION public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) FROM PUBLIC;

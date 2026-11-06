@@ -9,6 +9,7 @@ CREATE TABLE public."HostEvidenceWorkspace" (
   session_ref TEXT NOT NULL CHECK (char_length(session_ref) BETWEEN 1 AND 256),
   capability_token TEXT NOT NULL CHECK (capability_token ~ '^[0-9a-f]{64}$'),
   retention_revision BIGINT NOT NULL DEFAULT 0 CHECK (retention_revision BETWEEN 0 AND 9007199254740991),
+  invalid_before_sequence BIGINT NOT NULL DEFAULT 0 CHECK (invalid_before_sequence BETWEEN 0 AND 9007199254740991),
   PRIMARY KEY (owner_id,trip_id,workspace_key)
 );
 REVOKE ALL ON public."HostEvidenceWorkspace" FROM PUBLIC;
@@ -45,6 +46,7 @@ REVOKE ALL ON SEQUENCE public."HostEvidenceEvent_sequence_seq" FROM PUBLIC;
 CREATE TABLE public."HostEvidenceCleanup" (
   event_id TEXT PRIMARY KEY REFERENCES public."HostEvidenceEvent" (event_id),
   deletion_revision BIGINT NOT NULL,
+  cutoff_sequence BIGINT CHECK (cutoff_sequence BETWEEN 0 AND 9007199254740991),
   requested_at TIMESTAMPTZ(6) NOT NULL,
   completed_at TIMESTAMPTZ(6)
 );
@@ -65,18 +67,18 @@ REVOKE ALL ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,T
 -- Authenticated host supplies the session and server-bound workspace; an input
 -- string alone never proves workspace ownership. Denied paths return no row data.
 CREATE FUNCTION public.host_evidence_record_candidate(
-  p_session TEXT, p_owner TEXT, p_trip TEXT, p_workspace TEXT, p_capability TEXT, p_event TEXT,
+  p_session TEXT, p_owner TEXT, p_trip TEXT, p_workspace TEXT, p_capability TEXT, p_retention BIGINT, p_event TEXT,
   p_entry TEXT, p_body TEXT, p_received TIMESTAMPTZ, p_key TEXT, p_digest TEXT
 ) RETURNS TABLE(disposition TEXT, out_event_id TEXT, out_sequence BIGINT, out_recorded_at TIMESTAMPTZ)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
-DECLARE e public."HostEvidenceEvent"%ROWTYPE;
+DECLARE e public."HostEvidenceEvent"%ROWTYPE; v_retention BIGINT;
 BEGIN
   IF public.authorize_trip_session(p_session, p_owner, p_trip) IS DISTINCT FROM TRUE THEN
     RETURN QUERY SELECT 'denied'::TEXT, NULL::TEXT, NULL::BIGINT, NULL::TIMESTAMPTZ;
     RETURN;
   END IF;
-  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND session_ref=p_session AND capability_token=p_capability FOR UPDATE;
-  IF NOT FOUND THEN
+  SELECT retention_revision INTO v_retention FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND session_ref=p_session AND capability_token=p_capability FOR UPDATE;
+  IF NOT FOUND OR v_retention IS DISTINCT FROM p_retention THEN
     RETURN QUERY SELECT 'denied'::TEXT, NULL::TEXT, NULL::BIGINT, NULL::TIMESTAMPTZ;
     RETURN;
   END IF;
@@ -110,40 +112,40 @@ BEGIN
   END IF;
 END;
 $$;
-REVOKE ALL ON FUNCTION public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT) FROM PUBLIC;
 
 -- Internal, proof-bound read. There is no association implementation yet;
 -- this function does not prove that an event is unlinked or single-use.
 -- No lifecycle writer exists yet; absent/stale evidence fails closed.
 CREATE FUNCTION public.host_evidence_for_turn_candidate(p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_event TEXT,p_token TEXT,p_metadata_only BOOLEAN)
-RETURNS TABLE(allowed BOOLEAN, out_entry TEXT, out_body TEXT, out_received_at TIMESTAMPTZ)
+RETURNS TABLE(allowed BOOLEAN, out_entry TEXT, out_body TEXT, out_received_at TIMESTAMPTZ, out_retention_revision BIGINT)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
-DECLARE e public."HostEvidenceEvent"%ROWTYPE; l public."HostEvidenceTripLifecycle"%ROWTYPE; v_revision BIGINT; checked_at TIMESTAMPTZ;
+DECLARE e public."HostEvidenceEvent"%ROWTYPE; l public."HostEvidenceTripLifecycle"%ROWTYPE; v_revision BIGINT; v_retention BIGINT; v_cutoff BIGINT; checked_at TIMESTAMPTZ;
 BEGIN
   SELECT "revision" INTO v_revision FROM public."TripStateDocument" WHERE "tripId"=p_trip FOR SHARE;
-  IF NOT FOUND THEN RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN; END IF;
+  IF NOT FOUND THEN RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT; RETURN; END IF;
   IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
-    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT; RETURN;
   END IF;
-  PERFORM 1 FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND session_ref=p_session AND capability_token=p_capability FOR SHARE;
-  IF NOT FOUND THEN RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN; END IF;
+  SELECT retention_revision,invalid_before_sequence INTO v_retention,v_cutoff FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND session_ref=p_session AND capability_token=p_capability FOR SHARE;
+  IF NOT FOUND THEN RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT; RETURN; END IF;
   SELECT * INTO l FROM public."HostEvidenceTripLifecycle" WHERE trip_id=p_trip AND source_revision=v_revision FOR SHARE;
   IF NOT FOUND OR (l.ended_at IS NOT NULL AND (l.ended_at > clock_timestamp() OR clock_timestamp() >= l.ended_at + interval '30 days')) THEN
-    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT; RETURN;
   END IF;
   SELECT * INTO e FROM public."HostEvidenceEvent" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace AND event_id=p_event FOR SHARE;
-  IF NOT FOUND OR e.key_token IS DISTINCT FROM p_token OR e.deleted_at IS NOT NULL OR e.body IS NULL OR e.recorded_at > clock_timestamp() OR clock_timestamp() >= e.recorded_at + interval '180 days' OR clock_timestamp() >= e.recorded_at + interval '12 months' THEN
-    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
+  IF NOT FOUND OR e.key_token IS DISTINCT FROM p_token OR e.sequence <= v_cutoff OR e.deleted_at IS NOT NULL OR e.body IS NULL OR e.recorded_at > clock_timestamp() OR clock_timestamp() >= e.recorded_at + interval '180 days' OR clock_timestamp() >= e.recorded_at + interval '12 months' THEN
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT; RETURN;
   END IF;
   IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN
-    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT; RETURN;
   END IF;
   checked_at := clock_timestamp();
   IF (l.ended_at IS NOT NULL AND (l.ended_at > checked_at OR checked_at >= l.ended_at + interval '30 days')) OR
     e.recorded_at > checked_at OR checked_at >= e.recorded_at + interval '180 days' OR checked_at >= e.recorded_at + interval '12 months' THEN
-    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ; RETURN;
+    RETURN QUERY SELECT FALSE,NULL::TEXT,NULL::TEXT,NULL::TIMESTAMPTZ,NULL::BIGINT; RETURN;
   END IF;
-  RETURN QUERY SELECT TRUE,CASE WHEN p_metadata_only THEN NULL ELSE e.entry END,CASE WHEN p_metadata_only THEN NULL ELSE e.body END,CASE WHEN p_metadata_only THEN NULL ELSE e.received_at END;
+  RETURN QUERY SELECT TRUE,CASE WHEN p_metadata_only THEN NULL ELSE e.entry END,CASE WHEN p_metadata_only THEN NULL ELSE e.body END,CASE WHEN p_metadata_only THEN NULL ELSE e.received_at END,v_retention;
 END;
 $$;
 REVOKE ALL ON FUNCTION public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN) FROM PUBLIC;
@@ -160,6 +162,44 @@ CREATE TABLE public."HostEvidenceTaskSource" (
   FOREIGN KEY(owner_id,trip_id,workspace_key) REFERENCES public."HostEvidenceWorkspace"(owner_id,trip_id,workspace_key)
 );
 REVOKE ALL ON public."HostEvidenceTaskSource" FROM PUBLIC;
+
+-- Keys used in the restricted persistence slice are minted in PostgreSQL,
+-- not supplied by a model/client or copied from potentially deleted text.
+CREATE TABLE public."HostEvidenceTaskKey" (
+  owner_id TEXT NOT NULL, trip_id TEXT NOT NULL, workspace_key TEXT NOT NULL,
+  task_key TEXT NOT NULL CHECK (task_key ~ '^task-[0-9a-f]{32}$'),
+  request_token TEXT NOT NULL CHECK (request_token ~ '^[0-9a-f]{64}$'),
+  PRIMARY KEY(owner_id,trip_id,workspace_key,task_key),
+  UNIQUE(owner_id,trip_id,workspace_key,request_token),
+  FOREIGN KEY(owner_id,trip_id,workspace_key) REFERENCES public."HostEvidenceWorkspace"(owner_id,trip_id,workspace_key)
+);
+REVOKE ALL ON public."HostEvidenceTaskKey" FROM PUBLIC;
+CREATE FUNCTION public.host_evidence_mint_task_key_candidate(
+  p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_retention BIGINT,p_request TEXT
+) RETURNS TEXT LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public AS $$
+DECLARE v_retention BIGINT; v_key TEXT; v_count BIGINT;
+BEGIN
+  IF p_request !~ '^[0-9a-f]{64}$' THEN RETURN NULL; END IF;
+  IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN RETURN NULL; END IF;
+  SELECT retention_revision INTO v_retention FROM public."HostEvidenceWorkspace" WHERE owner_id=p_owner AND trip_id=p_trip
+    AND workspace_key=p_workspace AND session_ref=p_session AND capability_token=p_capability FOR UPDATE;
+  IF NOT FOUND OR v_retention IS DISTINCT FROM p_retention OR public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN RETURN NULL; END IF;
+  SELECT task_key INTO v_key FROM public."HostEvidenceTaskKey" WHERE owner_id=p_owner AND trip_id=p_trip
+    AND workspace_key=p_workspace AND request_token=p_request;
+  IF FOUND THEN
+    IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN RETURN NULL; END IF;
+    RETURN v_key;
+  END IF;
+  SELECT count(*) INTO v_count FROM (SELECT 1 FROM public."HostEvidenceTaskKey" WHERE owner_id=p_owner AND trip_id=p_trip
+    AND workspace_key=p_workspace LIMIT 256) bounded;
+  IF v_count>=256 THEN RETURN NULL; END IF;
+  v_key := 'task-'||replace(gen_random_uuid()::text,'-','');
+  INSERT INTO public."HostEvidenceTaskKey"(owner_id,trip_id,workspace_key,task_key,request_token) VALUES(p_owner,p_trip,p_workspace,v_key,p_request);
+  IF public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN RAISE EXCEPTION 'task key authorization expired' USING ERRCODE='42501'; END IF;
+  RETURN v_key;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT) FROM PUBLIC;
 
 -- E11-owned scene companion, not a Checkpoint or Trip State table. It is
 -- isolated and retains the same source/retention barriers as the event store.
