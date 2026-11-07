@@ -4,6 +4,7 @@ import { once } from "node:events";
 import { spawnSync } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Client } from "pg";
+import { SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { openIdentity, type Identity } from "../../../src/server/auth/config";
 import { openEvidenceHost, type ControlledInterpreter } from "../../../src/server/decision-context/host-runtime/evidence-host";
@@ -47,6 +48,10 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     return lifecycle.sync(await issueInternalCapability(secret,tripId,{role:"system",id:"e11-lifecycle"}),
       {trip_id:tripId,source_revision:sourceRevision,ended_at:endedAt});
   }
+  async function signInternalTestCapability(tripId:string,role:"user"|"model"|"system"|"tool",id:string,expiresAt:number) {
+    return new SignJWT({trip:tripId,role}).setProtectedHeader({alg:"HS256"}).setIssuer("antu-internal").setAudience("antu-trip-service")
+      .setSubject(id).setIssuedAt().setExpirationTime(expiresAt).sign(new TextEncoder().encode(secret));
+  }
   beforeAll(async () => {
     if (!config || !/^antu_e02_test_[a-f0-9]+$/.test(config.database) || !/^antu_e02_runtime_[a-f0-9]+$/.test(config.runtimeRole) ||
       !/^antu_e03_lifecycle_[a-f0-9]+$/.test(config.lifecycleRole)) throw new Error("Requires provisioned disposable E02 test database");
@@ -85,15 +90,28 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     }
     await owner?.end();
   }, 30000);
-  it("syncs lifecycle only through the dedicated trusted adapter and current TS revision",async()=>{
+  it("syncs lifecycle only for a same-trip System capability and preserves state after every denial",async()=>{
     const t=`trip_lifecycle_adapter_${randomBytes(8).toString("hex")}`;
     await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"lifecycle-fixture"}));
     const credential=await issueInternalCapability(secret,t,{role:"system",id:"lifecycle-source"});
     await expect(lifecycle.sync(credential,{trip_id:t,source_revision:0,ended_at:null}))
       .resolves.toMatchObject({disposition:"synced",source_revision:0,ended_at:null});
     await expect(lifecycle.sync(credential,{trip_id:t,source_revision:0,ended_at:null})).resolves.toMatchObject({disposition:"replayed"});
-    const wrong=await issueInternalCapability(secret,trip,{role:"system",id:"wrong-trip"});
-    await expect(lifecycle.sync(wrong,{trip_id:t,source_revision:0,ended_at:null})).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    const user=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[t,user.user.id]);
+    const denied=[
+      await issueInternalCapability(secret,t,{role:"model",id:"lifecycle-model"}),
+      await issueInternalCapability(secret,t,{role:"tool",id:"lifecycle-tool"}),
+      user.headers,
+      "invalid-lifecycle-credential",
+      await signInternalTestCapability(t,"system","expired-lifecycle",Math.floor(Date.now()/1000)-1),
+      await issueInternalCapability(secret,trip,{role:"system",id:"wrong-trip"}),
+    ];
+    const before=(await owner.query('SELECT trip_id,source_revision,ended_at FROM public."HostEvidenceTripLifecycle" WHERE trip_id=$1',[t])).rows[0];
+    for(const rejected of denied) {
+      await expect(lifecycle.sync(rejected,{trip_id:t,source_revision:0,ended_at:new Date(Date.now()-60_000).toISOString()}))
+        .rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+      expect((await owner.query('SELECT trip_id,source_revision,ended_at FROM public."HostEvidenceTripLifecycle" WHERE trip_id=$1',[t])).rows[0]).toEqual(before);
+    }
     await expect(lifecycle.sync(credential,{trip_id:t,source_revision:1,ended_at:null})).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
     await expect(lifecycle.sync(credential,{trip_id:t,source_revision:0,ended_at:new Date(Date.now()+60_000).toISOString()}))
       .rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
@@ -102,9 +120,38 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     const isolated=new Client({connectionString:config!.lifecycleUrl});await isolated.connect();
     try {
       await expect(isolated.query('SELECT * FROM public."HostEvidenceTripLifecycle"')).rejects.toThrow();
+      await expect(isolated.query('SELECT * FROM public."HostEvidenceEvent"')).rejects.toThrow();
       await expect(isolated.query('SELECT public.host_evidence_record_candidate(NULL,NULL,NULL,NULL,NULL,0,NULL,NULL,NULL,NULL,NULL,NULL)')).rejects.toThrow();
       await expect(runtime.query('SELECT public.host_evidence_sync_trip_lifecycle_candidate($1,0,NULL)',[t])).rejects.toThrow();
     } finally {await isolated.end();}
+  },30000);
+  it("rechecks the System capability before commit and rolls back when it expires while waiting",async()=>{
+    const t=`trip_lifecycle_recheck_${randomBytes(8).toString("hex")}`;
+    await internal.createTrip(t,await issueInternalCapability(secret,t,{role:"system",id:"lifecycle-recheck-fixture"}));
+    await syncLifecycle(t);
+    const before=(await owner.query('SELECT trip_id,source_revision,ended_at FROM public."HostEvidenceTripLifecycle" WHERE trip_id=$1',[t])).rows[0];
+    const blocker=new Client({connectionString:config!.migrationUrl}),observer=new Client({connectionString:config!.migrationUrl});
+    await blocker.connect();await observer.connect();let locked=false;
+    try {
+      await blocker.query("BEGIN");locked=true;
+      await blocker.query('SELECT 1 FROM public."TripStateDocument" WHERE "tripId"=$1 FOR UPDATE',[t]);
+      const expiresAt=Math.floor(Date.now()/1000)+4;
+      const credential=await signInternalTestCapability(t,"system","lifecycle-short-lived",expiresAt);
+      const pending=lifecycle.sync(credential,{trip_id:t,source_revision:0,ended_at:new Date(Date.now()-60_000).toISOString()});
+      let blocked=false;
+      for(let i=0;i<100;i++) {
+        blocked=(await observer.query<{blocked:boolean}>("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE usename=$1 AND wait_event_type='Lock' AND query LIKE '%host_evidence_sync_trip_lifecycle_candidate%') AS blocked",[config!.lifecycleRole])).rows[0].blocked;
+        if(blocked)break;await new Promise(resolve=>setTimeout(resolve,20));
+      }
+      expect(blocked).toBe(true);
+      while(Date.now()<=expiresAt*1000+100)await new Promise(resolve=>setTimeout(resolve,20));
+      await blocker.query("COMMIT");locked=false;
+      await expect(pending).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+      expect((await owner.query('SELECT trip_id,source_revision,ended_at FROM public."HostEvidenceTripLifecycle" WHERE trip_id=$1',[t])).rows[0]).toEqual(before);
+    } finally {
+      if(locked)await blocker.query("ROLLBACK");
+      await blocker.end();await observer.end();
+    }
   },30000);
   it("binds actual sessions, persists concurrent idempotent records, denies cross-session access, and keeps deletion after failed cleanup", async () => {
     const a = await account(), b = await account();
