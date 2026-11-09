@@ -1,6 +1,12 @@
 import fs from "node:fs";
 import { Client } from "pg";
-import { E03_CANDIDATE_SOURCES, installE03Candidate } from "./e03-candidate-installer.mjs";
+import {
+  E03_CANDIDATE_SHA256,
+  E03_CANDIDATE_SOURCES,
+  e03CandidateSources,
+  installE03Candidate,
+  verifyE03CandidateSources,
+} from "./e03-candidate-installer.mjs";
 
 // Local rehearsal only. Never accept an arbitrary or production database URL.
 const configFile = process.env.E02_STORAGE_ENV_FILE;
@@ -34,6 +40,14 @@ try {
       baseline[0]?.existing_evidence ||
       (baseline[0]?.existing_checkpoint && !baseline[0]?.existing_checkpoint_heads))
     throw new Error("Disposable PostgreSQL 17 baseline or clean candidate namespace is missing");
+  const { sources } = e03CandidateSources();
+  let digestMismatchRejected = false;
+  try {
+    verifyE03CandidateSources(sources.map((source, index) => index === 0 ? `${source}\n-- rehearsal digest mismatch` : source));
+  } catch (error) {
+    digestMismatchRejected = (error instanceof Error && error.message.includes("digest differs"));
+  }
+  if (!digestMismatchRejected) throw new Error("Candidate SQL digest mismatch was not rejected");
   await client.query("BEGIN"); began = true;
   const first=await installE03Candidate(client,{runtimeRole:config.runtimeRole,lifecycleRole:config.lifecycleRole});
   const repeated=await installE03Candidate(client,{runtimeRole:config.runtimeRole,lifecycleRole:config.lifecycleRole});
@@ -82,12 +96,29 @@ try {
     to_regnamespace('e03_checkpoint') IS NOT NULL AS checkpoint,to_regnamespace('e03_install') IS NOT NULL AS installer`);
   if (after[0]?.evidence || after[0]?.checkpoint !== baseline[0].existing_checkpoint || after[0]?.installer)
     throw new Error("Rehearsal changed the baseline database");
+  let installedManifestMismatchRejected = false;
+  await client.query("BEGIN"); began = true;
+  try {
+    await installE03Candidate(client,{runtimeRole:config.runtimeRole,lifecycleRole:config.lifecycleRole});
+    await client.query("UPDATE e03_install.versions SET manifest='{}'::jsonb WHERE component='e03-host-candidate'");
+    await installE03Candidate(client,{runtimeRole:config.runtimeRole,lifecycleRole:config.lifecycleRole});
+  } catch (error) {
+    installedManifestMismatchRejected = (error instanceof Error && error.message.includes("version or digest differs"));
+  }
+  await client.query("ROLLBACK"); began = false;
+  if (!installedManifestMismatchRejected) throw new Error("Installed candidate manifest mismatch was not rejected");
+  const { rows: afterFailure } = await client.query(`SELECT to_regclass('public."HostEvidenceEvent"') IS NOT NULL AS evidence,
+    to_regnamespace('e03_checkpoint') IS NOT NULL AS checkpoint,to_regnamespace('e03_install') IS NOT NULL AS installer`);
+  if (afterFailure[0]?.evidence || afterFailure[0]?.checkpoint !== baseline[0].existing_checkpoint || afterFailure[0]?.installer)
+    throw new Error("Failed installation rehearsal changed the baseline database");
   console.log(JSON.stringify({ status: "candidate_rehearsal_passed", database_kind: "disposable_local_postgresql_17",
     install_version:first.version,first_install:first.disposition,repeated_install:repeated.disposition,
     scripts: E03_CANDIDATE_SOURCES.map((name, index) => ({ file: name.slice(3), sha256: first.sha256[index],
       applied_in_transaction: index !== 1 || !baseline[0].existing_checkpoint })),
-    checkpoint_schema_preexisting: baseline[0].existing_checkpoint,
-    installed_then_rolled_back: true, runtime_direct_access: false,lifecycle_role_isolated:true }));
+    expected_sha256: E03_CANDIDATE_SHA256, checkpoint_schema_preexisting: baseline[0].existing_checkpoint,
+    digest_mismatch_rejected: true, installed_manifest_mismatch_rejected: true,
+    installed_then_rolled_back: true, failed_install_rolled_back: true,
+    runtime_direct_access: false,lifecycle_role_isolated:true }));
 } finally {
   if (began) await client.query("ROLLBACK");
   await client.end();
