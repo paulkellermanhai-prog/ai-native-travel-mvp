@@ -102,6 +102,8 @@ jobs:
         run: |
           E02_TEST_PROVISION=1 MIGRATION_DATABASE_URL="$DATABASE_URL" node scripts/prepare-storage-tests.mjs "$RUNNER_TEMP/e02-storage.json"
           node --input-type=module -e 'import fs from "node:fs"; const p=process.env.RUNNER_TEMP+"/e02-storage.json"; const e=JSON.parse(fs.readFileSync(p)); fs.appendFileSync(process.env.GITHUB_ENV,"E02_STORAGE_ENV_FILE="+p+"\nDATABASE_URL="+e.runtimeUrl+"\n");'
+      - name: Rehearse E03 candidate SQL installer and rollback
+        run: node scripts/e03-evidence-migration-rehearsal.mjs
       - name: Check TypeScript
         run: npm run typecheck
       - name: Lint

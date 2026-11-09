@@ -54,7 +54,8 @@ describe("E03-02 same-snapshot context assembly and consumption", () => {
     const result = assemble(state), original = reference(state, ["skeleton-a"]);
     expect(result.context.expires_at).toBe("2030-01-01T00:00:00.000001Z");
     expect(result.context.expires_at).toEqual(original.expires_at);
-    expect(() => validateContextSnapshot(result, state, now())).not.toThrow();
+    // A Date cannot tell whether the current millisecond has crossed .000001.
+    expect(() => validateContextSnapshot(result, state, now())).toThrowError(expect.objectContaining({ code:"PACKET_EXPIRED" }));
     expect(() => validateContextSnapshot(result, state, new Date("2030-01-01T00:00:00.001Z"))).toThrowError(expect.objectContaining({ code:"PACKET_EXPIRED" }));
   });
 

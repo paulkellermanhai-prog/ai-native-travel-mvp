@@ -1,22 +1,29 @@
-import { instantMicros, rule } from "./semantics";
+import { instantMicros, rule, timestampParts } from "./semantics";
 import type { Condition, State, ExternalFact, Constraint, Skeleton } from "./contracts.generated";
 
 type Objects = ReadonlyMap<string, State["objects"][number]>;
+type EvidenceClock = Date | bigint;
+/** Exact probe ticks for Context validation; Date callers retain existing R6 millisecond behavior. */
+export function instantAttoseconds(value: string): bigint {
+  const { milliseconds, fraction } = timestampParts(value);
+  return BigInt(milliseconds) * 1_000_000_000_000_000n + BigInt((fraction + "000000000000000000").slice(0, 18));
+}
 export function conditionReferences(c: Condition): string[] {
   return "object_id" in c ? [c.object_id] : "args" in c ? c.args.flatMap(conditionReferences) : "arg" in c ? conditionReferences(c.arg) : [];
 }
 
 // Read existing observation metadata only. No provider calls, verification upgrade or freshness writes.
-export function factUsable(fact: ExternalFact, now: Date, window: { start: string; end: string } | null = null): boolean {
-  const at = BigInt(now.getTime()) * 1000n;
+export function factUsable(fact: ExternalFact, now: EvidenceClock, window: { start: string; end: string } | null = null): boolean {
+  const at = typeof now === "bigint" ? now : BigInt(now.getTime()) * 1000n;
+  const instant = typeof now === "bigint" ? instantAttoseconds : instantMicros;
   return fact.status === "active" && fact.freshness === "current" && fact.applicability === "applicable"
-    && instantMicros(fact.expires_at) > at && instantMicros(fact.observed_at) <= at && fact.missing_fields.length === 0
+    && instant(fact.expires_at) > at && instant(fact.observed_at) <= at && fact.missing_fields.length === 0
     && ["result", "no_service"].includes(fact.query_status) && fact.query.date !== null
     && fact.valid_for.start <= fact.query.date && fact.query.date <= fact.valid_for.end
     && (!window || window.start <= fact.query.date && fact.query.date <= window.end)
     && ["date_specific", "purchasable"].includes(fact.verification);
 }
-export function conflictingFactIds(objects: Objects, now: Date, window: { start: string; end: string } | null = null): Set<string> {
+export function conflictingFactIds(objects: Objects, now: EvidenceClock, window: { start: string; end: string } | null = null): Set<string> {
   const usable = [...objects.values()].filter((o): o is ExternalFact => o.type === "ExternalFact" && factUsable(o, now, window));
   const groups = new Map<string, { yes: string[]; no: string[] }>();
   for (const fact of usable) {
@@ -60,7 +67,7 @@ function pointer(value: unknown, path: string): unknown {
 }
 
 /** Original three-valued rules.condition_value: never coerce unknown, booleans or text to numeric truth. */
-export function conditionValue(condition: Condition, objects: Objects, now: Date, contested?: ReadonlySet<string>): boolean | null {
+export function conditionValue(condition: Condition, objects: Objects, now: EvidenceClock, contested?: ReadonlySet<string>): boolean | null {
   if (condition.op === "always") return true;
   if (condition.op === "not") { const value = conditionValue(condition.arg, objects, now, contested); return value === null ? null : !value; }
   if ("args" in condition) {

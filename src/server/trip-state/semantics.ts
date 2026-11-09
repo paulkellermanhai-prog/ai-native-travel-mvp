@@ -7,12 +7,20 @@ export function rule(value: unknown, code: string, message: string): asserts val
   if (!value) throw new TripStateContractError(code, message);
 }
 
+/** Normalize all timezone spellings accepted by the existing date-time schema. */
+export function timestampParts(value: string): { milliseconds: number; fraction: string } {
+  const match = /^(\d{4}-\d\d-\d\d)[T\s](\d\d:\d\d:\d\d)(?:\.(\d+))?(Z|[+-]\d\d(?::?\d\d)?)$/i.exec(value);
+  rule(match, "SCHEMA", "Invalid timestamp");
+  const zone = match[4].toUpperCase() === "Z" ? "Z" : `${match[4].slice(0,3)}:${match[4].replace(":", "").slice(3) || "00"}`;
+  const milliseconds = Date.parse(`${match[1]}T${match[2]}${zone}`);
+  rule(Number.isFinite(milliseconds), "SCHEMA", "Invalid timestamp");
+  return { milliseconds, fraction: match[3] ?? "" };
+}
+
 // Python datetime compares microseconds; Date.parse alone would silently collapse distinct instants.
 export function instantMicros(value: string): bigint {
-  const fraction = /\.(\d+)(?=Z|[+-]\d\d:\d\d$)/.exec(value)?.[1] ?? "";
-  const seconds = Date.parse(value.replace(/\.\d+(?=Z|[+-]\d\d:\d\d$)/, ""));
-  rule(Number.isFinite(seconds), "SCHEMA", "Invalid timestamp");
-  return BigInt(seconds) * 1000n + BigInt((fraction + "000000").slice(0, 6));
+  const { milliseconds, fraction } = timestampParts(value);
+  return BigInt(milliseconds) * 1000n + BigInt((fraction + "000000").slice(0, 6));
 }
 
 // Original strict receipt profile; used by static validation and controlled command guards.
