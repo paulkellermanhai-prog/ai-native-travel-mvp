@@ -75,6 +75,7 @@ export function createShortPacketHandoffCandidate(candidate:PacketCandidate,post
   }
   return {
     revalidate(value:PacketCandidate) { validate(value); },
+    delivery(value:PacketCandidate) { validate(value); return ledger(value); },
     beginPacket(response:ServerResponse,value:PacketCandidate,deadline?:HandoffDeadline) {
       const pinned=structuredClone(value);validate(pinned);return begin(response,pinned.packet,pinned.packet.objects.map(item=>item.id),true,deadline);
     },

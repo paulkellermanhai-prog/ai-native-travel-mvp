@@ -24,6 +24,7 @@ export class RuntimeHttpFault extends Error {
 // a consequential write. Other bridge refusals require corrected input or proof.
 const bridgeRetryable: Readonly<Record<string, boolean>> = {
   RESTORED_INPUT_READ_ONLY: false, TURN_MISMATCH: false, REVISION_CHANGED: true,
+  PACKET_STALE: true,
   INPUT_BINDING: false, HYPOTHETICAL_WRITE: false, INCOMPLETE_DELIVERY: false,
   WRITE_GRANT: false, PROPOSAL_BINDING: false, IDEMPOTENCY_CONFLICT: false,
 };
