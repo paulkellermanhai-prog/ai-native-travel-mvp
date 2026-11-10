@@ -4,9 +4,9 @@
   "generated_view": "docs/E03阶段看板.md",
   "candidate_pr": 12,
   "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
-  "accepted_weight_percent": 33,
+  "accepted_weight_percent": 56,
   "submitted_weight_percent": 0,
-  "scope": "E03-02 accepted at fixed PR #18 head; E03-03–07 parallel implementation released with actual dependency and production boundaries; accepted weight remains 33%",
+  "scope": "E03-00–04 accepted for the Egypt internal MVP at fixed reviewed heads; E03-05 sequential checkpoint-persistence development is in progress; accepted weight is 56%; production services remain disabled",
   "stages": [
     {
       "id": "E03-00",
@@ -139,82 +139,89 @@
       "id": "E03-03",
       "name": "Turn / Task / Focus / 分页",
       "weight_percent": 13,
-      "status": "IN_PROGRESS",
-      "accepted": false,
+      "status": "ACCEPTED",
+      "accepted": true,
       "subtasks": [
         {
           "id": "E03-03-1",
           "description": "接入既有结构化解释输入协议",
-          "status": "IN_PROGRESS"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-03-2",
           "description": "实现原任务身份、关联、焦点和进度守卫",
-          "status": "IN_PROGRESS"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-03-3",
           "description": "实现分层读取、分页交付清单与时效复验",
-          "status": "NOT_STARTED"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-03-4",
           "description": "实现可信原话先记录后关联、有界读取、相关交互续期、自动到期、主动删除立即停读及幂等清理；测跨主体/旅行和删除竞争",
-          "status": "NOT_STARTED"
+          "status": "ACCEPTED"
         }
       ],
-      "evidence": [],
-      "execution_location": "独立工作区本地候选 8b3c0c4313dd3962ce81f143cb97ae81fd006882 基于授权 G；尚无远程 PR、真实 PostgreSQL CI 或阶段验收",
+      "evidence": [
+        "docs/E03-03阶段交接-2026-11-06.md",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/29",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42551994757"
+      ],
+      "execution_location": "PR #29 固定验收 head 55c1625aeda7befb9ce418b1b8bea1177b5fa662；CI #81 成功（58/58 文件、1139/1139 Vitest）",
       "responsibilities": "主集成人负责真实 Turn/Task 宿主、E11、共享接口及单一集成；原03任务负责 task-core 与 packet-core",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "原03候选 received_at 第七位差异须锁源 R6 对照或技术裁定，仅阻断相关时间路径等价",
-        "任务关联须真实 Task 归属；实际写桥须可信 Packet 与交付记录；E11 生产启用仍须对应条件",
-        "旧候选 GitHub 上传曾遭自动审批拒绝，不绕过该拒绝"
+        "阶段已通过埃及内部 MVP 工程验收；received_at 第七位小数采用已登记的更严格未来时间拒绝差异，不表述为与冻结 R6 完全等价",
+        "生产 E11、真实模型及公开服务启用不包含在本阶段验收中"
       ]
     },
     {
       "id": "E03-04",
       "name": "Trip State 写入与确认桥接",
       "weight_percent": 10,
-      "status": "NOT_STARTED",
-      "accepted": false,
+      "status": "ACCEPTED",
+      "accepted": true,
       "subtasks": [
         {
           "id": "E03-04-1",
           "description": "绑定本轮事件、当前包与精确宿主授权",
-          "status": "NOT_STARTED"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-04-2",
           "description": "复用E02提交/提案/确认/幂等事务",
-          "status": "NOT_STARTED"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-04-3",
           "description": "验证假设分支、完整交付和跨轮拒绝",
-          "status": "NOT_STARTED"
+          "status": "ACCEPTED"
         }
       ],
-      "evidence": [],
-      "execution_location": "基于 450f994 的隔离并行工作区；授权已放行，具体实施与验证状态待执行者报告",
-      "responsibilities": "04/07 写桥及 HTTP 任务，05/06 保存恢复任务；共享文件、迁移链和单一集成由主集成人维护",
+      "evidence": [
+        "docs/E03-04内部MVP交接-2026-11-09.md",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/30",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42751510991"
+      ],
+      "execution_location": "PR #30 固定验收 head 31d41a42bf3c6bfc56be2d6f657e0a98b21b2b6a；CI #82 成功（59/59 文件、1140/1140 Vitest）",
+      "responsibilities": "主集成人完成可信宿主证明、E02 写桥接线和真实 Session/PG/HTTP 证据；AI 技术负责人限定增量验收固定 head",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "真实写桥接线等待当前 Turn/Task/Packet、精确授权和事务内复验；TS 适配无需等待05/06"
+        "阶段已通过埃及内部 MVP 工程验收；生产写入、部署、真实模型、供应商和公开服务启用不包含在本阶段验收中"
       ]
     },
     {
       "id": "E03-05",
       "name": "Checkpoint 持久化",
       "weight_percent": 17,
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "accepted": false,
       "subtasks": [
         {
           "id": "E03-05-1",
           "description": "在原合同内评审生产存储适配设计",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         },
         {
           "id": "E03-05-2",
@@ -228,11 +235,11 @@
         }
       ],
       "evidence": [],
-      "execution_location": "基于 450f994 的隔离并行工作区；授权已放行，具体实施与验证状态待执行者报告",
-      "responsibilities": "04/07 写桥及 HTTP 任务，05/06 保存恢复任务；共享文件、迁移链和单一集成由主集成人维护",
+      "execution_location": "独立 feat/e03-05-checkpoint-persistence 分支；复用 ee2b1c4 固定候选并仅接续 Checkpoint 保存与真实 PostgreSQL 验证",
+      "responsibilities": "主集成人复用原保存/恢复任务的 checkpoint-core、checkpoint-store、PG Repository 与保存接线；E03-06 恢复保持关闭",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "真实运行现场采集等待03，E11副本协调等待删除屏障；PG Repository 可独立实现"
+        "当前仅推进真实保存与宿主接线；跨新 Session、新进程恢复明确留给 E03-06"
       ]
     },
     {
