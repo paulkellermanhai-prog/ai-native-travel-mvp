@@ -1,0 +1,70 @@
+{
+  "format": "antu-e04-progress/v1",
+  "maintenance_source": "docs/e04-progress.json",
+  "generated_view": "docs/E04阶段看板.md",
+  "baseline_commit": "a7dde3e0e92b1e975d5c9ef2275aa23c4fd5f9cb",
+  "branch": "feat/e04-next-action-policy-runtime",
+  "accepted_weight_percent": 0,
+  "implemented_weight_percent": 11,
+  "scope": "E04 Next Action Policy for the first Egypt internal MVP; implementation progress is not technical acceptance and does not authorize merge, deployment, public APIs, production E11 or suppliers",
+  "stages": [
+    {
+      "id": "E04-00",
+      "name": "规格基线与工程接收",
+      "weight_percent": 8,
+      "implementation_percent": 100,
+      "status": "DELIVERED_PENDING_REVIEW",
+      "execution_location": "独立分支 feat/e04-next-action-policy-runtime；E03 最终归档固定提交；本地 NAP 正式目录与 Git 冻结 R3 来源",
+      "responsibilities": "主工程集成人：来源、依赖、复用与缺口核对；技术负责人：增量审核并决定阶段接受",
+      "owner_participation": "当前无需；仅真实产品冲突、正式合同冲突或权限边界变化时参与",
+      "subtasks": [
+        {"id": "E04-00-1", "description": "锁定 NAP 0.1.0、TS 0.1.0、DC 0.1.0 与 E03 最终 head", "status": "DELIVERED_PENDING_REVIEW"},
+        {"id": "E04-00-2", "description": "盘点 PR #16/#17/#19/#20/#21/#22/#23/#28 的代码、测试与来源漂移", "status": "DELIVERED_PENDING_REVIEW"},
+        {"id": "E04-00-3", "description": "建立复用表、接口差异、最小路线和八阶段看板", "status": "DELIVERED_PENDING_REVIEW"}
+      ],
+      "evidence": ["docs/E04-00工程接收与复用盘点.md", "specs/nap-r3-2026-11-06/selection.json", "docs/E03最终工程交接索引.md"],
+      "blockers": ["本地 iCloud 正文仍需在落地后逐文件哈希复核；Git 冻结来源已可读且字节数一致"]
+    },
+    {
+      "id": "E04-01",
+      "name": "合同与可信 Packet 接入",
+      "weight_percent": 10,
+      "implementation_percent": 30,
+      "status": "IN_PROGRESS",
+      "execution_location": "src/server/next-action-policy；E03 host-runtime；真实 Session/PostgreSQL/HTTP 测试",
+      "responsibilities": "主工程集成人实现；技术负责人审核新增差异及阶段出口",
+      "owner_participation": "当前无需",
+      "subtasks": [
+        {"id": "E04-01-1", "description": "移植 NAP 合同、Plan integrity 与 Packet consistency", "status": "IN_PROGRESS"},
+        {"id": "E04-01-2", "description": "从可信 E03 宿主读取真实 Packet 并复验 Session/Trip/runtime/revision/TTL", "status": "IN_PROGRESS"},
+        {"id": "E04-01-3", "description": "验证伪造 Packet、旧 Session、撤权、过期和不完整交付不得取得执行资格", "status": "NOT_STARTED"}
+      ],
+      "evidence": [],
+      "blockers": []
+    },
+    {
+      "id": "E04-02", "name": "行动决策引擎", "weight_percent": 18, "implementation_percent": 0, "status": "NOT_STARTED",
+      "execution_location": "src/server/next-action-policy/decision-engine；规则与埃及场景测试", "responsibilities": "主工程集成人实现；语义适配器与确定性 Gate 分离", "owner_participation": "仅出现新产品取舍时", "subtasks": [], "evidence": [], "blockers": []
+    },
+    {
+      "id": "E04-03", "name": "Action Runtime 与运行记录", "weight_percent": 18, "implementation_percent": 0, "status": "NOT_STARTED",
+      "execution_location": "NAP Runtime、PostgreSQL 候选迁移与恢复测试", "responsibilities": "主工程集成人实现；技术负责人审核持久性与并发出口", "owner_participation": "无需工程细节参与", "subtasks": [], "evidence": [], "blockers": []
+    },
+    {
+      "id": "E04-04", "name": "受控执行与业务写桥", "weight_percent": 14, "implementation_percent": 0, "status": "NOT_STARTED",
+      "execution_location": "E03 write-bridge 与 E02 权威事务的窄适配", "responsibilities": "主工程集成人接线；不改既有业务真值", "owner_participation": "仅权限边界冲突时", "subtasks": [], "evidence": [], "blockers": []
+    },
+    {
+      "id": "E04-05", "name": "工具结果及外部依据处理", "weight_percent": 10, "implementation_percent": 0, "status": "NOT_STARTED",
+      "execution_location": "最小能力注册表、调用账本与合成埃及数据适配器", "responsibilities": "主工程集成人实现；真实供应商另行验证", "owner_participation": "首版数据范围变化时参与", "subtasks": [], "evidence": [], "blockers": []
+    },
+    {
+      "id": "E04-06", "name": "回应、反馈与多轮连续性", "weight_percent": 10, "implementation_percent": 0, "status": "NOT_STARTED",
+      "execution_location": "RequestObservation、反馈接口、恢复与重复抑制测试", "responsibilities": "主工程集成人实现；UX/UI 后续消费正式事件", "owner_participation": "仅新交互取舍时", "subtasks": [], "evidence": [], "blockers": []
+    },
+    {
+      "id": "E04-07", "name": "埃及内部 MVP 联合验收", "weight_percent": 12, "implementation_percent": 0, "status": "NOT_STARTED",
+      "execution_location": "真实 E02+E03+NAP Session/HTTP/PostgreSQL/恢复链路与 NAP quality 案例", "responsibilities": "主工程集成人执行并登记；技术负责人只审新增差异与阶段出口", "owner_participation": "仅验收发现真实产品冲突时", "subtasks": [], "evidence": [], "blockers": []
+    }
+  ]
+}

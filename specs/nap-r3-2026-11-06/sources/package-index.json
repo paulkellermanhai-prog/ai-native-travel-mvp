@@ -1,0 +1,3977 @@
+{
+  "package": "ANTU Next Action Policy",
+  "version": "0.1.0",
+  "date": "2026-11-06",
+  "status": "SPECIFICATION_READY_FOR_REVIEW",
+  "owner_approval": "NOT_RECORDED",
+  "c3_baseline": {
+    "version": "C3-R2",
+    "status": "CONDITIONAL_PASS",
+    "owner_approval": "PENDING",
+    "report": "nap-c3-validation/07_C3验收报告.md"
+  },
+  "implementation": "NOT_IMPLEMENTED",
+  "policy_evals": "NOT_RUN",
+  "baseline_repair_date": "2026-10-28",
+  "history_policy": {
+    "directory": "nap-c3-validation/",
+    "role": "Read-only historical C3-R2 evidence; old version prose is superseded, not a current dependency",
+    "current_dependency": "decision-context runtime 0.1.0 including recovery",
+    "repair_report": "quality/baseline-repair-2026-10-28.json"
+  },
+  "dependencies": {
+    "trip_state_schema": "0.1.0",
+    "decision_context_runtime": "0.1.0",
+    "decision_context_review": "R4 candidate; not assumed Owner-approved"
+  },
+  "scope": "Engineering specification and structural validation only; no Policy implementation or deployment",
+  "task_index": {
+    "owner_start": "README.md",
+    "behavior": "policy/behavior-spec.md",
+    "actions": "policy/action-policy.md",
+    "interfaces": "engineering/contracts.md",
+    "runtime": "engineering/runtime.md",
+    "tests": "quality/evaluation.md",
+    "history_and_blockers": "DECISIONS.md#dec-10",
+    "recheck": "quality/check_package.py",
+    "ux02_e01_e32": "engineering/ux02-e01-e32-acceptance.md",
+    "source_drift_review": "engineering/source-drift-review.md",
+    "source_diff_recheck": "quality/verify_ac8_ux02.py"
+  },
+  "rule_index": {
+    "NAP-P01": {
+      "definition": "policy/behavior-spec.md#nap-p01",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-01",
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": [
+        "S02",
+        "S07",
+        "F08-A",
+        "F08-B",
+        "M05",
+        "X02",
+        "X07",
+        "X08",
+        "N01",
+        "N04",
+        "N05",
+        "N08",
+        "N09",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J01",
+        "J02",
+        "J10"
+      ]
+    },
+    "NAP-P02": {
+      "definition": "policy/behavior-spec.md#nap-p02",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-01",
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": [
+        "S04",
+        "S05",
+        "S06",
+        "S08",
+        "S09",
+        "F03-A",
+        "F03-B",
+        "F04-A",
+        "F04-B",
+        "F05-B",
+        "F08-B",
+        "M03",
+        "M05",
+        "X03",
+        "X04",
+        "X06",
+        "X08",
+        "C03",
+        "C07",
+        "N03",
+        "N05",
+        "N07",
+        "N08",
+        "N09",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J06",
+        "J07"
+      ]
+    },
+    "NAP-P03": {
+      "definition": "policy/behavior-spec.md#nap-p03",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-01",
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": [
+        "S01",
+        "S03",
+        "S05",
+        "S07",
+        "F02-A",
+        "F02-B",
+        "F06-A",
+        "M04",
+        "M06",
+        "X01",
+        "X02",
+        "X05",
+        "X09",
+        "X10",
+        "C01",
+        "C02",
+        "C04",
+        "C05",
+        "C07",
+        "N06",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J03",
+        "J05",
+        "J08",
+        "J10"
+      ]
+    },
+    "NAP-P04": {
+      "definition": "policy/behavior-spec.md#nap-p04",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-01",
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": [
+        "S03",
+        "S04",
+        "F07-A",
+        "F07-B",
+        "M02",
+        "X01",
+        "X03",
+        "X10",
+        "C05",
+        "C06",
+        "N02",
+        "N08",
+        "W02",
+        "J03",
+        "J11",
+        "J12"
+      ]
+    },
+    "NAP-P05": {
+      "definition": "policy/behavior-spec.md#nap-p05",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-01",
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": [
+        "S01",
+        "S02",
+        "S03",
+        "S06",
+        "S09",
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "F04-A",
+        "F05-A",
+        "F05-B",
+        "F06-B",
+        "M01",
+        "M04",
+        "M06",
+        "X05",
+        "X07",
+        "X09",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "N01",
+        "N06",
+        "W01",
+        "W03",
+        "J04",
+        "J05",
+        "J08",
+        "J09"
+      ]
+    },
+    "NAP-R01": {
+      "definition": "policy/behavior-spec.md#nap-r01",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-04",
+        "engineering/runtime.md#rt-04"
+      ],
+      "cases": [
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "M01",
+        "X03",
+        "X05",
+        "N01",
+        "N06",
+        "W01",
+        "J08",
+        "J09"
+      ]
+    },
+    "NAP-R02": {
+      "definition": "policy/behavior-spec.md#nap-r02",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-04",
+        "engineering/runtime.md#rt-04"
+      ],
+      "cases": [
+        "S03",
+        "S07",
+        "F06-A",
+        "F06-B",
+        "F08-A",
+        "F08-B",
+        "M05",
+        "M06",
+        "X02",
+        "X07",
+        "X09",
+        "C02",
+        "C04",
+        "C07",
+        "N03",
+        "N04",
+        "N05",
+        "N10",
+        "W02",
+        "W03",
+        "J01",
+        "J02",
+        "J04",
+        "J05",
+        "J10"
+      ]
+    },
+    "NAP-R03": {
+      "definition": "policy/behavior-spec.md#nap-r03",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-04",
+        "engineering/runtime.md#rt-04"
+      ],
+      "cases": [
+        "F07-A",
+        "F07-B",
+        "M02",
+        "X01",
+        "X03",
+        "X10",
+        "C05",
+        "C06",
+        "N02",
+        "N08",
+        "W02",
+        "J03",
+        "J11",
+        "J12"
+      ]
+    },
+    "NAP-R04": {
+      "definition": "policy/behavior-spec.md#nap-r04",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-04",
+        "engineering/runtime.md#rt-04"
+      ],
+      "cases": [
+        "S02",
+        "S06",
+        "S08",
+        "S09",
+        "F03-A",
+        "F03-B",
+        "F04-A",
+        "F04-B",
+        "F05-A",
+        "F05-B",
+        "M03",
+        "M04",
+        "M05",
+        "X04",
+        "X06",
+        "X08",
+        "N03",
+        "N07",
+        "N09",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J06",
+        "J07"
+      ]
+    },
+    "NAP-R05": {
+      "definition": "policy/behavior-spec.md#nap-r05",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-04",
+        "engineering/runtime.md#rt-04"
+      ],
+      "cases": [
+        "S05",
+        "S06",
+        "S08",
+        "M03",
+        "X04",
+        "X08",
+        "N08",
+        "W03",
+        "J07"
+      ]
+    },
+    "NAP-R06": {
+      "definition": "policy/behavior-spec.md#nap-r06",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-04",
+        "engineering/runtime.md#rt-04"
+      ],
+      "cases": [
+        "S01",
+        "S04",
+        "M04",
+        "X06",
+        "X09",
+        "X10",
+        "C01",
+        "C03",
+        "W03",
+        "J05"
+      ]
+    },
+    "G01": {
+      "definition": "policy/action-policy.md#g01",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01",
+        "engineering/runtime.md#rt-04"
+      ],
+      "cases": [
+        "S01",
+        "S02",
+        "S03",
+        "S05",
+        "S06",
+        "S09",
+        "F01-A",
+        "F01-B",
+        "F02-B",
+        "F03-A",
+        "F04-A",
+        "F04-B",
+        "F05-A",
+        "F06-B",
+        "F07-A",
+        "F07-B",
+        "M01",
+        "M02",
+        "M04",
+        "M05",
+        "M06",
+        "X01",
+        "X03",
+        "X05",
+        "X08",
+        "X09",
+        "C01",
+        "C04",
+        "C06",
+        "N01",
+        "N02",
+        "N08",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J03",
+        "J04",
+        "J05",
+        "J09",
+        "J11",
+        "J12"
+      ]
+    },
+    "G02": {
+      "definition": "policy/action-policy.md#g02",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01",
+        "engineering/runtime.md#rt-02"
+      ],
+      "cases": [
+        "S02",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09",
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "F03-A",
+        "F03-B",
+        "F04-A",
+        "F04-B",
+        "F05-A",
+        "F05-B",
+        "F06-A",
+        "F06-B",
+        "F08-A",
+        "F08-B",
+        "M01",
+        "M03",
+        "M04",
+        "M05",
+        "M06",
+        "X02",
+        "X03",
+        "X04",
+        "X05",
+        "X06",
+        "X07",
+        "X08",
+        "X09",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C07",
+        "N01",
+        "N03",
+        "N04",
+        "N05",
+        "N06",
+        "N07",
+        "N08",
+        "N09",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J01",
+        "J02",
+        "J04",
+        "J05",
+        "J06",
+        "J07",
+        "J08",
+        "J09",
+        "J10"
+      ]
+    },
+    "G03": {
+      "definition": "policy/action-policy.md#g03",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01",
+        "engineering/runtime.md#rt-04"
+      ],
+      "cases": [
+        "S01",
+        "S03",
+        "S04",
+        "S09",
+        "F01-A",
+        "F05-A",
+        "F05-B",
+        "F06-A",
+        "F08-B",
+        "M02",
+        "M04",
+        "X01",
+        "X04",
+        "X06",
+        "X07",
+        "X10",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C07",
+        "N05",
+        "N06",
+        "N09",
+        "W01",
+        "W02",
+        "W03",
+        "J03",
+        "J08",
+        "J09"
+      ]
+    },
+    "G04": {
+      "definition": "policy/action-policy.md#g04",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01",
+        "engineering/runtime.md#rt-04"
+      ],
+      "cases": [
+        "S01",
+        "S03",
+        "S04",
+        "S05",
+        "S08",
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "F03-A",
+        "F03-B",
+        "F04-B",
+        "F05-B",
+        "F06-A",
+        "F06-B",
+        "M01",
+        "M02",
+        "M03",
+        "M06",
+        "X01",
+        "X04",
+        "X05",
+        "X06",
+        "X09",
+        "X10",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "N02",
+        "N06",
+        "N07",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J03",
+        "J04",
+        "J05",
+        "J06",
+        "J07",
+        "J08",
+        "J09",
+        "J11",
+        "J12"
+      ]
+    },
+    "G05": {
+      "definition": "policy/action-policy.md#g05",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01",
+        "engineering/runtime.md#rt-03"
+      ],
+      "cases": [
+        "S02",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "F03-B",
+        "F04-B",
+        "F06-A",
+        "F07-A",
+        "F07-B",
+        "F08-A",
+        "F08-B",
+        "M01",
+        "M02",
+        "M03",
+        "M04",
+        "M05",
+        "M06",
+        "X01",
+        "X02",
+        "X03",
+        "X04",
+        "X05",
+        "X07",
+        "X08",
+        "X10",
+        "C06",
+        "C07",
+        "N01",
+        "N02",
+        "N03",
+        "N04",
+        "N05",
+        "N06",
+        "N07",
+        "N08",
+        "N09",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J01",
+        "J02",
+        "J03",
+        "J06",
+        "J07",
+        "J08",
+        "J09",
+        "J10",
+        "J11",
+        "J12"
+      ]
+    },
+    "K01": {
+      "definition": "engineering/runtime.md#k01",
+      "engineering_refs": [
+        "engineering/runtime.md#risk-controls"
+      ],
+      "cases": [
+        "S02",
+        "S09",
+        "F03-A",
+        "F04-A",
+        "M05",
+        "X08",
+        "N01",
+        "N05",
+        "N08",
+        "N09",
+        "N10",
+        "W01"
+      ]
+    },
+    "K02": {
+      "definition": "engineering/runtime.md#k02",
+      "engineering_refs": [
+        "engineering/runtime.md#risk-controls"
+      ],
+      "cases": [
+        "S06",
+        "S07",
+        "S08",
+        "F03-B",
+        "F04-B",
+        "F06-A",
+        "F06-B",
+        "F08-A",
+        "F08-B",
+        "M01",
+        "M03",
+        "M05",
+        "M06",
+        "X02",
+        "X03",
+        "X04",
+        "X08",
+        "N01",
+        "N03",
+        "N04",
+        "N05",
+        "N08",
+        "N09",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J01",
+        "J02",
+        "J04",
+        "J07",
+        "J10"
+      ]
+    },
+    "K03": {
+      "definition": "engineering/runtime.md#k03",
+      "engineering_refs": [
+        "engineering/runtime.md#risk-controls"
+      ],
+      "cases": [
+        "S01",
+        "S03",
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "F05-A",
+        "F05-B",
+        "M04",
+        "X01",
+        "X06",
+        "X09",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C07",
+        "N06",
+        "N07",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J03",
+        "J05",
+        "J06",
+        "J08",
+        "J09"
+      ]
+    },
+    "K04": {
+      "definition": "engineering/runtime.md#k04",
+      "engineering_refs": [
+        "engineering/runtime.md#risk-controls"
+      ],
+      "cases": [
+        "F07-A",
+        "F07-B",
+        "M01",
+        "M02",
+        "X01",
+        "X05",
+        "C06",
+        "N02",
+        "N06",
+        "N08",
+        "W01",
+        "W02",
+        "J03",
+        "J08",
+        "J11",
+        "J12"
+      ]
+    },
+    "K05": {
+      "definition": "engineering/runtime.md#k05",
+      "engineering_refs": [
+        "engineering/runtime.md#risk-controls"
+      ],
+      "cases": [
+        "S04",
+        "S05",
+        "M03",
+        "X04",
+        "X07",
+        "X10",
+        "C02",
+        "N04",
+        "W03"
+      ]
+    },
+    "K06": {
+      "definition": "engineering/runtime.md#k06",
+      "engineering_refs": [
+        "engineering/runtime.md#risk-controls"
+      ],
+      "cases": [
+        "F01-A",
+        "F07-A",
+        "F07-B",
+        "M02",
+        "M06",
+        "X01",
+        "X10",
+        "C05",
+        "C07",
+        "N02",
+        "W01",
+        "W02",
+        "J03",
+        "J09",
+        "J11",
+        "J12"
+      ]
+    },
+    "INV-01": {
+      "definition": "engineering/runtime.md#inv-01",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": [
+        "S01",
+        "S02",
+        "S04",
+        "S05",
+        "F03-A",
+        "M01",
+        "X05",
+        "X10",
+        "C01",
+        "C03",
+        "C07",
+        "N01",
+        "W01"
+      ]
+    },
+    "INV-02": {
+      "definition": "engineering/runtime.md#inv-02",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": [
+        "S06",
+        "S08",
+        "S09",
+        "F03-B",
+        "F04-A",
+        "F04-B",
+        "F05-A",
+        "F05-B",
+        "F08-B",
+        "M03",
+        "M04",
+        "M05",
+        "X03",
+        "X04",
+        "X06",
+        "N03",
+        "N07",
+        "N09",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J06",
+        "J07"
+      ]
+    },
+    "INV-03": {
+      "definition": "engineering/runtime.md#inv-03",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": [
+        "S03",
+        "S07",
+        "F06-A",
+        "F06-B",
+        "F08-A",
+        "M02",
+        "M06",
+        "X02",
+        "X07",
+        "X09",
+        "C02",
+        "C04",
+        "C05",
+        "N04",
+        "N05",
+        "W02",
+        "W03",
+        "J01",
+        "J02",
+        "J04",
+        "J05",
+        "J10"
+      ]
+    },
+    "INV-04": {
+      "definition": "engineering/runtime.md#inv-04",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": [
+        "X08",
+        "N08"
+      ]
+    },
+    "INV-05": {
+      "definition": "engineering/runtime.md#inv-05",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": [
+        "F07-A",
+        "F07-B",
+        "X01",
+        "C06",
+        "N02",
+        "W02",
+        "J03",
+        "J11",
+        "J12"
+      ]
+    },
+    "INV-06": {
+      "definition": "engineering/runtime.md#inv-06",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": [
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "N06",
+        "W01",
+        "J08",
+        "J09"
+      ]
+    },
+    "INV-07": {
+      "definition": "engineering/runtime.md#inv-07",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": []
+    },
+    "INV-08": {
+      "definition": "engineering/runtime.md#inv-08",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": [
+        "J11"
+      ]
+    },
+    "INV-09": {
+      "definition": "engineering/runtime.md#inv-09",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": []
+    },
+    "INV-10": {
+      "definition": "engineering/runtime.md#inv-10",
+      "engineering_refs": [
+        "engineering/runtime.md#invariants"
+      ],
+      "cases": []
+    },
+    "D1": {
+      "definition": "policy/action-policy.md#action-goals",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-02"
+      ],
+      "cases": []
+    },
+    "D2": {
+      "definition": "policy/action-policy.md#action-goals",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-02"
+      ],
+      "cases": []
+    },
+    "D3": {
+      "definition": "policy/action-policy.md#action-goals",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-02"
+      ],
+      "cases": []
+    },
+    "D4": {
+      "definition": "policy/action-policy.md#action-goals",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-02"
+      ],
+      "cases": []
+    },
+    "D5": {
+      "definition": "policy/action-policy.md#action-goals",
+      "engineering_refs": [
+        "engineering/contracts.md#ct-02"
+      ],
+      "cases": []
+    },
+    "CT-01": {
+      "definition": "engineering/contracts.md#ct-01",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "CT-02": {
+      "definition": "engineering/contracts.md#ct-02",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "CT-03": {
+      "definition": "engineering/contracts.md#ct-03",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "CT-04": {
+      "definition": "engineering/contracts.md#ct-04",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "CT-05": {
+      "definition": "engineering/contracts.md#ct-05",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "CT-06": {
+      "definition": "engineering/contracts.md#ct-06",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "RT-01": {
+      "definition": "engineering/runtime.md#rt-01",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "RT-02": {
+      "definition": "engineering/runtime.md#rt-02",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "RT-03": {
+      "definition": "engineering/runtime.md#rt-03",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "RT-04": {
+      "definition": "engineering/runtime.md#rt-04",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "RT-05": {
+      "definition": "engineering/runtime.md#rt-05",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "RT-06": {
+      "definition": "engineering/runtime.md#rt-06",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-01": {
+      "definition": "DECISIONS.md#dec-01",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-02": {
+      "definition": "DECISIONS.md#dec-02",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-03": {
+      "definition": "DECISIONS.md#dec-03",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-04": {
+      "definition": "DECISIONS.md#dec-04",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-05": {
+      "definition": "DECISIONS.md#dec-05",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-06": {
+      "definition": "DECISIONS.md#dec-06",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-07": {
+      "definition": "DECISIONS.md#dec-07",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-08": {
+      "definition": "DECISIONS.md#dec-08",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-09": {
+      "definition": "DECISIONS.md#dec-09",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "DEC-10": {
+      "definition": "DECISIONS.md#dec-10",
+      "engineering_refs": [],
+      "cases": []
+    },
+    "RC01": {
+      "definition": "policy/action-policy.md#conflict-rules",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": []
+    },
+    "RC02": {
+      "definition": "policy/action-policy.md#conflict-rules",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": []
+    },
+    "RC03": {
+      "definition": "policy/action-policy.md#conflict-rules",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": []
+    },
+    "RC04": {
+      "definition": "policy/action-policy.md#conflict-rules",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": []
+    },
+    "RC05": {
+      "definition": "policy/action-policy.md#conflict-rules",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": []
+    },
+    "RC06": {
+      "definition": "policy/action-policy.md#conflict-rules",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": []
+    },
+    "RC07": {
+      "definition": "policy/action-policy.md#conflict-rules",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": []
+    },
+    "RC08": {
+      "definition": "policy/action-policy.md#conflict-rules",
+      "engineering_refs": [
+        "engineering/runtime.md#rt-01"
+      ],
+      "cases": []
+    }
+  },
+  "prd_index": {
+    "A01": {
+      "requirement_source": "../AI Native旅行产品｜PRD V0.1.md",
+      "mapping": "quality/evaluation.md#trace-prd",
+      "engineering_refs": [
+        "CT-01",
+        "RT-01",
+        "RT-04"
+      ],
+      "cases": [
+        "S01",
+        "F01-A",
+        "F01-B",
+        "M01",
+        "M04",
+        "X09",
+        "C01",
+        "N06",
+        "N10",
+        "W01",
+        "W03",
+        "J05",
+        "J08",
+        "J09"
+      ]
+    },
+    "A02": {
+      "requirement_source": "../AI Native旅行产品｜PRD V0.1.md",
+      "mapping": "quality/evaluation.md#trace-prd",
+      "engineering_refs": [
+        "CT-04",
+        "RT-02",
+        "RT-03"
+      ],
+      "cases": [
+        "S02",
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "F03-A",
+        "F03-B",
+        "F04-A",
+        "F04-B",
+        "M01",
+        "M05",
+        "X02",
+        "X03",
+        "X05",
+        "N01",
+        "N08",
+        "N09",
+        "W01",
+        "W02",
+        "J07",
+        "J09",
+        "J10"
+      ]
+    },
+    "A03": {
+      "requirement_source": "../AI Native旅行产品｜PRD V0.1.md",
+      "mapping": "quality/evaluation.md#trace-prd",
+      "engineering_refs": [
+        "CT-05",
+        "CT-06",
+        "RT-04"
+      ],
+      "cases": [
+        "S03",
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "F07-A",
+        "F07-B",
+        "M01",
+        "M02",
+        "X01",
+        "X03",
+        "X05",
+        "X09",
+        "X10",
+        "C01",
+        "C02",
+        "C03",
+        "C04",
+        "C05",
+        "C06",
+        "C07",
+        "N02",
+        "N06",
+        "N10",
+        "W01",
+        "W02",
+        "J03",
+        "J05",
+        "J08",
+        "J09",
+        "J11",
+        "J12"
+      ]
+    },
+    "A04": {
+      "requirement_source": "../AI Native旅行产品｜PRD V0.1.md",
+      "mapping": "quality/evaluation.md#trace-prd",
+      "engineering_refs": [
+        "CT-03",
+        "RT-03"
+      ],
+      "cases": [
+        "S04",
+        "X06",
+        "X07",
+        "X10",
+        "C03",
+        "C05",
+        "N05",
+        "W03"
+      ]
+    },
+    "A05": {
+      "requirement_source": "../AI Native旅行产品｜PRD V0.1.md",
+      "mapping": "quality/evaluation.md#trace-prd",
+      "engineering_refs": [
+        "CT-04",
+        "CT-06",
+        "RT-04"
+      ],
+      "cases": [
+        "S05",
+        "M03",
+        "X04",
+        "X08",
+        "N08",
+        "W03"
+      ]
+    },
+    "A06": {
+      "requirement_source": "../AI Native旅行产品｜PRD V0.1.md",
+      "mapping": "quality/evaluation.md#trace-prd",
+      "engineering_refs": [
+        "CT-04",
+        "RT-02",
+        "RT-05"
+      ],
+      "cases": [
+        "S06",
+        "F04-A",
+        "F04-B",
+        "M03",
+        "M05",
+        "X08",
+        "N08",
+        "N09",
+        "W03"
+      ]
+    },
+    "A07": {
+      "requirement_source": "../AI Native旅行产品｜PRD V0.1.md",
+      "mapping": "quality/evaluation.md#trace-prd",
+      "engineering_refs": [
+        "CT-03",
+        "RT-03"
+      ],
+      "cases": [
+        "S07",
+        "F06-A",
+        "F06-B",
+        "F08-A",
+        "F08-B",
+        "M05",
+        "M06",
+        "X02",
+        "X09",
+        "C02",
+        "C04",
+        "C07",
+        "N03",
+        "N04",
+        "N05",
+        "W02",
+        "J01",
+        "J02",
+        "J04",
+        "J05",
+        "J10"
+      ]
+    },
+    "A08": {
+      "requirement_source": "../AI Native旅行产品｜PRD V0.1.md",
+      "mapping": "quality/evaluation.md#trace-prd",
+      "engineering_refs": [
+        "CT-04",
+        "RT-02",
+        "RT-05"
+      ],
+      "cases": [
+        "S08",
+        "F03-A",
+        "F03-B",
+        "M03",
+        "X04",
+        "X06",
+        "C03",
+        "N03",
+        "N07",
+        "N09",
+        "N10",
+        "W01",
+        "W02",
+        "W03",
+        "J06",
+        "J07"
+      ]
+    },
+    "A09": {
+      "requirement_source": "../AI Native旅行产品｜PRD V0.1.md",
+      "mapping": "quality/evaluation.md#trace-prd",
+      "engineering_refs": [
+        "CT-01",
+        "CT-04",
+        "RT-03"
+      ],
+      "cases": [
+        "S09",
+        "F05-A",
+        "F05-B",
+        "M04",
+        "X04",
+        "X06",
+        "X07",
+        "W03"
+      ]
+    }
+  },
+  "case_index": {
+    "S01": {
+      "case_id": "S01",
+      "path": "quality/cases.jsonl",
+      "line": 1,
+      "kind": "scenario",
+      "seed_id": "S01",
+      "rule_refs": [
+        "G01",
+        "G03",
+        "G04",
+        "INV-01",
+        "K03",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A01"
+      ],
+      "related_case_ids": []
+    },
+    "S02": {
+      "case_id": "S02",
+      "path": "quality/cases.jsonl",
+      "line": 2,
+      "kind": "scenario",
+      "seed_id": "S02",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G05",
+        "INV-01",
+        "K01",
+        "NAP-P01",
+        "NAP-P05",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A02"
+      ],
+      "related_case_ids": []
+    },
+    "S03": {
+      "case_id": "S03",
+      "path": "quality/cases.jsonl",
+      "line": 3,
+      "kind": "scenario",
+      "seed_id": "S03",
+      "rule_refs": [
+        "G01",
+        "G03",
+        "G04",
+        "INV-03",
+        "K03",
+        "NAP-P03",
+        "NAP-P04",
+        "NAP-P05",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "S04": {
+      "case_id": "S04",
+      "path": "quality/cases.jsonl",
+      "line": 4,
+      "kind": "scenario",
+      "seed_id": "S04",
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "INV-01",
+        "K05",
+        "NAP-P02",
+        "NAP-P04",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A04"
+      ],
+      "related_case_ids": []
+    },
+    "S05": {
+      "case_id": "S05",
+      "path": "quality/cases.jsonl",
+      "line": 5,
+      "kind": "scenario",
+      "seed_id": "S05",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "G05",
+        "INV-01",
+        "K05",
+        "NAP-P02",
+        "NAP-P03",
+        "NAP-R05"
+      ],
+      "prd_refs": [
+        "A05"
+      ],
+      "related_case_ids": []
+    },
+    "S06": {
+      "case_id": "S06",
+      "path": "quality/cases.jsonl",
+      "line": 6,
+      "kind": "scenario",
+      "seed_id": "S06",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G05",
+        "INV-02",
+        "K02",
+        "NAP-P02",
+        "NAP-P05",
+        "NAP-R04",
+        "NAP-R05"
+      ],
+      "prd_refs": [
+        "A06"
+      ],
+      "related_case_ids": []
+    },
+    "S07": {
+      "case_id": "S07",
+      "path": "quality/cases.jsonl",
+      "line": 7,
+      "kind": "scenario",
+      "seed_id": "S07",
+      "rule_refs": [
+        "G02",
+        "G05",
+        "INV-03",
+        "K02",
+        "NAP-P01",
+        "NAP-P03",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "S08": {
+      "case_id": "S08",
+      "path": "quality/cases.jsonl",
+      "line": 8,
+      "kind": "scenario",
+      "seed_id": "S08",
+      "rule_refs": [
+        "G02",
+        "G04",
+        "G05",
+        "INV-02",
+        "K02",
+        "NAP-P02",
+        "NAP-R04",
+        "NAP-R05"
+      ],
+      "prd_refs": [
+        "A08"
+      ],
+      "related_case_ids": []
+    },
+    "S09": {
+      "case_id": "S09",
+      "path": "quality/cases.jsonl",
+      "line": 9,
+      "kind": "scenario",
+      "seed_id": "S09",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "INV-02",
+        "K01",
+        "NAP-P02",
+        "NAP-P05",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A09"
+      ],
+      "related_case_ids": []
+    },
+    "F01-A": {
+      "case_id": "F01-A",
+      "path": "quality/cases.jsonl",
+      "line": 10,
+      "kind": "scenario",
+      "seed_id": "F01",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-06",
+        "K03",
+        "K06",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A01",
+        "A02",
+        "A03"
+      ],
+      "related_case_ids": [
+        "F01-B"
+      ]
+    },
+    "F01-B": {
+      "case_id": "F01-B",
+      "path": "quality/cases.jsonl",
+      "line": 11,
+      "kind": "scenario",
+      "seed_id": "F01",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "G05",
+        "INV-06",
+        "K03",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A01",
+        "A02",
+        "A03"
+      ],
+      "related_case_ids": [
+        "F01-A"
+      ]
+    },
+    "F02-A": {
+      "case_id": "F02-A",
+      "path": "quality/cases.jsonl",
+      "line": 12,
+      "kind": "scenario",
+      "seed_id": "F02",
+      "rule_refs": [
+        "G02",
+        "G04",
+        "G05",
+        "INV-06",
+        "K03",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A02",
+        "A03"
+      ],
+      "related_case_ids": [
+        "F02-B"
+      ]
+    },
+    "F02-B": {
+      "case_id": "F02-B",
+      "path": "quality/cases.jsonl",
+      "line": 13,
+      "kind": "scenario",
+      "seed_id": "F02",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "G05",
+        "INV-06",
+        "K03",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A02",
+        "A03"
+      ],
+      "related_case_ids": [
+        "F02-A"
+      ]
+    },
+    "F03-A": {
+      "case_id": "F03-A",
+      "path": "quality/cases.jsonl",
+      "line": 14,
+      "kind": "scenario",
+      "seed_id": "F03",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "INV-01",
+        "K01",
+        "NAP-P02",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A02",
+        "A08"
+      ],
+      "related_case_ids": [
+        "F03-B"
+      ]
+    },
+    "F03-B": {
+      "case_id": "F03-B",
+      "path": "quality/cases.jsonl",
+      "line": 15,
+      "kind": "scenario",
+      "seed_id": "F03",
+      "rule_refs": [
+        "G02",
+        "G04",
+        "G05",
+        "INV-02",
+        "K02",
+        "NAP-P02",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A02",
+        "A08"
+      ],
+      "related_case_ids": [
+        "F03-A"
+      ]
+    },
+    "F04-A": {
+      "case_id": "F04-A",
+      "path": "quality/cases.jsonl",
+      "line": 16,
+      "kind": "scenario",
+      "seed_id": "F04",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "INV-02",
+        "K01",
+        "NAP-P02",
+        "NAP-P05",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A02",
+        "A06"
+      ],
+      "related_case_ids": [
+        "F04-B"
+      ]
+    },
+    "F04-B": {
+      "case_id": "F04-B",
+      "path": "quality/cases.jsonl",
+      "line": 17,
+      "kind": "scenario",
+      "seed_id": "F04",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "G05",
+        "INV-02",
+        "K02",
+        "NAP-P02",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A02",
+        "A06"
+      ],
+      "related_case_ids": [
+        "F04-A"
+      ]
+    },
+    "F05-A": {
+      "case_id": "F05-A",
+      "path": "quality/cases.jsonl",
+      "line": 18,
+      "kind": "scenario",
+      "seed_id": "F05",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "INV-02",
+        "K03",
+        "NAP-P05",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A09"
+      ],
+      "related_case_ids": [
+        "F05-B"
+      ]
+    },
+    "F05-B": {
+      "case_id": "F05-B",
+      "path": "quality/cases.jsonl",
+      "line": 19,
+      "kind": "scenario",
+      "seed_id": "F05",
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "INV-02",
+        "K03",
+        "NAP-P02",
+        "NAP-P05",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A09"
+      ],
+      "related_case_ids": [
+        "F05-A"
+      ]
+    },
+    "F06-A": {
+      "case_id": "F06-A",
+      "path": "quality/cases.jsonl",
+      "line": 20,
+      "kind": "scenario",
+      "seed_id": "F06",
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-03",
+        "K02",
+        "NAP-P03",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": [
+        "F06-B"
+      ]
+    },
+    "F06-B": {
+      "case_id": "F06-B",
+      "path": "quality/cases.jsonl",
+      "line": 21,
+      "kind": "scenario",
+      "seed_id": "F06",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "INV-03",
+        "K02",
+        "NAP-P05",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": [
+        "F06-A"
+      ]
+    },
+    "F07-A": {
+      "case_id": "F07-A",
+      "path": "quality/cases.jsonl",
+      "line": 22,
+      "kind": "scenario",
+      "seed_id": "F07",
+      "rule_refs": [
+        "G01",
+        "G05",
+        "INV-05",
+        "K04",
+        "K06",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": [
+        "F07-B"
+      ]
+    },
+    "F07-B": {
+      "case_id": "F07-B",
+      "path": "quality/cases.jsonl",
+      "line": 23,
+      "kind": "scenario",
+      "seed_id": "F07",
+      "rule_refs": [
+        "G01",
+        "G05",
+        "INV-05",
+        "K04",
+        "K06",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": [
+        "F07-A"
+      ]
+    },
+    "F08-A": {
+      "case_id": "F08-A",
+      "path": "quality/cases.jsonl",
+      "line": 24,
+      "kind": "scenario",
+      "seed_id": "F08",
+      "rule_refs": [
+        "G02",
+        "G05",
+        "INV-03",
+        "K02",
+        "NAP-P01",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": [
+        "F08-B"
+      ]
+    },
+    "F08-B": {
+      "case_id": "F08-B",
+      "path": "quality/cases.jsonl",
+      "line": 25,
+      "kind": "scenario",
+      "seed_id": "F08",
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G05",
+        "INV-02",
+        "K02",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": [
+        "F08-A"
+      ]
+    },
+    "M01": {
+      "case_id": "M01",
+      "path": "quality/cases.jsonl",
+      "line": 26,
+      "kind": "scenario",
+      "seed_id": "M01",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "G05",
+        "INV-01",
+        "K02",
+        "K04",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A01",
+        "A02",
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "M02": {
+      "case_id": "M02",
+      "path": "quality/cases.jsonl",
+      "line": 27,
+      "kind": "scenario",
+      "seed_id": "M02",
+      "rule_refs": [
+        "G01",
+        "G03",
+        "G04",
+        "G05",
+        "INV-03",
+        "K04",
+        "K06",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "M03": {
+      "case_id": "M03",
+      "path": "quality/cases.jsonl",
+      "line": 28,
+      "kind": "scenario",
+      "seed_id": "M03",
+      "rule_refs": [
+        "G02",
+        "G04",
+        "G05",
+        "INV-02",
+        "K02",
+        "K05",
+        "NAP-P02",
+        "NAP-R04",
+        "NAP-R05"
+      ],
+      "prd_refs": [
+        "A05",
+        "A06",
+        "A08"
+      ],
+      "related_case_ids": []
+    },
+    "M04": {
+      "case_id": "M04",
+      "path": "quality/cases.jsonl",
+      "line": 29,
+      "kind": "scenario",
+      "seed_id": "M04",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "G05",
+        "INV-02",
+        "K03",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R04",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A01",
+        "A09"
+      ],
+      "related_case_ids": []
+    },
+    "M05": {
+      "case_id": "M05",
+      "path": "quality/cases.jsonl",
+      "line": 30,
+      "kind": "scenario",
+      "seed_id": "M05",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G05",
+        "INV-02",
+        "K01",
+        "K02",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-R02",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A02",
+        "A06",
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "M06": {
+      "case_id": "M06",
+      "path": "quality/cases.jsonl",
+      "line": 31,
+      "kind": "scenario",
+      "seed_id": "M06",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "G05",
+        "INV-03",
+        "K02",
+        "K06",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "X01": {
+      "case_id": "X01",
+      "path": "quality/cases.jsonl",
+      "line": 32,
+      "kind": "scenario",
+      "seed_id": "X01",
+      "rule_refs": [
+        "G01",
+        "G03",
+        "G04",
+        "G05",
+        "INV-05",
+        "K03",
+        "K04",
+        "K06",
+        "NAP-P03",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "X02": {
+      "case_id": "X02",
+      "path": "quality/cases.jsonl",
+      "line": 33,
+      "kind": "scenario",
+      "seed_id": "X02",
+      "rule_refs": [
+        "G02",
+        "G05",
+        "INV-03",
+        "K02",
+        "NAP-P01",
+        "NAP-P03",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A02",
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "X03": {
+      "case_id": "X03",
+      "path": "quality/cases.jsonl",
+      "line": 34,
+      "kind": "scenario",
+      "seed_id": "X03",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G05",
+        "INV-02",
+        "K02",
+        "NAP-P02",
+        "NAP-P04",
+        "NAP-R01",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A02",
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "X04": {
+      "case_id": "X04",
+      "path": "quality/cases.jsonl",
+      "line": 35,
+      "kind": "scenario",
+      "seed_id": "X04",
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-02",
+        "K02",
+        "K05",
+        "NAP-P02",
+        "NAP-R04",
+        "NAP-R05"
+      ],
+      "prd_refs": [
+        "A05",
+        "A08",
+        "A09"
+      ],
+      "related_case_ids": []
+    },
+    "X05": {
+      "case_id": "X05",
+      "path": "quality/cases.jsonl",
+      "line": 36,
+      "kind": "scenario",
+      "seed_id": "X05",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "G05",
+        "INV-01",
+        "K04",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A02",
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "X06": {
+      "case_id": "X06",
+      "path": "quality/cases.jsonl",
+      "line": 37,
+      "kind": "scenario",
+      "seed_id": "X06",
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "INV-02",
+        "K03",
+        "NAP-P02",
+        "NAP-R04",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A04",
+        "A08",
+        "A09"
+      ],
+      "related_case_ids": []
+    },
+    "X07": {
+      "case_id": "X07",
+      "path": "quality/cases.jsonl",
+      "line": 38,
+      "kind": "scenario",
+      "seed_id": "X07",
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G05",
+        "INV-03",
+        "K05",
+        "NAP-P01",
+        "NAP-P05",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A04",
+        "A09"
+      ],
+      "related_case_ids": []
+    },
+    "X08": {
+      "case_id": "X08",
+      "path": "quality/cases.jsonl",
+      "line": 39,
+      "kind": "scenario",
+      "seed_id": "X08",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G05",
+        "INV-04",
+        "K01",
+        "K02",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-R04",
+        "NAP-R05"
+      ],
+      "prd_refs": [
+        "A05",
+        "A06"
+      ],
+      "related_case_ids": []
+    },
+    "X09": {
+      "case_id": "X09",
+      "path": "quality/cases.jsonl",
+      "line": 40,
+      "kind": "scenario",
+      "seed_id": "X09",
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "INV-03",
+        "K03",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R02",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A01",
+        "A03",
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "X10": {
+      "case_id": "X10",
+      "path": "quality/cases.jsonl",
+      "line": 41,
+      "kind": "scenario",
+      "seed_id": "X10",
+      "rule_refs": [
+        "G03",
+        "G04",
+        "G05",
+        "INV-01",
+        "K05",
+        "K06",
+        "NAP-P03",
+        "NAP-P04",
+        "NAP-R03",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A03",
+        "A04"
+      ],
+      "related_case_ids": []
+    },
+    "C01": {
+      "case_id": "C01",
+      "path": "quality/cases.jsonl",
+      "line": 42,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "INV-01",
+        "K03",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A01",
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "C02": {
+      "case_id": "C02",
+      "path": "quality/cases.jsonl",
+      "line": 43,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "INV-03",
+        "K03",
+        "K05",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A03",
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "C03": {
+      "case_id": "C03",
+      "path": "quality/cases.jsonl",
+      "line": 44,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "INV-01",
+        "K03",
+        "NAP-P02",
+        "NAP-P05",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A03",
+        "A04",
+        "A08"
+      ],
+      "related_case_ids": []
+    },
+    "C04": {
+      "case_id": "C04",
+      "path": "quality/cases.jsonl",
+      "line": 45,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "INV-03",
+        "K03",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A03",
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "C05": {
+      "case_id": "C05",
+      "path": "quality/cases.jsonl",
+      "line": 46,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "INV-03",
+        "K03",
+        "K06",
+        "NAP-P03",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03",
+        "A04"
+      ],
+      "related_case_ids": []
+    },
+    "C06": {
+      "case_id": "C06",
+      "path": "quality/cases.jsonl",
+      "line": 47,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G04",
+        "G05",
+        "INV-05",
+        "K04",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "C07": {
+      "case_id": "C07",
+      "path": "quality/cases.jsonl",
+      "line": 48,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-01",
+        "K03",
+        "K06",
+        "NAP-P02",
+        "NAP-P03",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A03",
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "N01": {
+      "case_id": "N01",
+      "path": "quality/cases.jsonl",
+      "line": 49,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G05",
+        "INV-01",
+        "K01",
+        "K02",
+        "NAP-P01",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A02"
+      ],
+      "related_case_ids": []
+    },
+    "N02": {
+      "case_id": "N02",
+      "path": "quality/cases.jsonl",
+      "line": 50,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G04",
+        "G05",
+        "INV-05",
+        "K04",
+        "K06",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "N03": {
+      "case_id": "N03",
+      "path": "quality/cases.jsonl",
+      "line": 51,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G05",
+        "INV-02",
+        "K02",
+        "NAP-P02",
+        "NAP-R02",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A07",
+        "A08"
+      ],
+      "related_case_ids": []
+    },
+    "N04": {
+      "case_id": "N04",
+      "path": "quality/cases.jsonl",
+      "line": 52,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G05",
+        "INV-03",
+        "K02",
+        "K05",
+        "NAP-P01",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "N05": {
+      "case_id": "N05",
+      "path": "quality/cases.jsonl",
+      "line": 53,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G05",
+        "INV-03",
+        "K01",
+        "K02",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A04",
+        "A07"
+      ],
+      "related_case_ids": []
+    },
+    "N06": {
+      "case_id": "N06",
+      "path": "quality/cases.jsonl",
+      "line": 54,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-06",
+        "K03",
+        "K04",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A01",
+        "A03"
+      ],
+      "related_case_ids": []
+    },
+    "N07": {
+      "case_id": "N07",
+      "path": "quality/cases.jsonl",
+      "line": 55,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G04",
+        "G05",
+        "INV-02",
+        "K03",
+        "NAP-P02",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A08"
+      ],
+      "related_case_ids": []
+    },
+    "N08": {
+      "case_id": "N08",
+      "path": "quality/cases.jsonl",
+      "line": 56,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G05",
+        "INV-04",
+        "K01",
+        "K02",
+        "K04",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-P04",
+        "NAP-R03",
+        "NAP-R05"
+      ],
+      "prd_refs": [
+        "A02",
+        "A05",
+        "A06"
+      ],
+      "related_case_ids": []
+    },
+    "N09": {
+      "case_id": "N09",
+      "path": "quality/cases.jsonl",
+      "line": 57,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G05",
+        "INV-02",
+        "K01",
+        "K02",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A02",
+        "A06",
+        "A08"
+      ],
+      "related_case_ids": []
+    },
+    "N10": {
+      "case_id": "N10",
+      "path": "quality/cases.jsonl",
+      "line": 58,
+      "kind": "scenario",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "G05",
+        "INV-02",
+        "K01",
+        "K02",
+        "K03",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-P03",
+        "NAP-R02",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A01",
+        "A03",
+        "A08"
+      ],
+      "related_case_ids": []
+    },
+    "W01": {
+      "case_id": "W01",
+      "path": "quality/cases.jsonl",
+      "line": 59,
+      "kind": "walkthrough",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-01",
+        "INV-02",
+        "INV-06",
+        "K01",
+        "K02",
+        "K03",
+        "K04",
+        "K06",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R01",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A01",
+        "A02",
+        "A03",
+        "A08"
+      ],
+      "related_case_ids": [
+        "M01",
+        "F01-A",
+        "F01-B",
+        "F02-A",
+        "F02-B",
+        "F03-A",
+        "F03-B",
+        "N01",
+        "N06"
+      ]
+    },
+    "W02": {
+      "case_id": "W02",
+      "path": "quality/cases.jsonl",
+      "line": 60,
+      "kind": "walkthrough",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-02",
+        "INV-03",
+        "INV-05",
+        "K02",
+        "K03",
+        "K04",
+        "K06",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-P03",
+        "NAP-P04",
+        "NAP-R02",
+        "NAP-R03",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A02",
+        "A03",
+        "A07",
+        "A08"
+      ],
+      "related_case_ids": [
+        "M02",
+        "X01",
+        "X02",
+        "N02",
+        "N03"
+      ]
+    },
+    "W03": {
+      "case_id": "W03",
+      "path": "quality/cases.jsonl",
+      "line": 61,
+      "kind": "walkthrough",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-02",
+        "INV-03",
+        "K02",
+        "K03",
+        "K05",
+        "NAP-P01",
+        "NAP-P02",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R02",
+        "NAP-R04",
+        "NAP-R05",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A01",
+        "A04",
+        "A05",
+        "A06",
+        "A08",
+        "A09"
+      ],
+      "related_case_ids": [
+        "M03",
+        "M04",
+        "S08",
+        "X04",
+        "X07",
+        "N07",
+        "X06"
+      ]
+    },
+    "J01": {
+      "case_id": "J01",
+      "path": "quality/cases.jsonl",
+      "line": 62,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G05",
+        "INV-03",
+        "K02",
+        "NAP-P01",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": [
+        "F08-A"
+      ]
+    },
+    "J02": {
+      "case_id": "J02",
+      "path": "quality/cases.jsonl",
+      "line": 63,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G05",
+        "INV-03",
+        "K02",
+        "NAP-P01",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": [
+        "F08-A"
+      ]
+    },
+    "J03": {
+      "case_id": "J03",
+      "path": "quality/cases.jsonl",
+      "line": 64,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G03",
+        "G04",
+        "G05",
+        "INV-05",
+        "K03",
+        "K04",
+        "K06",
+        "NAP-P03",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": [
+        "F07-B",
+        "X01"
+      ]
+    },
+    "J04": {
+      "case_id": "J04",
+      "path": "quality/cases.jsonl",
+      "line": 65,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "INV-03",
+        "K02",
+        "NAP-P05",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A07"
+      ],
+      "related_case_ids": [
+        "F06-B"
+      ]
+    },
+    "J05": {
+      "case_id": "J05",
+      "path": "quality/cases.jsonl",
+      "line": 66,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G04",
+        "INV-03",
+        "K03",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R02",
+        "NAP-R06"
+      ],
+      "prd_refs": [
+        "A01",
+        "A03",
+        "A07"
+      ],
+      "related_case_ids": [
+        "X09"
+      ]
+    },
+    "J06": {
+      "case_id": "J06",
+      "path": "quality/cases.jsonl",
+      "line": 67,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G04",
+        "G05",
+        "INV-02",
+        "K03",
+        "NAP-P02",
+        "NAP-R04"
+      ],
+      "prd_refs": [
+        "A08"
+      ],
+      "related_case_ids": [
+        "N07"
+      ]
+    },
+    "J07": {
+      "case_id": "J07",
+      "path": "quality/cases.jsonl",
+      "line": 68,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G04",
+        "G05",
+        "INV-02",
+        "K02",
+        "NAP-P02",
+        "NAP-R04",
+        "NAP-R05"
+      ],
+      "prd_refs": [
+        "A02",
+        "A08"
+      ],
+      "related_case_ids": [
+        "S08",
+        "F03-B"
+      ]
+    },
+    "J08": {
+      "case_id": "J08",
+      "path": "quality/cases.jsonl",
+      "line": 69,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-06",
+        "K03",
+        "K04",
+        "NAP-P03",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A01",
+        "A03"
+      ],
+      "related_case_ids": [
+        "N06"
+      ]
+    },
+    "J09": {
+      "case_id": "J09",
+      "path": "quality/cases.jsonl",
+      "line": 70,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G02",
+        "G03",
+        "G04",
+        "G05",
+        "INV-06",
+        "K03",
+        "K06",
+        "NAP-P05",
+        "NAP-R01"
+      ],
+      "prd_refs": [
+        "A01",
+        "A02",
+        "A03"
+      ],
+      "related_case_ids": [
+        "F01-A"
+      ]
+    },
+    "J10": {
+      "case_id": "J10",
+      "path": "quality/cases.jsonl",
+      "line": 71,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G02",
+        "G05",
+        "INV-03",
+        "K02",
+        "NAP-P01",
+        "NAP-P03",
+        "NAP-R02"
+      ],
+      "prd_refs": [
+        "A02",
+        "A07"
+      ],
+      "related_case_ids": [
+        "X02"
+      ]
+    },
+    "J11": {
+      "case_id": "J11",
+      "path": "quality/cases.jsonl",
+      "line": 72,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G04",
+        "G05",
+        "INV-05",
+        "INV-08",
+        "K04",
+        "K06",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": [
+        "N02"
+      ]
+    },
+    "J12": {
+      "case_id": "J12",
+      "path": "quality/cases.jsonl",
+      "line": 73,
+      "kind": "calibration",
+      "seed_id": null,
+      "rule_refs": [
+        "G01",
+        "G04",
+        "G05",
+        "INV-05",
+        "K04",
+        "K06",
+        "NAP-P04",
+        "NAP-R03"
+      ],
+      "prd_refs": [
+        "A03"
+      ],
+      "related_case_ids": [
+        "N02"
+      ]
+    }
+  },
+  "external_schema_registry": {
+    "https://trip-state.example/spec/0.1/Candidate.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Candidate.schema.json",
+    "https://trip-state.example/spec/0.1/ChangeRecord.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/ChangeRecord.schema.json",
+    "https://trip-state.example/spec/0.1/Constraint.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Constraint.schema.json",
+    "https://trip-state.example/spec/0.1/Decision.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Decision.schema.json",
+    "https://trip-state.example/spec/0.1/DecisionContext.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/DecisionContext.schema.json",
+    "https://trip-state.example/spec/0.1/DestinationEntity.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/DestinationEntity.schema.json",
+    "https://trip-state.example/spec/0.1/ExternalFact.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/ExternalFact.schema.json",
+    "https://trip-state.example/spec/0.1/OpenIssue.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/OpenIssue.schema.json",
+    "https://trip-state.example/spec/0.1/OperationIntent.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/OperationIntent.schema.json",
+    "https://trip-state.example/spec/0.1/Preference.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Preference.schema.json",
+    "https://trip-state.example/spec/0.1/Skeleton.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Skeleton.schema.json",
+    "https://trip-state.example/spec/0.1/TripGoal.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/TripGoal.schema.json",
+    "https://trip-state.example/spec/0.1/change-request.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/change-request.schema.json",
+    "https://trip-state.example/spec/0.1/command.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/command.schema.json",
+    "https://trip-state.example/spec/0.1/common.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/common.schema.json",
+    "https://trip-state.example/spec/0.1/confirm-request.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/confirm-request.schema.json",
+    "https://trip-state.example/spec/0.1/context-request.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/context-request.schema.json",
+    "https://trip-state.example/spec/0.1/history.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/history.schema.json",
+    "https://trip-state.example/spec/0.1/response.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/response.schema.json",
+    "https://trip-state.example/spec/0.1/state.schema.json": "../trip-state-schema-v0.1/90_可运行工程包/schemas/state.schema.json",
+    "https://decision-context.example/runtime/0.1/assemble.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+    "https://decision-context.example/runtime/0.1/change.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+    "https://decision-context.example/runtime/0.1/checkpoint-payload.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+    "https://decision-context.example/runtime/0.1/confirm.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+    "https://decision-context.example/runtime/0.1/error.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+    "https://decision-context.example/runtime/0.1/open-turn.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+    "https://decision-context.example/runtime/0.1/packet.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+    "https://decision-context.example/runtime/0.1/page-request.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+    "https://decision-context.example/runtime/0.1/page.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-ack.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-delete.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-list-result.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-list.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-restore.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-restored.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-retry.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-save.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-status-result.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-status.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+    "https://decision-context.example/runtime/0.1/turn.schema.json": "../decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json"
+  },
+  "sources": [
+    {
+      "path": "../AI Native旅行产品｜PRD V0.1.md",
+      "bytes": 56839,
+      "sha256": "19321a8f0e459d54fcff5e54f77ea3af06235035699dcc777a3d6cff7dd2c203"
+    },
+    {
+      "path": "../AI Native旅行产品｜项目思考总纲 V2.md",
+      "bytes": 70805,
+      "sha256": "a9c777103f6b146f3473187755dac355c04b0368e04d78489b32535b15af7995"
+    },
+    {
+      "path": "../handoff/Handoff_NAP.md",
+      "bytes": 27102,
+      "sha256": "8d4ba59b94e2042b6ccfb1ebce4e4da3acdf65c84ded140d3317b81325e96e99"
+    },
+    {
+      "path": "../handoff/Handoff 产品机制设计.md",
+      "bytes": 19772,
+      "sha256": "333b48bc3204a2a48de119c5087e63db8f7b8f490fe4d02ad24759396461773c"
+    },
+    {
+      "path": "nap-c3-validation/00_从这里开始.md",
+      "bytes": 2481,
+      "sha256": "5fa8c71f26bd1723b7ebeb2fc254586eb8080c80750c068d6b72bfcdf3b101c7"
+    },
+    {
+      "path": "nap-c3-validation/01_资料基线与场景夹具.md",
+      "bytes": 6487,
+      "sha256": "afb891325591dd49f3757dd3b355f91ce0b5df320ab3be6c0a563ee93bd50acb"
+    },
+    {
+      "path": "nap-c3-validation/02_正式场景矩阵.md",
+      "bytes": 7080,
+      "sha256": "16eba0ae2c43dbcefc35efe5696f839dd526fc86225d3b664c7edc26e0366e89"
+    },
+    {
+      "path": "nap-c3-validation/03_完整测试案例.md",
+      "bytes": 38278,
+      "sha256": "f814bad65eef253f50246ed1a474c82dcb0839f08f0fd72a9ed928ddf6e1d265"
+    },
+    {
+      "path": "nap-c3-validation/04_多轮推演与竞争裁决.md",
+      "bytes": 8183,
+      "sha256": "4d89abffcf9a42f327e24c9bc1fe478f8adb4a105d3f2914f4207d9b732e8a65"
+    },
+    {
+      "path": "nap-c3-validation/05_评测与判定规格.md",
+      "bytes": 9922,
+      "sha256": "2f4db3eb19421b328da45803ee568996e4c42ce492ac02a7afba899b21c3bd76"
+    },
+    {
+      "path": "nap-c3-validation/06_一致性审查与全量追踪.md",
+      "bytes": 14943,
+      "sha256": "dc945c97aea5787bfb373cbcf5fe89f86880a401f259ad3c4a4c962d1068a368"
+    },
+    {
+      "path": "nap-c3-validation/07_C3验收报告.md",
+      "bytes": 5887,
+      "sha256": "0ae7b79f5a6d3beb97171b064b9c6ddb5662c0b6357c025807dd9dd995f715d5"
+    },
+    {
+      "path": "nap-c3-validation/references/C3-R1_场景种子与任务.md",
+      "bytes": 20551,
+      "sha256": "38ce4ff645bd449295980d8d427ffbd76b6fd85cc6ca7570ce3fd326d839f271"
+    },
+    {
+      "path": "nap-c3-validation/references/C3_完整补充资料.md",
+      "bytes": 49190,
+      "sha256": "5ba2791f034b694caeec384081bfbed97117d09070e2c0241111d0e65f78ffcc"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/SPECIFICATION.md",
+      "bytes": 29977,
+      "sha256": "0e97d946d12553cdf0a6cf181b3fc357e0d1d7f72711ffae2f7913e65efd5600"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/AUTHORITY_FINAL.md",
+      "bytes": 10412,
+      "sha256": "8e72d7a20c1a2b8e4b30f75f4bd9789c3d8cc3cd768951903823634aa3e0c13f"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/LIFECYCLE_FINAL.md",
+      "bytes": 6477,
+      "sha256": "7b03ad92cd5521683977bfb85d2f2cab2380b9b0da2a41fa27be73bf9a2b84e7"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/STATE_TRANSITIONS_FINAL.md",
+      "bytes": 14985,
+      "sha256": "974b03d533c22345b5c19cf81e78b55e372c14ec12f065f6a49da068237c47de"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/PROPAGATION_FINAL.md",
+      "bytes": 7964,
+      "sha256": "adb8eb4b6afd46a2cfd0d523893cbcaff7bb50a224739d16b2dafc859239f073"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/INVARIANTS_FINAL.md",
+      "bytes": 6278,
+      "sha256": "e192493a7bf1c701648457d347f684394beedd7fee85c4f3e6fbee32279b3b77"
+    },
+    {
+      "path": "../decision-context-v0.1/00_从这里开始.md",
+      "bytes": 7083,
+      "sha256": "bff5a687738a0b72597ca1a57d41582ef409d41f801d89df8fb48a03b6542745"
+    },
+    {
+      "path": "../decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "bytes": 12943,
+      "sha256": "5d7d967334c656c973ef9fd71a8065a4c79ae897e5c540152886a3bc04e8e082"
+    },
+    {
+      "path": "../decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "bytes": 11081,
+      "sha256": "9d507be901727b702da0c49e46c9c977b4540e8cbd68cac1ef445490a617978d"
+    },
+    {
+      "path": "../decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "bytes": 10510,
+      "sha256": "21c98ed7f4c0124afeedb6e6bba46c26026c51004df683bbed733e3c009dbdf8"
+    },
+    {
+      "path": "../decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "bytes": 16864,
+      "sha256": "bbac21430dd4d43ae9a663551cef073ccf5265ea0beb5c1e33deaf7fd23bbeda"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py",
+      "bytes": 8790,
+      "sha256": "4c435a60ecdbd041974628a5c878474ac50203f59e17e22a34cdd979efbaea45"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "bytes": 21654,
+      "sha256": "12cefe8393194b427c27f13349dfb1a84b189d326f6a25a285b33ca8452b6e01"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/contracts.py",
+      "bytes": 20612,
+      "sha256": "5f84a5fe2fb2a5ff94b8e16d01ecd6f16be0e627c97e083501a095d1ddb0960a"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/engine.py",
+      "bytes": 44613,
+      "sha256": "900744763cecaa99830bd34ea11c439cbf2170acf23e21a1d6077c3e785a86ca"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Candidate.schema.json",
+      "bytes": 8216,
+      "sha256": "5c4e3de3f5489afea17f5761b733df54474d0c8b5805e0ebd7021a361f9341a7"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/ChangeRecord.schema.json",
+      "bytes": 5749,
+      "sha256": "f3f4d5dad698917676ce1b9036554c108f14ba2886820f2558565cbffb58cd77"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Constraint.schema.json",
+      "bytes": 12700,
+      "sha256": "fd9b89260255f64cd449504e4a52f3a8d9347c3d433a7363816fd227720223a2"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Decision.schema.json",
+      "bytes": 6368,
+      "sha256": "e94a0730abbd000ca565112e1446c7fabc59d74e3c0f745f72dbcd32820e3448"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/DecisionContext.schema.json",
+      "bytes": 3011,
+      "sha256": "b48a143bb6fc50eb6859305a783bb6b6b1de4e10e5e7b2ade3feededd3172aa7"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/DestinationEntity.schema.json",
+      "bytes": 5474,
+      "sha256": "80b18d43f8db8abe318d7335192386cef7280c6dac29c2b113713ccba52c28dd"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/ExternalFact.schema.json",
+      "bytes": 10887,
+      "sha256": "84939312a1f9af75bc1333c5d9ff3142b74bb96ec3c280cd94f23ab8d4c05c2b"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/OpenIssue.schema.json",
+      "bytes": 6173,
+      "sha256": "645fd45267f0880babcc52277067645d7a9873b5887a0a71aa3e4590a4212840"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/OperationIntent.schema.json",
+      "bytes": 1922,
+      "sha256": "3417069753c6cd115c8873b8fb5648544a673d2a828ac274049edbbd8984b7bd"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Preference.schema.json",
+      "bytes": 7979,
+      "sha256": "1a21d3f611adc1ce264c9272e795b7cdc760161b8a10aa1b0510b06324855c2e"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Skeleton.schema.json",
+      "bytes": 20307,
+      "sha256": "543a434829297c18dab495752bad283595729b97acdd0d5297c91830b455159c"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/TripGoal.schema.json",
+      "bytes": 5187,
+      "sha256": "4baa030c0f8237f5a1dd424413140698895591ab2f1a54fa0e0368dc296c381b"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/change-request.schema.json",
+      "bytes": 1718,
+      "sha256": "a49f81e579fd11a2c593a03c4be14646a6a32315e205f23383bce1857a485f78"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/command.schema.json",
+      "bytes": 127939,
+      "sha256": "af386da7267dff13187f7bad70a51d83522453549de342b47e17f1eca4ced059"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/common.schema.json",
+      "bytes": 13884,
+      "sha256": "d3ce31b9e4df52031ad977b09118c59710482282f58de02f7307575af9b31e5c"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/confirm-request.schema.json",
+      "bytes": 703,
+      "sha256": "df147f358ac0de766e7459a85c8f7f6a42d8be217e9f001d49d8ae4e157eb76a"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/context-request.schema.json",
+      "bytes": 613,
+      "sha256": "fe61bb28928ac12e814dba0065151783ad31dfec950d595a3a6ebe6c51c17e7e"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/history.schema.json",
+      "bytes": 626,
+      "sha256": "e4a6b803557f53d2561e32e2e2f47b0d2517266d8835de7a4e263e6c34d33915"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/response.schema.json",
+      "bytes": 5016,
+      "sha256": "0ff5cf6c677855eceda87b863c29154dde5af67785a0fadb7f93219487d52b08"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/state.schema.json",
+      "bytes": 1848,
+      "sha256": "ef3bc93d7b602ddb69d56ad592bd5f210445cbd063784cbfac5aeea4ebfe388b"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "bytes": 15629,
+      "sha256": "0e85d8685cdf3469e8cfc9bdc49757667e4d0e7d5fc79d19fb76586f31cd410d"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "bytes": 15615,
+      "sha256": "f5195f66bb6d3fa9a551f5db17029d35c6f4d3d7325be65d026bebd62aae7374"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "bytes": 15134,
+      "sha256": "12e910bb83585a394f0d920c43b05764bac60bcf9a5cd5ff8529ad58bd982178"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "bytes": 15622,
+      "sha256": "6deb5cc36133b88ae72fcc6b27fa6ce4f40b7f14b4d7be773a9a8b8acd1b2a6b"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "bytes": 15548,
+      "sha256": "9959600ce7423af7f1ddd6ab05725aa5a5c23d4382ae1b7f91fe38f7f1057638"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "bytes": 15936,
+      "sha256": "631363f1819aa6a10f82d78bf902c3abf13688d603b7037951b2b4357e06a8b6"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "bytes": 18014,
+      "sha256": "f0a0b5ef77f924f142afc6a8ec431ba082e7e7e78014609b5c7f81c189a9c60e"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "bytes": 15615,
+      "sha256": "bc84b931043dd0f5117d4231a68b72eec885bcc3b3dc2f5e2d7d8b3de05a9cd7"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "bytes": 16940,
+      "sha256": "74fbc7b11e76932bd862088113d5381e13eccc37f39787c3f52ebb958b94d0ea"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "bytes": 15334,
+      "sha256": "b36ab40bd549c2e46ef403ac8c77d7a5b623c1fa4ea78d6c5ce817a91f1b6f69"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "bytes": 15658,
+      "sha256": "6b576e3fbade034718ff561d3dc34234f4d71a6a4e6b2598f60e7c83092bdd57"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "bytes": 16338,
+      "sha256": "61bded692ace23bc8d7fc3757c188bb74a46b6ced2dfdd099fd04dec13d4dffb"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "bytes": 15277,
+      "sha256": "879ec80ce28aafd244a9f6278ec44b43171533d7868d350a56754460eb643b83"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "bytes": 15537,
+      "sha256": "73dddce802a48663ae5499be22221067381fa2ac25e343c25bae6ee3290b59d7"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "bytes": 18677,
+      "sha256": "2ea44ea46dcf15e9df47eab4a79cca36928080ec0eca3695d673706f3a6e4bfa"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "bytes": 15279,
+      "sha256": "c5a1bde0bd3da0e4157151129e4583ad31ade4703d38fdbf2ca62e7ae116d8f0"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "bytes": 16122,
+      "sha256": "34fa983b5d5b252395a9ace6e3c5fd9cf80ac2580982c505f32ea4af51e988fb"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "bytes": 15916,
+      "sha256": "19cc387dae4d0193add3c01e7013df19311d2a75ea4f9ba9c46b19111bc9badf"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "bytes": 15281,
+      "sha256": "66567c9b60f4e5b66396fb6a55a3eec5d168a310faea0aca217203d2f11b7a71"
+    },
+    {
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "bytes": 16137,
+      "sha256": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9"
+    }
+  ],
+  "file_inventory": [
+    {
+      "path": "DECISIONS.md",
+      "bytes": 7974,
+      "sha256": "36bc1e2dd90f98b8a77bbf47414192c32196b3c7f1e9036a9b1dfa6cd3c2a45a"
+    },
+    {
+      "path": "README.md",
+      "bytes": 8063,
+      "sha256": "5bbbef4501b2e2d215ddc4c0c4797f2b730772970a1d84333fadaff08fd57746"
+    },
+    {
+      "path": "engineering/contracts.md",
+      "bytes": 17616,
+      "sha256": "821bb495172a6c66d8c1a9e996693c2394a9d10d877130e2679d18e1114c20fc"
+    },
+    {
+      "path": "engineering/contracts.schema.json",
+      "bytes": 18529,
+      "sha256": "61dd550805f163eb5f5e9f0e82fa2ca3c3592fe64a49a117b608b1fc55fcfbbc"
+    },
+    {
+      "path": "engineering/runtime.md",
+      "bytes": 16021,
+      "sha256": "90480dcd8a8d7e1747f7405e74df168e9bccce225067b553d514b8c0bf6196c0"
+    },
+    {
+      "path": "nap-c3-validation/00_从这里开始.md",
+      "bytes": 2481,
+      "sha256": "5fa8c71f26bd1723b7ebeb2fc254586eb8080c80750c068d6b72bfcdf3b101c7"
+    },
+    {
+      "path": "nap-c3-validation/01_资料基线与场景夹具.md",
+      "bytes": 6487,
+      "sha256": "afb891325591dd49f3757dd3b355f91ce0b5df320ab3be6c0a563ee93bd50acb"
+    },
+    {
+      "path": "nap-c3-validation/02_正式场景矩阵.md",
+      "bytes": 7080,
+      "sha256": "16eba0ae2c43dbcefc35efe5696f839dd526fc86225d3b664c7edc26e0366e89"
+    },
+    {
+      "path": "nap-c3-validation/03_完整测试案例.md",
+      "bytes": 38278,
+      "sha256": "f814bad65eef253f50246ed1a474c82dcb0839f08f0fd72a9ed928ddf6e1d265"
+    },
+    {
+      "path": "nap-c3-validation/04_多轮推演与竞争裁决.md",
+      "bytes": 8183,
+      "sha256": "4d89abffcf9a42f327e24c9bc1fe478f8adb4a105d3f2914f4207d9b732e8a65"
+    },
+    {
+      "path": "nap-c3-validation/05_评测与判定规格.md",
+      "bytes": 9922,
+      "sha256": "2f4db3eb19421b328da45803ee568996e4c42ce492ac02a7afba899b21c3bd76"
+    },
+    {
+      "path": "nap-c3-validation/06_一致性审查与全量追踪.md",
+      "bytes": 14943,
+      "sha256": "dc945c97aea5787bfb373cbcf5fe89f86880a401f259ad3c4a4c962d1068a368"
+    },
+    {
+      "path": "nap-c3-validation/07_C3验收报告.md",
+      "bytes": 5887,
+      "sha256": "0ae7b79f5a6d3beb97171b064b9c6ddb5662c0b6357c025807dd9dd995f715d5"
+    },
+    {
+      "path": "nap-c3-validation/package-manifest.json",
+      "bytes": 2164,
+      "sha256": "febd3203a4c70be3b1f33325881ffb15cc6215887c2f0f76dfc33f994bdb3ecd"
+    },
+    {
+      "path": "nap-c3-validation/references/C3-R1_场景种子与任务.md",
+      "bytes": 20551,
+      "sha256": "38ce4ff645bd449295980d8d427ffbd76b6fd85cc6ca7570ce3fd326d839f271"
+    },
+    {
+      "path": "nap-c3-validation/references/C3_完整补充资料.md",
+      "bytes": 49190,
+      "sha256": "5ba2791f034b694caeec384081bfbed97117d09070e2c0241111d0e65f78ffcc"
+    },
+    {
+      "path": "nap-c3-validation/source-manifest.json",
+      "bytes": 5550,
+      "sha256": "26162ae857c05d9ef82a09f01d10848879ec20d7c7470fb8fca982f0198925d6"
+    },
+    {
+      "path": "nap-c3-validation/validation-results.json",
+      "bytes": 2430,
+      "sha256": "0057d0ca65331f0fa2b34ede4f9c0ad02a9b30f92364cce3994eb3fd389d8064"
+    },
+    {
+      "path": "policy/action-policy.md",
+      "bytes": 9590,
+      "sha256": "0135f8b5586c060b7db29f9457937a0d6c2f76d78fb7f67447c2d7578ff9e79a"
+    },
+    {
+      "path": "policy/behavior-spec.md",
+      "bytes": 11352,
+      "sha256": "444226ce759758d9773a1b09d75702a2cd2142e9413946c9b32aae0eee277d0d"
+    },
+    {
+      "path": "quality/cases.jsonl",
+      "bytes": 323174,
+      "sha256": "5a2c48a8689a2b31fccb23db1a45a3ba75d97309cbd1e0120b160ddaf2387371"
+    },
+    {
+      "path": "quality/cases.schema.json",
+      "bytes": 10293,
+      "sha256": "e2ca9f94e0fa95917b94641f9c3508d4cf18141a456d58c9af8e5b2555b1f43c"
+    },
+    {
+      "path": "quality/check_package.py",
+      "bytes": 16776,
+      "sha256": "42cc5971005ecb52d249ebcf25361c2123a5e999cc0f7c89206f27d32af1d803"
+    },
+    {
+      "path": "quality/evaluation.md",
+      "bytes": 13356,
+      "sha256": "b23df36cb42c1078650fb691dfed8bdf7e3beee44be2dbe2dbb48084a861bf9f"
+    },
+    {
+      "path": "engineering/ac8-ux02-integration.md",
+      "bytes": 9691,
+      "sha256": "6cf834fdfb5bc4c3d86b3f96c722411610d46d811227e67e5cb7d64e2f7e2ebf"
+    },
+    {
+      "path": "quality/eligibility_reference.py",
+      "bytes": 5214,
+      "sha256": "f681281bd77ac97222001784cf0be70ec7b07a4d40bd1e07740ebf43d72c4461"
+    },
+    {
+      "path": "quality/test_eligibility_reference.py",
+      "bytes": 7788,
+      "sha256": "e3614e6fd6e6575bfa5c245e42feb2763d11ee6b6dec78d0a15604f66971f021"
+    },
+    {
+      "path": "quality/source-observation-2026-11-06.json",
+      "bytes": 9785,
+      "sha256": "9efb97c15c460f015ecd642e28af9bbfe429e11b2e4fbb177b4f3a14f44a0d7d"
+    },
+    {
+      "path": "quality/package-index-before-ac8-ux02.json",
+      "bytes": 82870,
+      "sha256": "5aa16a62b7cd40d3ba2aee079b8cb16e10a1851674d59f33aea84283041e75e7"
+    },
+    {
+      "path": "quality/validation-ac8-ux02-2026-11-06.json",
+      "bytes": 1512,
+      "sha256": "3895fc6ef3790f6de4eb7344226f33a62b3784bd6f69b923ca530ca7fc3cd784"
+    },
+    {
+      "path": "engineering/ux02-e01-e32-acceptance.md",
+      "bytes": 10453,
+      "sha256": "621c5cbe59834678500794647679a9a52ef747908ba1c0c046074b1fbf86709f"
+    },
+    {
+      "path": "engineering/source-drift-review.md",
+      "bytes": 6545,
+      "sha256": "57f60aa43605be093c447b9873c009370be4fae94204aa043162bafaae21c71e"
+    },
+    {
+      "path": "quality/verify_ac8_ux02.py",
+      "bytes": 1673,
+      "sha256": "e8d213372b3ebb1d0b9da4e4b38356a7e438b6c6243da7c202f87cb541366560"
+    },
+    {
+      "path": "quality/validation-ac8-ux02-r2-2026-11-06.json",
+      "bytes": 1168,
+      "sha256": "cd5638b9c9be44e6f20282a4bd32c76afc58917101842fc3fb2a96c3a1c7ae8f"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/03.diff",
+      "bytes": 9245,
+      "sha256": "b6eab6a00c05e6df1ceee11f02ce148e8defdca3e8c9aefd0b164e3a161dc130"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/02.diff",
+      "bytes": 16707,
+      "sha256": "738350123c896cc196cc784309931006cc7c2c7a7c113bff1ebe06e07b34b916"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/14.diff",
+      "bytes": 8128,
+      "sha256": "26599c4ae9793d6b0e89e15154f0aa9bddb6a7f076588100410ab6d8c7f95123"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/13.diff",
+      "bytes": 1472,
+      "sha256": "187048d538db561139f6a2aab8a116ec0479fc6460f50121db7566972a376bff"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/05.diff",
+      "bytes": 1233,
+      "sha256": "675abc415ccef475281bfdad0ae711931eebeaf7432766aae9f4ce34dbb27b18"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/09.diff",
+      "bytes": 4389,
+      "sha256": "6848d1e1a15f4e09df4f5ce44f920b5155826b24ded6d98e8e7f51df85977414"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/08.diff",
+      "bytes": 5184,
+      "sha256": "a7e8c0670ce23d763d9aead767edc9850b6f3be80f2f72a1fbfbae981316428c"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/04.diff",
+      "bytes": 2212,
+      "sha256": "8640a194e942859f210a58f54c776aa7b79fc8d7bc580335d1bec56801dd5e91"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/12.diff",
+      "bytes": 2107,
+      "sha256": "1b817407cc1211cc95aeaa331e4367e6943168fe8ca397df2b2321723e7efb62"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/07.diff",
+      "bytes": 2714,
+      "sha256": "1362fba295bd89cfb0f05310e8a5e2d70638ca20a472370eea1254bbe7a9727e"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/11.diff",
+      "bytes": 5605,
+      "sha256": "0910f13995bfb1fb8de3b0883617568ef0a76360b0a167a3810629a5cc2c83b2"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/manifest.json",
+      "bytes": 8636,
+      "sha256": "9d1164c1256776b7f5c4fd958c6eecba169005967604998e9f4c9ed3f304ad2a"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/10.diff",
+      "bytes": 3433,
+      "sha256": "a88122f1cc3026e6afc17ad605446eb872553dc13a0448c1d3cee59e61c3f091"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/06.diff",
+      "bytes": 6822,
+      "sha256": "12558a44d1528aa4bfcc90aef074ce5c8949eee3556f2d6be76d1aa9f60cd97e"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/01.diff",
+      "bytes": 36950,
+      "sha256": "50ca2127415af04ced25a8e627dd7f7f4b7d20cadbad908f773b7c696c4032f0"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/07.source",
+      "bytes": 5457,
+      "sha256": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/09.source",
+      "bytes": 8952,
+      "sha256": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/05.source",
+      "bytes": 7599,
+      "sha256": "0dd69fe4e0094de1c7b3e48a9d6d24709e05e830caf530e76445d572019eb11a"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/01.source",
+      "bytes": 49163,
+      "sha256": "3cb1ed7e3f4522ac4ef0e46960ab801d5a7f5c93e5528c83c2e72933767ed62d"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/13.source",
+      "bytes": 20463,
+      "sha256": "2ba4b92efa2f7767b97b3a666da191a70c5a8ed71f24ef49fae7d0776b8f1821"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/11.source",
+      "bytes": 13836,
+      "sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/03.source",
+      "bytes": 8900,
+      "sha256": "84ffda0b03e5055c0a39a3683dae68fe93ec60feebbb06a5011349917366283d"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/06.source",
+      "bytes": 5544,
+      "sha256": "f1f12447f06bef094a07a68d6af8c6111c8ac61d9646034cb7f987ff0f0e0c90"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/14.source",
+      "bytes": 42560,
+      "sha256": "7c9d80611a0b08b06842967446bc7c8ff9f54ee2e13210d7fa978d210700c777"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/08.source",
+      "bytes": 9532,
+      "sha256": "a3a41431e1b1027474326198912d60434f7d79758aa6d0f32359cb4a33791d2f"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/04.source",
+      "bytes": 14945,
+      "sha256": "f5292d4c251e08937e0692ea79641c4bb0f5f7d27dff4888a44a3d29714a702b"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/12.source",
+      "bytes": 21535,
+      "sha256": "029a0156dbd132d5c42e4912f59ff05390433eccc0b8906b86241df64f2f09b2"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/10.source",
+      "bytes": 8692,
+      "sha256": "e58d328e0b5bde8c37069f5d196c2cdfc91ed79e80372efd79b58a3f41957522"
+    },
+    {
+      "path": "quality/source-diffs-2026-11-06/old/02.source",
+      "bytes": 24757,
+      "sha256": "9516ecd29b93e56b3aa2458c62a8228da98f7374233c20f4c1a6009abd00f152"
+    },
+    {
+      "path": "quality/validation-ac8-ux02-r3-2026-11-06.json",
+      "bytes": 980,
+      "sha256": "195834b9b647b334cd34e7d6bfb6f8dcb1e13086d6b7af622dc370c23f2e181c"
+    }
+  ],
+  "manifest_exclusions": [
+    "package-index.json self",
+    "quality/validation-report.json regenerated report",
+    "quality/baseline-repair-2026-10-28.json audit report (includes final hashes)"
+  ],
+  "validation_report": "quality/validation-report.json",
+  "source_binding_status": "LOCAL_CANDIDATE_NOT_ENGINEERING_APPROVAL",
+  "source_observation": "quality/source-observation-2026-11-06.json",
+  "prior_index": "quality/package-index-before-ac8-ux02.json",
+  "additional_sources": [
+    {
+      "path": "../产品机制迭代/问题域：A｜用户理解与认知推断/P03｜用户当下意图理解与持续校准｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "c66f9e2320cb539736093080849dd22cbbc1519f0b2f055d4eafb74ac155f569",
+      "bytes": 12647,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：A｜用户理解与认知推断/P04｜冷启动状态下如何知道用户兴趣｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "12190f18a321215f4feabb48152042ca18285d9e2029e1e08d27ffea1820181a",
+      "bytes": 14191,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：A｜用户理解与认知推断/P05｜自然语言歧义与低成本澄清｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "36590dd46d7f0e4a64f9ae29afef82a571765996aa4fd27b310cfa8fc300d404",
+      "bytes": 17445,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P01｜下一步行动价值判断｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "09e8d70b1c438c20908e6953258aebf7a809d8f8134e6ac07c9ac9e0863870cf",
+      "bytes": 5893,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P10｜NAP 行动校验范围｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "c8e260127d6a47fcbd8009f05cf9425d3a30e2da3ddd5b36ae1811f2d789ee49",
+      "bytes": 7046,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P15｜当前行动相对适配性｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "9d00d394dc8a6c51c81241fbf998fb233d603e71f0ebd8e15975a83c6123d50a",
+      "bytes": 4579,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P16｜主动行为用户负担判断｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "c0efcac6910f912879b8035b5fa29bff47cc676dc08b0498868da96bb8cfd14a",
+      "bytes": 6348,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/P19｜主动介入时机判断｜产品机制审查与调整归档 V0.1.md",
+      "sha256": "8e455f65392b76c2858676d4df9b2f2374ea5302eaf159bf4f0a74733ac112ad",
+      "bytes": 5139,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/问题域：C｜下一步行动的价值与介入边界（行动价值决策与反馈闭环）/问题域 C｜行动价值决策与反馈闭环｜产品机制规范 V0.1.md",
+      "sha256": "0fc6b3851ae3efa4b7e922e1060feb3b3ac9e09b1329fd1d974d069bffb3326d",
+      "bytes": 34672,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../产品机制迭代/ANTU｜A-C 域跨模块工程影响交接矩阵 V0.1.md",
+      "sha256": "74adc90848fcb93c628ac75e673ffb80bdaca0d4075444f50d30889fa3e87e86",
+      "bytes": 10304,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/README.md",
+      "sha256": "d0b3ca0b770a75b6ddd23d25b1f57f635c84a3de88f499747eaa1d8bc50eec95",
+      "bytes": 9867,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/Core-UX-Flow-V0.1.md",
+      "sha256": "2a42c5c460af5452d681e73be9e315cc8218ce771b87db36afd13e100159b9a4",
+      "bytes": 19519,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/Engineering-Impact-Matrix-V0.1.md",
+      "sha256": "aa74180346ff6e396b744321fefc25643833b605eb7bd8be45ba8e63361b1d0b",
+      "bytes": 16761,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/UX-02-NAP-Impact-V0.1.md",
+      "sha256": "8311487f48233d87ac6f69ed29574c04968209ab88a1fdaf6ae7d000d42a77aa",
+      "bytes": 3691,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../UX/UX-02/UX-02-PRD-TS-DC-Review-V0.1.md",
+      "sha256": "a1ea703a646f8991803c14b83a78f8751a805ea67686eaf89d86f171ebcb1b30",
+      "bytes": 8147,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../decision-context-v0.1/03_评审与工程衔接/12_DC-AC8机制融合追踪与规格变更.md",
+      "sha256": "7fdb21bb68c23572b447e26c370b9fbe4aaac88473cca6b73b834661507c6b5d",
+      "bytes": 13006,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../decision-context-v0.1/03_评审与工程衔接/18_UX02行为落实与E03开发验收映射.md",
+      "sha256": "1f9f9b821b2c9ffb992bd63f49eace312ca9d84e3b760f469fc1091880e919bb",
+      "bytes": 17447,
+      "status": "source_observed_not_automatic_engineering_approval"
+    },
+    {
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/UX02工程落实与DC开发映射.md",
+      "sha256": "4ce7f5216df8676382e0b2fa2246e7b6f32bdbff3a11bab6fee9de2e7eca88db",
+      "bytes": 17442,
+      "status": "source_observed_not_automatic_engineering_approval"
+    }
+  ],
+  "ac8_ux02_validation_report": "quality/validation-ac8-ux02-r3-2026-11-06.json",
+  "ac8_ux02_review_r2": "PENDING_INCREMENTAL_REVIEW",
+  "ac8_ux02_review_r3": "PENDING_INCREMENTAL_REVIEW"
+}

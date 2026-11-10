@@ -1,0 +1,803 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:antu:nap:0.1:contracts",
+  "title": "NAP 0.1.0 logical message contracts",
+  "description": "New NAP contracts; not additions to Trip State or Decision Context. Cross-record, trust, step-kind and lifecycle guards are defined in contracts.md/runtime.md.",
+  "anyOf": [
+    {
+      "$ref": "#/$defs/DecisionRequest"
+    },
+    {
+      "$ref": "#/$defs/DecisionPlan"
+    },
+    {
+      "$ref": "#/$defs/ToolCompletion"
+    },
+    {
+      "$ref": "#/$defs/UIFeedback"
+    },
+    {
+      "$ref": "#/$defs/RequestObservation"
+    },
+    {
+      "$ref": "#/$defs/ActionRecord"
+    },
+    {
+      "$ref": "#/$defs/Error"
+    }
+  ],
+  "$defs": {
+    "Basis": {
+      "type": "object",
+      "properties": {
+        "packet_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "turn_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "task_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "state_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "snapshot_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "expires_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "packet_id",
+        "turn_id",
+        "task_key",
+        "state_revision",
+        "snapshot_digest",
+        "expires_at"
+      ],
+      "additionalProperties": false
+    },
+    "EvidenceRef": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "enum": [
+            "object",
+            "source",
+            "delivery"
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "Step": {
+      "type": "object",
+      "properties": {
+        "step_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "kind": {
+          "enum": [
+            "read",
+            "query",
+            "calculate",
+            "change",
+            "ask",
+            "deliver"
+          ]
+        },
+        "depends_on": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "uniqueItems": true
+        },
+        "capability_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "arguments": {
+          "type": "object"
+        },
+        "change_request": {
+          "anyOf": [
+            {
+              "$ref": "https://trip-state.example/spec/0.1/change-request.schema.json"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "user_message": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "step_id",
+        "kind",
+        "depends_on",
+        "capability_id",
+        "arguments",
+        "change_request",
+        "user_message"
+      ],
+      "additionalProperties": false
+    },
+    "Action": {
+      "type": "object",
+      "properties": {
+        "action_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "task_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "packet_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "request_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "uniqueItems": true
+        },
+        "goal": {
+          "enum": [
+            "D1",
+            "D2",
+            "D3",
+            "D4",
+            "D5"
+          ]
+        },
+        "attention": {
+          "enum": [
+            "prepare",
+            "primary",
+            "secondary"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Step"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "action_id",
+        "task_key",
+        "packet_id",
+        "request_ids",
+        "goal",
+        "attention",
+        "reason",
+        "steps"
+      ],
+      "additionalProperties": false
+    },
+    "DecisionRequest": {
+      "type": "object",
+      "properties": {
+        "nap_contract_version": {
+          "const": "0.1.0"
+        },
+        "decision_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "runtime_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "trigger": {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "enum": [
+                "user_event",
+                "tool_result",
+                "state_change",
+                "clock_tick",
+                "ui_action"
+              ]
+            },
+            "reference": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "kind",
+            "reference"
+          ],
+          "additionalProperties": false
+        },
+        "packets": {
+          "type": "array",
+          "items": {
+            "$ref": "https://decision-context.example/runtime/0.1/packet.schema.json"
+          },
+          "minItems": 1
+        }
+      },
+      "required": [
+        "nap_contract_version",
+        "decision_id",
+        "runtime_id",
+        "trigger",
+        "packets"
+      ],
+      "additionalProperties": false
+    },
+    "DecisionPlan": {
+      "type": "object",
+      "properties": {
+        "nap_contract_version": {
+          "const": "0.1.0"
+        },
+        "decision_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "runtime_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "basis": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Basis"
+          },
+          "minItems": 1
+        },
+        "response": {
+          "type": "object",
+          "properties": {
+            "request_ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "uniqueItems": true
+            },
+            "disposition": {
+              "enum": [
+                "answered",
+                "partial",
+                "clarification",
+                "blocked",
+                "deferred",
+                "no_current_request"
+              ]
+            },
+            "text": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "minLength": 1
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence_refs": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/EvidenceRef"
+              }
+            }
+          },
+          "required": [
+            "request_ids",
+            "disposition",
+            "text",
+            "evidence_refs"
+          ],
+          "additionalProperties": false
+        },
+        "actions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/Action"
+          }
+        }
+      },
+      "required": [
+        "nap_contract_version",
+        "decision_id",
+        "runtime_id",
+        "basis",
+        "response",
+        "actions"
+      ],
+      "additionalProperties": false
+    },
+    "ToolCompletion": {
+      "type": "object",
+      "properties": {
+        "nap_contract_version": {
+          "const": "0.1.0"
+        },
+        "completion_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "decision_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "action_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "step_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "query_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "basis_state_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "result_status": {
+          "enum": [
+            "result",
+            "partial",
+            "empty",
+            "timeout",
+            "error",
+            "no_service"
+          ]
+        },
+        "provider_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expires_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "raw_result_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "validated_fact_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "uniqueItems": true
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "code",
+                "message"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "nap_contract_version",
+        "completion_id",
+        "decision_id",
+        "action_id",
+        "step_id",
+        "query_digest",
+        "basis_state_revision",
+        "result_status",
+        "provider_ref",
+        "observed_at",
+        "expires_at",
+        "raw_result_ref",
+        "validated_fact_ids",
+        "error"
+      ],
+      "additionalProperties": false
+    },
+    "UIFeedback": {
+      "type": "object",
+      "properties": {
+        "nap_contract_version": {
+          "const": "0.1.0"
+        },
+        "feedback_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "decision_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "action_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "type": {
+          "enum": [
+            "shown",
+            "clicked",
+            "skipped",
+            "rejected",
+            "stop",
+            "reopen",
+            "confirmed"
+          ]
+        },
+        "event": {
+          "$ref": "https://decision-context.example/runtime/0.1/open-turn.schema.json#/$defs/event"
+        }
+      },
+      "required": [
+        "nap_contract_version",
+        "feedback_id",
+        "decision_id",
+        "action_id",
+        "type",
+        "event"
+      ],
+      "additionalProperties": false
+    },
+    "RequestObservation": {
+      "type": "object",
+      "properties": {
+        "nap_contract_version": {
+          "const": "0.1.0"
+        },
+        "observation_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "task_key": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "event_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "action_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "kind": {
+          "enum": [
+            "delivery",
+            "withdrawal",
+            "defer",
+            "reopen",
+            "stop",
+            "opportunity_hint"
+          ]
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "basis_revision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "source_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "content_digest": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "coverage": {
+          "enum": [
+            "none",
+            "partial",
+            "full",
+            "not_applicable"
+          ]
+        },
+        "assessment": {
+          "enum": [
+            "host_confirmed",
+            "semantic_review_required"
+          ]
+        },
+        "related_observation_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "uniqueItems": true
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "nap_contract_version",
+        "observation_id",
+        "task_key",
+        "event_id",
+        "action_id",
+        "kind",
+        "scope",
+        "basis_revision",
+        "source_ref",
+        "content_digest",
+        "coverage",
+        "assessment",
+        "related_observation_ids",
+        "created_at"
+      ],
+      "additionalProperties": false
+    },
+    "ActionRecord": {
+      "type": "object",
+      "properties": {
+        "nap_contract_version": {
+          "const": "0.1.0"
+        },
+        "decision_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "action_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "phase": {
+          "enum": [
+            "proposed",
+            "eligible",
+            "blocked",
+            "waiting_user",
+            "running",
+            "partial",
+            "succeeded",
+            "failed",
+            "stale",
+            "cancelled"
+          ]
+        },
+        "plan_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "completed_step_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "uniqueItems": true
+        },
+        "result_refs": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "error_ref": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "related_action_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "uniqueItems": true
+        },
+        "updated_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "nap_contract_version",
+        "decision_id",
+        "action_id",
+        "phase",
+        "plan_digest",
+        "completed_step_ids",
+        "result_refs",
+        "error_ref",
+        "related_action_ids",
+        "updated_at"
+      ],
+      "additionalProperties": false
+    },
+    "Error": {
+      "type": "object",
+      "properties": {
+        "nap_contract_version": {
+          "const": "0.1.0"
+        },
+        "code": {
+          "enum": [
+            "NAP_CONTRACT_INVALID",
+            "NAP_DEPENDENCY_STALE",
+            "NAP_ACTION_INELIGIBLE",
+            "NAP_REENTRY_UNSUPPORTED",
+            "NAP_SOURCE_UNTRUSTED",
+            "NAP_IDEMPOTENCY_CONFLICT",
+            "NAP_EXECUTION_UNKNOWN",
+            "NAP_OBSERVATION_UNAVAILABLE"
+          ]
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "source_code": {
+          "anyOf": [
+            {
+              "type": "string",
+              "minLength": 1
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "decision_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "action_id": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "nap_contract_version",
+        "code",
+        "message",
+        "retryable",
+        "source_code",
+        "decision_id",
+        "action_id"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

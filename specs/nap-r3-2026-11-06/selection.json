@@ -1,0 +1,81 @@
+{
+  "capture_date": "2026-11-06",
+  "selection_status": "R3 reviewed in limited spec/traceability/synthetic reference scope; owner approval and production not assumed",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "5bbbef4501b2e2d215ddc4c0c4797f2b730772970a1d84333fadaff08fd57746",
+      "bytes": 8063
+    },
+    {
+      "path": "DECISIONS.md",
+      "sha256": "36bc1e2dd90f98b8a77bbf47414192c32196b3c7f1e9036a9b1dfa6cd3c2a45a",
+      "bytes": 7974
+    },
+    {
+      "path": "policy/behavior-spec.md",
+      "sha256": "444226ce759758d9773a1b09d75702a2cd2142e9413946c9b32aae0eee277d0d",
+      "bytes": 11352
+    },
+    {
+      "path": "policy/action-policy.md",
+      "sha256": "0135f8b5586c060b7db29f9457937a0d6c2f76d78fb7f67447c2d7578ff9e79a",
+      "bytes": 9590
+    },
+    {
+      "path": "engineering/contracts.md",
+      "sha256": "821bb495172a6c66d8c1a9e996693c2394a9d10d877130e2679d18e1114c20fc",
+      "bytes": 17616
+    },
+    {
+      "path": "engineering/contracts.schema.json",
+      "sha256": "61dd550805f163eb5f5e9f0e82fa2ca3c3592fe64a49a117b608b1fc55fcfbbc",
+      "bytes": 18529
+    },
+    {
+      "path": "engineering/runtime.md",
+      "sha256": "90480dcd8a8d7e1747f7405e74df168e9bccce225067b553d514b8c0bf6196c0",
+      "bytes": 16021
+    },
+    {
+      "path": "engineering/ac8-ux02-integration.md",
+      "sha256": "6cf834fdfb5bc4c3d86b3f96c722411610d46d811227e67e5cb7d64e2f7e2ebf",
+      "bytes": 9691
+    },
+    {
+      "path": "engineering/source-drift-review.md",
+      "sha256": "57f60aa43605be093c447b9873c009370be4fae94204aa043162bafaae21c71e",
+      "bytes": 6545
+    },
+    {
+      "path": "engineering/ux02-e01-e32-acceptance.md",
+      "sha256": "621c5cbe59834678500794647679a9a52ef747908ba1c0c046074b1fbf86709f",
+      "bytes": 10453
+    },
+    {
+      "path": "quality/eligibility_reference.py",
+      "sha256": "f681281bd77ac97222001784cf0be70ec7b07a4d40bd1e07740ebf43d72c4461",
+      "bytes": 5214
+    },
+    {
+      "path": "quality/test_eligibility_reference.py",
+      "sha256": "e3614e6fd6e6575bfa5c245e42feb2763d11ee6b6dec78d0a15604f66971f021",
+      "bytes": 7788
+    },
+    {
+      "path": "quality/source-observation-2026-11-06.json",
+      "sha256": "9efb97c15c460f015ecd642e28af9bbfe429e11b2e4fbb177b4f3a14f44a0d7d",
+      "bytes": 9785
+    },
+    {
+      "path": "quality/validation-ac8-ux02-r3-2026-11-06.json",
+      "sha256": "195834b9b647b334cd34e7d6bfb6f8dcb1e13086d6b7af622dc370c23f2e181c",
+      "bytes": 980
+    },
+    {
+      "path": "package-index.json",
+      "sha256": "0ab61c5ec5017ee1976c8fb15efdea5dcd653d9b18988af6bf8d8c8c9f6dff48",
+      "bytes": 96385
+    }
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "observed_date": "2026-11-06",
+  "candidate_index_sha256": "5aa16a62b7cd40d3ba2aee079b8cb16e10a1851674d59f33aea84283041e75e7",
+  "source_count": 69,
+  "changed_or_missing_count": 14,
+  "differences": [
+    {
+      "source": "../AI Native旅行产品｜PRD V0.1.md",
+      "indexed_sha256": "3cb1ed7e3f4522ac4ef0e46960ab801d5a7f5c93e5528c83c2e72933767ed62d",
+      "observed_sha256": "19321a8f0e459d54fcff5e54f77ea3af06235035699dcc777a3d6cff7dd2c203"
+    },
+    {
+      "source": "../trip-state-schema-v0.1/02_业务状态规则/SPECIFICATION.md",
+      "indexed_sha256": "9516ecd29b93e56b3aa2458c62a8228da98f7374233c20f4c1a6009abd00f152",
+      "observed_sha256": "0e97d946d12553cdf0a6cf181b3fc357e0d1d7f72711ffae2f7913e65efd5600"
+    },
+    {
+      "source": "../trip-state-schema-v0.1/02_业务状态规则/AUTHORITY_FINAL.md",
+      "indexed_sha256": "84ffda0b03e5055c0a39a3683dae68fe93ec60feebbb06a5011349917366283d",
+      "observed_sha256": "8e72d7a20c1a2b8e4b30f75f4bd9789c3d8cc3cd768951903823634aa3e0c13f"
+    },
+    {
+      "source": "../trip-state-schema-v0.1/02_业务状态规则/STATE_TRANSITIONS_FINAL.md",
+      "indexed_sha256": "f5292d4c251e08937e0692ea79641c4bb0f5f7d27dff4888a44a3d29714a702b",
+      "observed_sha256": "974b03d533c22345b5c19cf81e78b55e372c14ec12f065f6a49da068237c47de"
+    },
+    {
+      "source": "../trip-state-schema-v0.1/02_业务状态规则/PROPAGATION_FINAL.md",
+      "indexed_sha256": "0dd69fe4e0094de1c7b3e48a9d6d24709e05e830caf530e76445d572019eb11a",
+      "observed_sha256": "adb8eb4b6afd46a2cfd0d523893cbcaff7bb50a224739d16b2dafc859239f073"
+    },
+    {
+      "source": "../trip-state-schema-v0.1/02_业务状态规则/INVARIANTS_FINAL.md",
+      "indexed_sha256": "f1f12447f06bef094a07a68d6af8c6111c8ac61d9646034cb7f987ff0f0e0c90",
+      "observed_sha256": "e192493a7bf1c701648457d347f684394beedd7fee85c4f3e6fbee32279b3b77"
+    },
+    {
+      "source": "../decision-context-v0.1/00_从这里开始.md",
+      "indexed_sha256": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026",
+      "observed_sha256": "bff5a687738a0b72597ca1a57d41582ef409d41f801d89df8fb48a03b6542745"
+    },
+    {
+      "source": "../decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "indexed_sha256": "a3a41431e1b1027474326198912d60434f7d79758aa6d0f32359cb4a33791d2f",
+      "observed_sha256": "5d7d967334c656c973ef9fd71a8065a4c79ae897e5c540152886a3bc04e8e082"
+    },
+    {
+      "source": "../decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "indexed_sha256": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a",
+      "observed_sha256": "9d507be901727b702da0c49e46c9c977b4540e8cbd68cac1ef445490a617978d"
+    },
+    {
+      "source": "../decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "indexed_sha256": "e58d328e0b5bde8c37069f5d196c2cdfc91ed79e80372efd79b58a3f41957522",
+      "observed_sha256": "21c98ed7f4c0124afeedb6e6bba46c26026c51004df683bbed733e3c009dbdf8"
+    },
+    {
+      "source": "../decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "indexed_sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
+      "observed_sha256": "bbac21430dd4d43ae9a663551cef073ccf5265ea0beb5c1e33deaf7fd23bbeda"
+    },
+    {
+      "source": "../decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "indexed_sha256": "029a0156dbd132d5c42e4912f59ff05390433eccc0b8906b86241df64f2f09b2",
+      "observed_sha256": "12cefe8393194b427c27f13349dfb1a84b189d326f6a25a285b33ca8452b6e01"
+    },
+    {
+      "source": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/contracts.py",
+      "indexed_sha256": "2ba4b92efa2f7767b97b3a666da191a70c5a8ed71f24ef49fae7d0776b8f1821",
+      "observed_sha256": "5f84a5fe2fb2a5ff94b8e16d01ecd6f16be0e627c97e083501a095d1ddb0960a"
+    },
+    {
+      "source": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/engine.py",
+      "indexed_sha256": "7c9d80611a0b08b06842967446bc7c8ff9f54ee2e13210d7fa978d210700c777",
+      "observed_sha256": "900744763cecaa99830bd34ea11c439cbf2170acf23e21a1d6077c3e785a86ca"
+    }
+  ],
+  "note": "Read-only observation; not a new approved source lock or semantic review."
+}
