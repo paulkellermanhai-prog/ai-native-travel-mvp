@@ -4,9 +4,9 @@
   "generated_view": "docs/E03阶段看板.md",
   "candidate_pr": 12,
   "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
-  "accepted_weight_percent": 87,
+  "accepted_weight_percent": 100,
   "submitted_weight_percent": 0,
-  "scope": "E03-00–06 accepted for the Egypt internal MVP at fixed reviewed heads; E03-07 final HTTP and engineering acceptance development is in progress; accepted weight is 87%; production services remain disabled",
+  "scope": "E03-00–07 accepted at fixed reviewed heads for the first Egypt internal MVP; accepted weight is 100%; this does not authorize merge, deployment, public service, production E11 or production infrastructure",
   "stages": [
     {
       "id": "E03-00",
@@ -298,28 +298,28 @@
       "id": "E03-07",
       "name": "HTTP 与完整工程验收",
       "weight_percent": 13,
-      "status": "IN_PROGRESS",
-      "accepted": false,
+      "status": "ACCEPTED",
+      "accepted": true,
       "subtasks": [
         {
           "id": "E03-07-1",
           "description": "评审并实现原正式HTTP适配与真实宿主",
-          "status": "IN_PROGRESS"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-07-2",
           "description": "真实HTTP/PG和恢复故障端到端验收",
-          "status": "IN_PROGRESS"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-07-3",
           "description": "全阶段回归、需求追踪和技术负责人最终Gate",
-          "status": "IN_PROGRESS"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-07-4",
           "description": "真实 Session/PostgreSQL/HTTP/新进程联测 E11 保留期限、删除/清理失败、备份恢复先重放删除标记、最小审计和用户告知",
-          "status": "IN_PROGRESS"
+          "status": "ACCEPTED"
         }
       ],
       "evidence": [
@@ -328,13 +328,15 @@
         "src/server/decision-context/host-runtime/evidence-host.ts",
         "tests/http/e03-runtime/pr29-host.pg.test.ts",
         "tests/support/e03-http-recovery-process.ts",
-        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/33"
+        "docs/E03最终工程交接索引.md",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/33",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42798102568"
       ],
-      "execution_location": "从 E03-06 接受 head fc0e89a5764c247ffa2f3278e629b5f33691d270 派生的 feat/e03-07-final-integration 分支与 Draft PR #33；选择性复用原 E03-04/07 HTTP 候选；候选仍待同 head CI 与最终 Gate",
-      "responsibilities": "主集成人复用 E03-03–06 真实宿主、写桥、Checkpoint 和恢复能力，完成内部 MVP HTTP 闭环与最终工程证据",
+      "execution_location": "PR #33 固定验收 head 590dfade29ad2dcae6dbc40507072f18cea3a58a；CI #88 成功（60/60 文件、1144/1144 Vitest）",
+      "responsibilities": "主集成人复用 E03-03–06 真实宿主、写桥、Checkpoint 和恢复能力，完成内部 MVP HTTP 闭环与最终工程证据；AI 技术负责人限定增量验收固定 head",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "仅推进埃及内部 MVP HTTP 与最终工程验收；生产备份/WAL、正式调度、审计告知系统、多实例、真实模型、NAP 和 UI 不在本阶段范围"
+        "阶段已通过第一版埃及内部 MVP 工程验收；生产迁移、备份/WAL、正式调度、审计与用户告知、多实例、真实模型、NAP、UI 和公开服务不包含在本验收中"
       ]
     }
   ],
