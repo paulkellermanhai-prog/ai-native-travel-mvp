@@ -29,7 +29,7 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
 
     const owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
     const resources:Array<{close:()=>Promise<void>}>=[];
-    let server:http.Server|undefined,revokeDuringWrite=false,userId="",trip="",writeGuardCalls=0;
+    let server:http.Server|undefined,revokeDuringWrite=false,failLifecycleOnce=false,userId="",trip="",writeGuardCalls=0,lifecycleSyncCalls=0;
     try {
       const check=await owner.query("SELECT current_database() AS name,current_setting('server_version_num')::int AS version,to_regclass('public.\"HostEvidenceWorkspace\"') IS NULL AS clean");
       if(check.rows[0]?.name!==cfg.database||check.rows[0]?.version<170000||!check.rows[0]?.clean)throw new Error("Clean dedicated PG 17 required");
@@ -74,6 +74,8 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
           evidence:[{start:0,end:Array.from(input.event.text).length,quote:input.event.text}],progress:"open",progress_evidence:null}],focus_keys:[key]};
       };
       mounted.adapter=createPr29HostHttpCandidate(host,origin,interpret,async(tripId,revision)=>{
+        lifecycleSyncCalls++;
+        if(failLifecycleOnce){failLifecycleOnce=false;throw new Error("synthetic lifecycle sync failure");}
         await lifecycle.sync(await issueInternalCapability(secret,tripId,{role:"system",id:"e03-write-lifecycle"}),{trip_id:tripId,source_revision:revision,ended_at:null});
       });
       const post=(operation:string,body:unknown,sessionCookie=cookie)=>fetch(`${origin}/runtime/trips/${trip}/${operation}`,{
@@ -121,6 +123,18 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const confirmedResponse=await post("confirm",confirmation);expect(confirmedResponse.status).toBe(200);
       const confirmed=await confirmedResponse.json() as TripStateContracts["response"];expect(confirmed).toMatchObject({outcome:"applied",revision:2});
       expect(await (await post("confirm",confirmation)).json()).toEqual(confirmed);
+
+      const reviseSix=[{op:"revise",object_type:"Constraint",id:"constraint-nights",changes:{value:{kind:"duration",maximum_nights:6}}}] as TripStateContracts["change-request"]["commands"];
+      const syncPacket=await packet("请把阿斯旺行程实际调整为六晚"),syncChange=change(syncPacket,"egypt-sync-retry",reviseSix);
+      await mounted.adapter.authorizeUserChange(trip,new Headers({cookie}),syncChange);
+      const beforeSyncFailure=await counts(),syncCallsBefore=lifecycleSyncCalls;failLifecycleOnce=true;
+      expect((await post("changes",syncChange)).status).toBe(500);
+      expect(await readState()).toMatchObject({revision:3,objects:expect.arrayContaining([expect.objectContaining({id:"constraint-nights",value:{kind:"duration",maximum_nights:6}})])});
+      const afterSyncFailure=await counts();expect(afterSyncFailure).toMatchObject({history:beforeSyncFailure.history+1,receipts:beforeSyncFailure.receipts+1});
+      expect((await post("turns",{entry:"dialogue",text:"生命周期未同步时读取",idempotency_key:`turn_${randomUUID()}`})).status).toBe(503);
+      const syncRetry=await post("changes",syncChange);expect(syncRetry.status).toBe(200);
+      expect(await syncRetry.json()).toMatchObject({outcome:"applied",revision:3});expect(await counts()).toEqual(afterSyncFailure);
+      expect(lifecycleSyncCalls).toBe(syncCallsBefore+2);
 
       const revokedPacket=await packet("请再次实际修改阿斯旺天数"),revokedChange=change(revokedPacket,"egypt-revoked",revise);
       await mounted.adapter.authorizeUserChange(trip,new Headers({cookie}),revokedChange);
