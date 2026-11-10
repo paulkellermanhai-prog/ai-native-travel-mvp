@@ -2,7 +2,7 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-export const E03_CANDIDATE_INSTALL_VERSION=2;
+export const E03_CANDIDATE_INSTALL_VERSION=3;
 export const E03_CANDIDATE_SOURCES=[
   "../src/server/decision-context/host-runtime/sql/001-evidence-record-candidate.sql",
   "../src/server/decision-context/checkpoint-store/migration.sql",
@@ -12,7 +12,7 @@ export const E03_CANDIDATE_SOURCES=[
 export const E03_CANDIDATE_SHA256=[
   "12e31422ae87e9531d89eb780e912089e90097237ef4a5c4ede7e11c43b62496",
   "7e5d39020d1c5f1a4997917ca0f8f57c1e7325716b811c41c20c4a2a03b63498",
-  "2c8bddc21ffda951bb6b35dbda9a67b4eec3281bc6ff44d336e578e052bb744c",
+  "ba5810749b62e1120f33692358d91dcb0e0aa7ff21bcda83debebf04488fd8df",
   "df27e2dbe529841f75ba61275ea4cb83e90f1f27bcf87cf7771c730cb6908938",
 ];
 const runtimeFunctions=[
@@ -54,7 +54,7 @@ export async function installE03Candidate(client,{runtimeRole,lifecycleRole}) {
   if(!rolePattern.test(runtimeRole)||!rolePattern.test(lifecycleRole))throw new Error("Refusing unrecognized candidate roles");
   const roles=await client.query("SELECT rolname FROM pg_roles WHERE rolname=ANY($1::text[])",[[runtimeRole,lifecycleRole]]);
   if(new Set(roles.rows.map(row=>row.rolname)).size!==2)throw new Error("Candidate roles are missing");
-  await client.query("SELECT pg_advisory_xact_lock(hashtext('e03-candidate-installer-v2'))");
+  await client.query("SELECT pg_advisory_xact_lock(hashtext('e03-candidate-installer-v3'))");
   await client.query("CREATE SCHEMA IF NOT EXISTS e03_install");
   await client.query("REVOKE ALL ON SCHEMA e03_install FROM PUBLIC");
   await client.query(`CREATE TABLE IF NOT EXISTS e03_install.versions(

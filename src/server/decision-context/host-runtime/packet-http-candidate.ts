@@ -53,6 +53,11 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
   }
   return {
     bindTurn,forgetWorkspace,
+    ticketForSessionCandidate(sessionKey:string) {
+      const entry=sessionWorkspaces.get(sessionKey);
+      return entry&&entry.expiresAt>Date.now()?entry.ticket:undefined;
+    },
+    bindSessionWorkspaceCandidate(sessionKey:string,ticket:object) {keepWorkspace(sessionKey,ticket);},
     ticketForPacketCandidate(tripId:string,packetId:string) {
       return [...(workspaces.get(tripId)??[])].find(ticket=>host.hasLocalPacketCandidate(ticket,packetId));
     },
@@ -86,7 +91,9 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
           if(route&&route.expiresAt<=Date.now()){forgetWorkspace(route.ticket);await host.disposeWorkspace(route.ticket);}
           const ticket=route&&route.expiresAt>Date.now()?route.ticket:await host.createWorkspace(tripId,credential);
           if(!route||route.ticket!==ticket)keepWorkspace(sessionKey,ticket);
-          const turn=await host.openInterpretedTurnCandidate(ticket,credential,value.data,interpret);
+          const opened=await host.openInterpretedTurnCandidate(ticket,credential,value.data,interpret);
+          const saved=await host.autosaveTurnCandidate(ticket,credential,opened,value.data.entry);
+          const turn={...opened,checkpoint_ack:saved.ack};
           bindTurn(tripId,turn.turn_id,ticket);keepWorkspace(sessionKey,ticket);
           await host.sendTurnCandidate(ticket,credential,turn,response);
         } else if(match[2]==="assemble"){

@@ -6,6 +6,7 @@ import { createRuntimeHandler } from "./handler";
 import { RuntimeHttpFault } from "../http-core/response";
 import { parseDCContract } from "../contracts";
 import { confirmChange, submitChange } from "../write-bridge/orchestrator";
+import { CheckpointError } from "../checkpoint-core";
 
 type EvidenceHost = Awaited<ReturnType<typeof openEvidenceHost>>;
 
@@ -14,12 +15,34 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
   syncLifecycle?: (tripId:string,revision:number)=>Promise<void>) {
   const packets = createPacketHttpCandidate(host, origin, interpret);
   const writes = createRuntimeHandler({ origin, async authorize(tripId, headers) {
-    try { await host.authorizeTripCandidate(tripId, headers); }
+    let sessionKey:string;
+    try { sessionKey=await host.authorizeTripCandidate(tripId, headers); }
     catch (error) {
       if (error instanceof EvidenceBoundaryError && error.code === "EVIDENCE_ACCESS_DENIED") throw new RuntimeHttpFault("ACCESS_DENIED");
       throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
     }
     return {
+      async "checkpoints/save"(value) {
+        const ticket=packets.ticketForSessionCandidate(sessionKey);if(!ticket)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+        try{return await host.saveSceneCandidate(ticket,headers,parseDCContract("scene-save",value));}
+        catch(error){throw checkpointFault(error);}
+      },
+      async "checkpoints/status"() {
+        const ticket=packets.ticketForSessionCandidate(sessionKey);if(!ticket)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+        try{return await host.checkpointStatusCandidate(ticket,headers);}
+        catch(error){throw checkpointFault(error);}
+      },
+      async "checkpoints/restore"(value) {
+        const body=parseDCContract("scene-restore",value),prior=packets.ticketForSessionCandidate(sessionKey);
+        try{
+          const ticket=await host.reopenWorkspace(tripId,headers,body.workspace_key);
+          if(prior){packets.forgetWorkspace(prior);await host.disposeWorkspace(prior);}
+          packets.bindSessionWorkspaceCandidate(sessionKey,ticket);
+          const restored=await host.restoreCheckpoint(ticket,headers,body.body_budget_bytes);
+          if(!("scene" in restored))throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+          return restored.scene;
+        } catch(error){throw checkpointFault(error);}
+      },
       async changes(value) {
         if(!syncLifecycle)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
         const body=parseDCContract("change",value),ticket=packets.ticketForPacketCandidate(tripId,body.packet_id);
@@ -52,7 +75,7 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       let path: string;
       try { path = new URL(request.url ?? "/", origin).pathname; }
       catch { path = ""; }
-      if (/^\/runtime\/trips\/[A-Za-z][A-Za-z0-9_-]{0,95}\/(changes|confirm)$/.test(path)) {
+      if (/^\/runtime\/trips\/[A-Za-z][A-Za-z0-9_-]{0,95}\/(changes|confirm|checkpoints\/(?:save|status|restore))$/.test(path)) {
         const webRequest = new Request(new URL(request.url ?? "/", origin), {
           method: request.method,
           headers: request.headers as HeadersInit,
@@ -65,4 +88,11 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       await packets.handle(request,response);
     },
   };
+}
+
+function checkpointFault(error:unknown):RuntimeHttpFault {
+  if(error instanceof RuntimeHttpFault)return error;
+  if(error instanceof EvidenceBoundaryError)return new RuntimeHttpFault(error.code==="EVIDENCE_ACCESS_DENIED"?"ACCESS_DENIED":"RECOVERY_UNAVAILABLE");
+  if(error instanceof CheckpointError)return new RuntimeHttpFault(error.code,["CHECKPOINT_CONFLICT","CHECKPOINT_STORAGE","CHECKPOINT_ACK_UNKNOWN"].includes(error.code));
+  return new RuntimeHttpFault("INTERNAL_FAILURE");
 }

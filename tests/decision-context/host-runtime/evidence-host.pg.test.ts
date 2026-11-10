@@ -736,9 +736,9 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     expect(await save(ea.workspace_key,ca,{...payload,drafts:[{}]},"draft")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
     expect(await save(ea.workspace_key,ca,{...payload,captured_object_versions:[{id:"fake",version:1}]},"fake-versions")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
     const missingView=structuredClone(payload); missingView.view.selected_id="missing-object";
-    expect(await save(ea.workspace_key,ca,missingView,"missing-view")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    expect(await save(ea.workspace_key,ca,missingView,"missing-view")).toEqual({fault:"SCENE_REFERENCES"});
     const missingComparison=structuredClone(payload); missingComparison.view.comparison_refs=[{id:"missing-object",version:1}];
-    expect(await save(ea.workspace_key,ca,missingComparison,"missing-comparison")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
+    expect(await save(ea.workspace_key,ca,missingComparison,"missing-comparison")).toEqual({fault:"SCENE_REFERENCES"});
     await expect(runtime.query('SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)',[a.session.session.id,a.user.id,trip,ea.workspace_key,ca,ea.event_id])).rejects.toThrow();
     const altered=structuredClone(payload); altered.tasks[0].task.question="forged";
     expect(await save(ea.workspace_key,ca,altered,"forged")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
@@ -1594,7 +1594,7 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     const retained=await owner.query<{deleted_at:Date|null}>('SELECT deleted_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[newer.event_id]);
     expect(retained.rows).toEqual([{deleted_at:null}]);
   },30000);
-  it("fails closed on authoritative TS object identifiers without source proof", async () => {
+  it("accepts only the exact object-version set from the locked authoritative TS snapshot", async () => {
     const a=await account();await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
     const ticket=await host.createWorkspace(trip,a.headers),key=await host.mintTaskKey(ticket,a.headers,"task-key");
     const event=await host.record(ticket,a.headers,{entry:"dialogue",text:"new",idempotency_key:`ts-id_${randomUUID()}`});
@@ -1609,8 +1609,8 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
       focus_keys:[key],view:{entry:"dialogue",comparison_refs:[],selected_id:null,expanded_task_keys:[]},drafts:[],deferred_issue_ids:[]};
     await owner.query('UPDATE public."TripStateDocument" SET snapshot=$2::jsonb WHERE "tripId"=$1',[trip,JSON.stringify(changed)]);
     try {
-      await expect(host.saveCheckpoint(ticket,a.headers,payload,0,"ts-id")).rejects.toMatchObject({code:"RECOVERY_UNAVAILABLE"});
-      expect((await owner.query('SELECT 1 FROM public."HostEvidenceScene" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rowCount).toBe(0);
+      await expect(host.saveCheckpoint(ticket,a.headers,payload,0,"ts-id")).resolves.toMatchObject({checkpoint_revision:1});
+      expect((await owner.query('SELECT 1 FROM public."HostEvidenceScene" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,trip,event.workspace_key])).rowCount).toBe(1);
     } finally { await owner.query('UPDATE public."TripStateDocument" SET snapshot=$2::jsonb WHERE "tripId"=$1',[trip,JSON.stringify(before)]); }
   },30000);
   it("recovers an uncertain key receipt by the same request without minting twice", async () => {
@@ -1662,8 +1662,8 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     await host.saveCheckpoint(ticket,a.headers,payload,0,"status-save");
     await expect(host.saveCheckpoint(ticket,b.headers,payload,0,"unauthorized")).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
     expect(await host.restoreCheckpoint(ticket,a.headers,2)).toMatchObject({candidate_save_unacknowledged:false});
-    const unsupported={...payload,drafts:[{draft_id:"draft",draft_kind:"unsubmitted",base_revision:0,target_ids:[],text:"draft",source_reference:"draft",proposal:null}]};
-    await expect(host.saveCheckpoint(ticket,a.headers,unsupported,1,"unsupported-draft")).rejects.toMatchObject({code:"RECOVERY_UNAVAILABLE"});
+    const unsupported={...payload,tasks:[{...payload.tasks[0],processing_status:"proposed"}]};
+    await expect(host.saveCheckpoint(ticket,a.headers,unsupported,1,"unsupported-task-state")).rejects.toMatchObject({code:"RECOVERY_UNAVAILABLE"});
     expect(await host.restoreCheckpoint(ticket,a.headers,2)).toMatchObject({candidate_save_unacknowledged:true});
     expect(capturedWarnings).toContain("scene_save_unacknowledged_business_state_is_separate");
   },30000);

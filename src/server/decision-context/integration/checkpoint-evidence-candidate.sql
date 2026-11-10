@@ -29,7 +29,7 @@ REVOKE ALL ON FUNCTION public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEX
 CREATE FUNCTION public.host_checkpoint_sources_valid_candidate(
   p_session TEXT,p_owner TEXT,p_trip TEXT,p_workspace TEXT,p_capability TEXT,p_payload JSONB,p_restore BOOLEAN DEFAULT FALSE
 ) RETURNS BOOLEAN LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,public SET timezone='UTC' AS $$
-DECLARE item JSONB; src RECORD; scope_event RECORD; task_hash TEXT; direct_ok BOOLEAN; question_anchored BOOLEAN; count_sources INT;
+DECLARE item JSONB; draft JSONB; target JSONB; src RECORD; scope_event RECORD; task_hash TEXT; direct_ok BOOLEAN; question_anchored BOOLEAN; count_sources INT;
   doc_revision BIGINT; retention_revision BIGINT; event_count BIGINT; doc_snapshot JSONB; actual_versions JSONB; supplied_versions JSONB; actual_deferred JSONB; supplied_deferred JSONB; life public."HostEvidenceTripLifecycle"%ROWTYPE; checked_at TIMESTAMPTZ;
 BEGIN
   IF public.host_checkpoint_scope_candidate(p_session,p_owner,p_trip,p_workspace,p_capability) IS DISTINCT FROM TRUE THEN RETURN FALSE; END IF;
@@ -45,18 +45,11 @@ BEGIN
   IF jsonb_typeof(p_payload) IS DISTINCT FROM 'object' OR p_payload->>'trip_id' IS DISTINCT FROM p_trip OR
      (NOT p_restore AND (p_payload->>'captured_state_revision')::BIGINT IS DISTINCT FROM doc_revision) OR
      jsonb_typeof(p_payload->'tasks') IS DISTINCT FROM 'array' OR jsonb_array_length(p_payload->'tasks')=0 OR
-     jsonb_typeof(p_payload->'drafts') IS DISTINCT FROM 'array' OR jsonb_array_length(p_payload->'drafts')<>0 OR
+     jsonb_typeof(p_payload->'drafts') IS DISTINCT FROM 'array' OR
      jsonb_typeof(p_payload->'captured_object_versions') IS DISTINCT FROM 'array' OR
      jsonb_typeof(doc_snapshot->'objects') IS DISTINCT FROM 'array' THEN RETURN FALSE; END IF;
-  -- TS object identifiers are not yet proven opaque or source-complete. Keep
-  -- the candidate closed for saved TS identifiers rather than assuming that
-  -- their presence in the authoritative document proves their origin.
-  IF jsonb_array_length(p_payload->'captured_object_versions')<>0 OR
-     jsonb_typeof(p_payload->'view'->'comparison_refs') IS DISTINCT FROM 'array' OR
-     jsonb_array_length(p_payload->'view'->'comparison_refs')<>0 OR
-     p_payload->'view'->>'selected_id' IS NOT NULL OR
-     jsonb_typeof(p_payload->'deferred_issue_ids') IS DISTINCT FROM 'array' OR
-     jsonb_array_length(p_payload->'deferred_issue_ids')<>0 THEN RETURN FALSE; END IF;
+  IF jsonb_typeof(p_payload->'view'->'comparison_refs') IS DISTINCT FROM 'array' OR
+     jsonb_typeof(p_payload->'deferred_issue_ids') IS DISTINCT FROM 'array' THEN RETURN FALSE; END IF;
   SELECT COALESCE(jsonb_agg(jsonb_build_object('id',v->'id','version',v->'version') ORDER BY v->>'id'),'[]'::JSONB)
     INTO actual_versions FROM jsonb_array_elements(doc_snapshot->'objects') AS x(v);
   SELECT COALESCE(jsonb_agg(v ORDER BY v->>'id'),'[]'::JSONB) INTO supplied_versions
@@ -81,10 +74,13 @@ BEGIN
   END LOOP;
   FOR item IN SELECT value FROM jsonb_array_elements(p_payload->'tasks') LOOP
     IF jsonb_typeof(item->'task') IS DISTINCT FROM 'object' OR jsonb_typeof(item->'event') IS DISTINCT FROM 'object' OR
-       jsonb_typeof(item->'task'->'target_ids') IS DISTINCT FROM 'array' OR jsonb_array_length(item->'task'->'target_ids')<>0 OR
+       jsonb_typeof(item->'task'->'target_ids') IS DISTINCT FROM 'array' OR
        jsonb_typeof(item->'errors') IS DISTINCT FROM 'array' OR jsonb_array_length(item->'errors')<>0 OR
        item->>'processing_status' IS DISTINCT FROM 'unprocessed' OR
        (item->>'base_revision')::BIGINT IS DISTINCT FROM (p_payload->>'captured_state_revision')::BIGINT OR (item->>'result_revision')::BIGINT IS DISTINCT FROM (p_payload->>'captured_state_revision')::BIGINT THEN RETURN FALSE; END IF;
+    FOR target IN SELECT value FROM jsonb_array_elements(item->'task'->'target_ids') LOOP
+      IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(doc_snapshot->'objects') AS x(obj) WHERE obj->>'id'=target#>>'{}') THEN RETURN FALSE; END IF;
+    END LOOP;
     IF NOT EXISTS (SELECT 1 FROM public."HostEvidenceTaskKey" WHERE owner_id=p_owner AND trip_id=p_trip AND workspace_key=p_workspace
       AND task_key=item->'task'->>'task_key') THEN RETURN FALSE; END IF;
     task_hash := encode(sha256(convert_to(p_capability || (item->'task')::text,'UTF8')),'hex');
@@ -105,6 +101,13 @@ BEGIN
          src.received_at=(item->'event'->>'received_at')::TIMESTAMPTZ THEN direct_ok := TRUE; END IF;
     END LOOP;
     IF count_sources=0 OR NOT direct_ok OR NOT question_anchored THEN RETURN FALSE; END IF;
+  END LOOP;
+  FOR draft IN SELECT value FROM jsonb_array_elements(p_payload->'drafts') LOOP
+    IF jsonb_typeof(draft) IS DISTINCT FROM 'object' OR jsonb_typeof(draft->'target_ids') IS DISTINCT FROM 'array' OR
+       (draft->>'base_revision')::BIGINT > doc_revision THEN RETURN FALSE; END IF;
+    FOR target IN SELECT value FROM jsonb_array_elements(draft->'target_ids') LOOP
+      IF NOT EXISTS (SELECT 1 FROM jsonb_array_elements(doc_snapshot->'objects') AS x(obj) WHERE obj->>'id'=target#>>'{}') THEN RETURN FALSE; END IF;
+    END LOOP;
   END LOOP;
   SELECT * INTO life FROM public."HostEvidenceTripLifecycle" WHERE trip_id=p_trip AND source_revision=doc_revision FOR SHARE;
   IF NOT FOUND OR public.authorize_trip_session(p_session,p_owner,p_trip) IS DISTINCT FROM TRUE THEN RETURN FALSE; END IF;
