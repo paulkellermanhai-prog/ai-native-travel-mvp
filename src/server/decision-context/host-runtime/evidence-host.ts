@@ -23,11 +23,19 @@ import { createShortPacketHandoffCandidate, type HandoffDeadline } from "./packe
 import { parseStateReferences } from "../../trip-state/references";
 import { checkStateCounters } from "../../trip-state/numbers";
 import { instantAttoseconds } from "../../trip-state/conditions";
+import { openTripCommandService, type CommandHost } from "../../trip-state/internal/persistence";
+import { parseContract, TripStateContractError } from "../../trip-state/contracts";
+import { BridgeRuleError, checkChangeRules, checkConfirmationRules, checkGrantFields } from "../write-bridge/rules";
+import type { TransactionalBridgeHost } from "../write-bridge/orchestrator";
 
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
 type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>; incomplete: boolean; fingerprint: string; eventSequence: number; retentionRevision: number };
+type Change = DecisionContextContracts["change"];
+type Confirm = DecisionContextContracts["confirm"];
+type WriteGrant = { principalId:string;eventId:string;requestDigest:string;revision:number;expiresAt:string;runtimeId:string };
 type PacketMemory = { packetId:string; turnId:string; taskHash:string; budget:number; at:number; contextId:string; expiresAt:number; warning:boolean;
-  runtimeId:string; tracker:ReturnType<typeof createShortPacketHandoffCandidate>; postflight:(()=>Promise<void>)|null; invalidate:()=>void };
+  runtimeId:string; packet:DecisionContextContracts["packet"]; grants:Map<string,WriteGrant>; proposalId:string|null;
+  tracker:ReturnType<typeof createShortPacketHandoffCandidate>; postflight:(()=>Promise<void>)|null; invalidate:()=>void };
 type TurnLease = { id:string; cipher:Buffer; iv:Buffer; tag:Buffer; expiresAt:number; timer:NodeJS.Timeout };
 type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string; capability: string; runtimeId: string;
   recoveredEvents: Set<string>; recoveryWatermark: number | null; deletionRevision: number; pendingSaves: Set<string>; pendingSaveSticky: boolean; inflightSaves: number; keyEpochs: Map<string,number>; tasks: Map<string, TaskMemory>;
@@ -40,6 +48,8 @@ type TaskSnapshotRow = { ok:boolean; out_retention_revision:bigint|null; out_hig
 type UnlinkRow = { disposition:"denied"|"conflict"|"replayed"|"unlinked"; out_association_revision:bigint|null; out_retention_revision:bigint|null };
 type SupersedeRow = { disposition:"denied"|"conflict"|"replayed"|"superseded"; out_association_revision:bigint|null; out_retention_revision:bigint|null };
 type InterpretedTask = DecisionContextContracts["open-turn"]["tasks"][number];
+type WriteOperation = {kind:"change";scope:Scope;headers:Headers;body:Change;memory:PacketMemory;role:"user"|"model";grant?:WriteGrant} |
+  {kind:"confirm";scope:Scope;headers:Headers;body:Confirm;memory:PacketMemory;role:"user"};
 export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordInput["entry"];text:string;reference:string;received_at:string};state:ReturnType<typeof parseStateReferences>;
   runtime_focus:{tasks:InterpretedTask[];focus_keys:string[];complete:boolean};mint_task_key:(ordinal:number)=>Promise<string>;
   read_task_evidence:(taskKey:string,window:{page_size:number;from:string;to:string;cursor:string|null})=>Promise<EvidencePage>})=>Promise<{tasks:unknown;focus_keys:unknown}>;
@@ -67,7 +77,7 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void> }) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void>; beforeWriteGuard?:()=>Promise<void> }) {
   if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
@@ -109,7 +119,23 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   const interpreterReads=new WeakMap<object,{scope:Scope;eventId:string;token:string}>();
   const routingSecret=randomBytes(32);
   const activeScopes = new Set<Scope>();
+  const writeCredentials=new WeakMap<object,WriteOperation>();
+  const modelActorId="model-e03-runtime";
+  let writeServicePromise:ReturnType<typeof openTripCommandService>|undefined;
   let closed = false;
+  const writeCommandHost:CommandHost={
+    async authorize(tripId,credential){
+      const operation=credential&&typeof credential==="object"?writeCredentials.get(credential):undefined;
+      if(!operation||operation.scope.tripId!==tripId||closed||operation.scope.disposed)throw new TripStateContractError("PERMISSION","Access denied");
+      return {tripId,actor:{role:operation.role,id:operation.role==="user"?userActorId(operation.scope.ownerId):modelActorId}};
+    },
+    async guard(tripId,credential,tx){
+      const operation=credential&&typeof credential==="object"?writeCredentials.get(credential):undefined;
+      if(!operation||operation.scope.tripId!==tripId)throw new TripStateContractError("PERMISSION","Access denied");
+      await guardWriteOperation(tx,operation);
+    },
+  };
+  function writeService(){return writeServicePromise??=openTripCommandService(connection,writeCommandHost);}
   const pageCursorShape=z.strictObject({cursor:cursorSchema,from:z.iso.datetime({offset:true}),to:z.iso.datetime({offset:true})});
   const cursorStale=():never=>{throw new EvidenceBoundaryError("EVIDENCE_CURSOR_STALE");};
   function sealPageCursor(value:z.infer<typeof pageCursorShape>) {
@@ -252,6 +278,82 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     };
     await recheck();
     return {candidate,state,recheck,deadline:()=>deadline??unavailable(),at:at.getTime(),warning};
+  }
+  function writeActorId(operation:WriteOperation) {
+    return operation.role==="user"?userActorId(operation.scope.ownerId):modelActorId;
+  }
+  async function writeReplay(tx:Prisma.TransactionClient,operation:WriteOperation) {
+    const domain=operation.kind==="confirm"?"confirmation":operation.role;
+    const key=operation.body.request.idempotency_key,actorId=writeActorId(operation);
+    const [row]=await tx.$queryRaw<Array<{request:string;response:string}>>`SELECT "request"::text AS request,"response"::text AS response
+      FROM "TripStateIdempotency" WHERE "tripId"=${operation.scope.tripId} AND "actorId"=${actorId}
+      AND "operationDomain"=${domain} AND "key"=${key}`;
+    return row?{request:decodeCommandJson(row.request),response:parseContract("response",decodeCommandJson(row.response))}:null;
+  }
+  function writePacket(scope:Scope,packetId:string) {
+    const memory=scope.packets.get(packetId);
+    if(!memory||memory.runtimeId!==scope.runtimeId||memory.expiresAt<=Date.now())throw new BridgeRuleError("PACKET_STALE");
+    return memory;
+  }
+  async function currentWritePacket(tx:Prisma.TransactionClient,operation:WriteOperation) {
+    try {
+      const memory=operation.memory;
+      if(operation.scope.packets.get(memory.packetId)!==memory||memory.runtimeId!==operation.scope.runtimeId)return unavailable();
+      const lease=turnInput(operation.scope,memory.turnId);
+      const built=await packetFromCurrent(tx,operation.scope,operation.headers,lease.value,memory.turnId,memory.taskHash,memory.budget,memory);
+      checkTurnLease(operation.scope,memory.turnId,lease.id);
+      return {built,deliveredIds:memory.tracker.delivery(built.candidate).deliveredIds};
+    } catch(error) {
+      if(error instanceof EvidenceBoundaryError&&error.code==="EVIDENCE_ACCESS_DENIED")throw new TripStateContractError("PERMISSION","Access denied");
+      if(error instanceof EvidenceBoundaryError)throw new BridgeRuleError("PACKET_STALE");
+      throw error;
+    }
+  }
+  async function guardWriteOperation(tx:Prisma.TransactionClient,operation:WriteOperation) {
+    try {
+      await testHooks?.beforeWriteGuard?.();
+      await host.guard!(operation.scope.tripId,operation.headers,tx);
+      if(await writeReplay(tx,operation))return;
+      const {built,deliveredIds}=await currentWritePacket(tx,operation);
+      if(operation.kind==="change") {
+        checkChangeRules(operation.body,built.candidate.packet,{turnId:operation.memory.turnId,event:built.candidate.packet.pending_input.event,recovered:false},deliveredIds);
+        if(operation.grant) {
+          const [clock]=await tx.$queryRaw<Array<{now:Date}>>`SELECT clock_timestamp() AS now`;
+          if(!clock)return unavailable();
+          checkGrantFields(operation.grant,{principalId:userActorId(operation.scope.ownerId),eventId:built.candidate.packet.pending_input.event.event_id,
+            request:operation.body.request,now:clock.now.toISOString(),runtimeId:operation.scope.runtimeId});
+        }
+      } else checkConfirmationRules(operation.body,{turnId:operation.memory.turnId,proposalId:operation.memory.proposalId,recovered:false});
+    } catch(error) {
+      if(error instanceof EvidenceBoundaryError) {
+        if(error.code==="EVIDENCE_ACCESS_DENIED")throw new TripStateContractError("PERMISSION","Access denied");
+        throw new BridgeRuleError("PACKET_STALE");
+      }
+      throw error;
+    }
+  }
+  async function executeWrite(operation:WriteOperation,request:Change["request"]|Confirm["request"],proposalId?:string) {
+    const credential=Object.freeze({});writeCredentials.set(credential,operation);
+    try {
+      const service=await writeService();
+      return await (operation.kind==="change"?service.submit(operation.scope.tripId,request,credential):service.confirm(operation.scope.tripId,proposalId!,request,credential));
+    } finally {writeCredentials.delete(credential);}
+  }
+  async function changeScope(scope:Scope,headers:Headers,body:Change) {
+    const memory=writePacket(scope,body.packet_id),grant=memory.grants.get(body.request.idempotency_key),role=grant?"user" as const:"model" as const;
+    const operation:WriteOperation={kind:"change",scope,headers,body,memory,role,...(grant?{grant}:{})};
+    return db.$transaction(async tx=> {
+      try {await host.guard!(scope.tripId,headers,tx);} catch {return deny();}
+      const replay=await writeReplay(tx,operation);
+      if(replay)return {operation,bridge:{packet:memory.packet,turn:{turnId:memory.turnId,event:memory.packet.pending_input.event,recovered:false},deliveredIds:[],
+        principalId:userActorId(scope.ownerId),now:new Date().toISOString(),runtimeId:scope.runtimeId,...(grant?{grant}:{}),
+        replay:{bodyDigest:canonicalJson(replay.request)===canonicalJson(body.request)?digest(body):"idempotency-conflict",response:replay.response}}};
+      const {built,deliveredIds}=await currentWritePacket(tx,operation);
+      const [clock]=await tx.$queryRaw<Array<{now:Date}>>`SELECT clock_timestamp() AS now`;
+      if(!clock)return unavailable();
+      return {operation,bridge:{packet:built.candidate.packet,turn:{turnId:memory.turnId,event:built.candidate.packet.pending_input.event,recovered:false},deliveredIds,
+        principalId:userActorId(scope.ownerId),now:clock.now.toISOString(),runtimeId:scope.runtimeId,...(grant?{grant}:{})}};
+    });
   }
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
@@ -763,7 +865,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           const tracker=createShortPacketHandoffCandidate(built.candidate,async()=>{if(!holder.value?.postflight)return unavailable();await holder.value.postflight();});
           const invalidate=()=>{memory.postflight=null;tracker.invalidate();scope.packets.delete(memory.packetId);scope.packetInvalidators.delete(invalidate);};
           const memory:PacketMemory={packetId:built.candidate.packet.packet_id,turnId,taskHash,budget:bodyBudgetBytes,at:built.at,contextId:built.candidate.assembly.context.id,
-            expiresAt:Math.min(built.at+300_000,Date.parse(built.candidate.assembly.context.expires_at)),warning:built.warning,runtimeId:scope.runtimeId,tracker,postflight:null,invalidate};
+            expiresAt:Math.min(built.at+300_000,Date.parse(built.candidate.assembly.context.expires_at)),warning:built.warning,runtimeId:scope.runtimeId,
+            packet:structuredClone(built.candidate.packet),grants:new Map(),proposalId:null,tracker,postflight:null,invalidate};
           holder.value=memory;
           record=memory;scope.packets.set(memory.packetId,memory);scope.packetInvalidators.add(invalidate);
           memory.postflight=async()=> {
@@ -814,6 +917,73 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     async authorizeTripCandidate(tripId:string,credential:Headers) {
       const current=await authorized(tripId,credential);
       return createHmac("sha256",routingSecret).update(canonicalJson([current.ownerId,current.sessionId,tripId]),"utf8").digest("hex");
+    },
+    /** The actual User grant remains private to this host and is rechecked in the Trip State transaction. */
+    async authorizeUserChangeCandidate(ticket:object,credential:Headers,value:unknown) {
+      const body=structuredClone(parseDCContract("change",value)),{scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=> {
+        const memory=writePacket(scope,body.packet_id);
+        const operation:WriteOperation={kind:"change",scope,headers,body,memory,role:"user"};
+        try {
+          return await db.$transaction(async tx=> {
+            const {built,deliveredIds}=await currentWritePacket(tx,operation);
+            checkChangeRules(body,built.candidate.packet,{turnId:memory.turnId,event:built.candidate.packet.pending_input.event,recovered:false},deliveredIds);
+            const [clock]=await tx.$queryRaw<Array<{now:Date}>>`SELECT clock_timestamp() AS now`;
+            if(!clock)return unavailable();
+            const expiresAt=new Date(Math.min(memory.expiresAt,built.deadline().wallMs,clock.now.getTime()+300_000)).toISOString();
+            const grant:WriteGrant={principalId:userActorId(scope.ownerId),eventId:built.candidate.packet.pending_input.event.event_id,
+              requestDigest:digest(body.request),revision:body.request.expected_revision,expiresAt,runtimeId:scope.runtimeId};
+            checkGrantFields(grant,{principalId:grant.principalId,eventId:grant.eventId,request:body.request,now:clock.now.toISOString(),runtimeId:scope.runtimeId});
+            if(!memory.grants.has(body.request.idempotency_key)&&memory.grants.size>=64)return unavailable();
+            memory.grants.set(body.request.idempotency_key,grant);
+            return {packet_id:memory.packetId,turn_id:memory.turnId,expires_at:expiresAt};
+          });
+        } catch(error) {
+          if(error instanceof EvidenceBoundaryError&&error.code==="EVIDENCE_ACCESS_DENIED")throw new TripStateContractError("PERMISSION","Access denied");
+          if(error instanceof EvidenceBoundaryError)throw new BridgeRuleError("PACKET_STALE");
+          throw error;
+        }
+      });
+    },
+    /** Internal bridge. The opaque workspace ticket and Cookie Session never come from request JSON. */
+    createTransactionalBridgeCandidate(ticket:object,credential:Headers):TransactionalBridgeHost {
+      const credentialCopy=new Headers({cookie:credential.get("cookie")??""});
+      return {
+        async change(body,action) {
+          const {scope,headers}=await scoped(ticket,credentialCopy);
+          return exclusive(scope,async()=> {
+            const current=await changeScope(scope,headers,body);
+            let used=false;
+            return action(current.bridge,async(role,request)=> {
+              if(used||role!==current.operation.role||canonicalJson(request)!==canonicalJson(body.request))throw new BridgeRuleError("WRITE_GRANT");
+              used=true;
+              const result=await executeWrite(current.operation,request);
+              if(result.outcome==="pending_confirmation"&&result.proposal_id)current.operation.memory.proposalId=result.proposal_id;
+              return result;
+            });
+          });
+        },
+        async confirm(body,action) {
+          const {scope,headers}=await scoped(ticket,credentialCopy);
+          return exclusive(scope,async()=> {
+            const memory=[...scope.packets.values()].find(item=>item.turnId===body.turn_id&&item.proposalId===body.proposal_id);
+            if(!memory)throw new BridgeRuleError("PROPOSAL_BINDING");
+            const operation:WriteOperation={kind:"confirm",scope,headers,body,memory,role:"user"};
+            await db.$transaction(async tx=> {
+              try {await host.guard!(scope.tripId,headers,tx);} catch {return deny();}
+              if(!await writeReplay(tx,operation)) {
+                await currentWritePacket(tx,operation);
+                checkConfirmationRules(body,{turnId:memory.turnId,proposalId:memory.proposalId,recovered:false});
+              }
+            });
+            let used=false;
+            return action({turnId:memory.turnId,proposalId:memory.proposalId,recovered:false},async(proposalId,request)=> {
+              if(used||proposalId!==body.proposal_id||canonicalJson(request)!==canonicalJson(body.request))throw new BridgeRuleError("PROPOSAL_BINDING");
+              used=true;return executeWrite(operation,request,proposalId);
+            });
+          });
+        },
+      };
     },
     /** Send a registered Turn while its Session, source and state locks are held. */
     async sendTurnCandidate(ticket:object,credential:Headers,value:unknown,response:ServerResponse) {
@@ -1060,7 +1230,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
         scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
       }
-      activeScopes.clear();routingSecret.fill(0); await Promise.all([db.$disconnect(), identity.close()]);
+      activeScopes.clear();routingSecret.fill(0);
+      await Promise.all([db.$disconnect(),identity.close(),...(writeServicePromise?[writeServicePromise.then(service=>service.close())]:[])]);
     },
   };
 }

@@ -53,6 +53,13 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
   }
   return {
     bindTurn,forgetWorkspace,
+    ticketForPacketCandidate(tripId:string,packetId:string) {
+      return [...(workspaces.get(tripId)??[])].find(ticket=>host.hasLocalPacketCandidate(ticket,packetId));
+    },
+    ticketForTurnCandidate(tripId:string,turnId:string) {
+      const binding=turns.get(turnId);
+      return binding?.tripId===tripId&&binding.expiresAt>Date.now()?binding.ticket:undefined;
+    },
     async handle(request:IncomingMessage,response:ServerResponse) {
       try {
         const path=new URL(request.url??"/",origin).pathname;
