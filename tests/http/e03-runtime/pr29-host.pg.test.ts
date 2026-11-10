@@ -31,7 +31,10 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
 
     const owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
     const resources:Array<{close:()=>Promise<void>}>=[];
-    let server:http.Server|undefined,revokeDuringWrite=false,failLifecycleOnce=false,userId="",trip="",writeGuardCalls=0,lifecycleSyncCalls=0;
+    let server:http.Server|undefined,revokeDuringWrite=false,failLifecycleOnce=false,holdPacketHandoff=false,userId="",trip="",writeGuardCalls=0,lifecycleSyncCalls=0;
+    let signalPacketHandoff!:()=>void,releasePacketHandoff!:()=>void;
+    const packetHandoffEntered=new Promise<void>(resolve=>{signalPacketHandoff=resolve;});
+    const packetHandoffGate=new Promise<void>(resolve=>{releasePacketHandoff=resolve;});
     try {
       const check=await owner.query("SELECT current_database() AS name,current_setting('server_version_num')::int AS version,to_regclass('public.\"HostEvidenceWorkspace\"') IS NULL AS clean");
       if(check.rows[0]?.name!==cfg.database||check.rows[0]?.version<170000||!check.rows[0]?.clean)throw new Error("Clean dedicated PG 17 required");
@@ -52,7 +55,7 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const host=await openEvidenceHost(env,{beforeWriteGuard:async()=>{
         writeGuardCalls++;
         if(revokeDuringWrite){revokeDuringWrite=false;await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,userId]);}
-      }});resources.push(host);
+      },afterPacketHandoffCommit:async()=>{if(holdPacketHandoff){signalPacketHandoff();await packetHandoffGate;}}});resources.push(host);
 
       const email=`${randomUUID()}@example.invalid`,password=randomBytes(24).toString("base64url");
       const created=await identity.auth.api.signUpEmail({body:{name:"E03 isolated test",email,password}});
@@ -104,9 +107,14 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const hypothetical=await packet("如果阿斯旺多住一天会怎样"),hypotheticalChange=change(hypothetical,"egypt-hypothetical",revise),empty=await counts();
       expect((await post("changes",hypotheticalChange)).status).toBe(422);expect(await counts()).toEqual(empty);expect((await readState()).revision).toBe(0);
 
+      holdPacketHandoff=true;
       const actual=await packet("请把阿斯旺行程实际增加一天"),actualChange=change(actual,"egypt-actual",revise);
-      const trustedRequest=await buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-decision",
+      await packetHandoffEntered;
+      const trustedRequestPending=buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-decision",
         trigger:{kind:"user_event",reference:actual.pending_input.event.reference},packetIds:[actual.packet_id]});
+      expect(await Promise.race([trustedRequestPending.then(()=>false,()=>false),new Promise<boolean>(resolve=>setTimeout(()=>resolve(true),250))])).toBe(true);
+      holdPacketHandoff=false;releasePacketHandoff();
+      const trustedRequest=await trustedRequestPending;
       expect(trustedRequest).toMatchObject({runtime_id:expect.stringMatching(/^runtime-/),packets:[{packet_id:actual.packet_id,turn_id:actual.turn_id}]});
       await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers(),decisionId:"egypt-denied",
         trigger:{kind:"user_event",reference:actual.pending_input.event.reference},packetIds:[actual.packet_id]})).rejects.toThrow();
@@ -153,6 +161,7 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       expect({state:await readState(),counts:await counts()}).toEqual(beforeRevocation);
       expect((await post("changes",revokedChange,"")).status).toBe(403);
     } finally {
+      releasePacketHandoff();
       if(server){server.close();await once(server,"close");}
       await Promise.allSettled(resources.reverse().map(resource=>resource.close()));await owner.end();
     }
