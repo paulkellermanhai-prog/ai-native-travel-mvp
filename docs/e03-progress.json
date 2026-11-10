@@ -241,11 +241,11 @@
         "tests/decision-context/checkpoint-store/postgres.test.ts",
         "tests/decision-context/checkpoint-store/session.integration.test.ts"
       ],
-      "execution_location": "独立 feat/e03-05-checkpoint-persistence 分支；复用 ee2b1c4 保存候选并通过真实 PostgreSQL 17、Session、宿主工作区和最小权限验证",
+      "execution_location": "独立 feat/e03-05-checkpoint-persistence 分支与 Draft PR #31；复用 ee2b1c4 保存候选并通过同 head CI、真实 PostgreSQL 17、Session、宿主工作区和最小权限验证",
       "responsibilities": "主集成人复用原保存/恢复任务的 checkpoint-core、checkpoint-store、PG Repository 与保存接线；E03-06 恢复保持关闭",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "等待 E03-05 固定 head 的 GitHub CI 与技术负责人阶段验收；跨新 Session、新进程恢复明确留给 E03-06"
+        "等待技术负责人阶段验收；跨新 Session、新进程恢复明确留给 E03-06"
       ]
     },
     {
