@@ -4,7 +4,7 @@ import { once } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Client } from "pg";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { openIdentity } from "../../../src/server/auth/config";
 import { createInternalHost, issueInternalCapability, openInternalTripService } from "../../../src/server/auth/internal-service";
 import { openEvidenceHost, type ControlledInterpreter } from "../../../src/server/decision-context/host-runtime/evidence-host";
@@ -31,10 +31,13 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
 
     const owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
     const resources:Array<{close:()=>Promise<void>}>=[];
-    let server:http.Server|undefined,revokeDuringWrite=false,failLifecycleOnce=false,holdPacketHandoff=false,userId="",trip="",writeGuardCalls=0,lifecycleSyncCalls=0;
-    let signalPacketHandoff!:()=>void,releasePacketHandoff!:()=>void;
+    let server:http.Server|undefined,revokeDuringWrite=false,revokeDuringTrustedBatch=false,failLifecycleOnce=false,holdPacketHandoff=false,holdLastPageHandoff=false;
+    let userId="",sessionId="",trip="",writeGuardCalls=0,lifecycleSyncCalls=0;
+    let signalPacketHandoff!:()=>void,releasePacketHandoff!:()=>void,signalLastPageHandoff!:()=>void,releaseLastPageHandoff!:()=>void;
     const packetHandoffEntered=new Promise<void>(resolve=>{signalPacketHandoff=resolve;});
     const packetHandoffGate=new Promise<void>(resolve=>{releasePacketHandoff=resolve;});
+    const lastPageHandoffEntered=new Promise<void>(resolve=>{signalLastPageHandoff=resolve;});
+    const lastPageHandoffGate=new Promise<void>(resolve=>{releaseLastPageHandoff=resolve;});
     try {
       const check=await owner.query("SELECT current_database() AS name,current_setting('server_version_num')::int AS version,to_regclass('public.\"HostEvidenceWorkspace\"') IS NULL AS clean");
       if(check.rows[0]?.name!==cfg.database||check.rows[0]?.version<170000||!check.rows[0]?.clean)throw new Error("Clean dedicated PG 17 required");
@@ -55,13 +58,20 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const host=await openEvidenceHost(env,{beforeWriteGuard:async()=>{
         writeGuardCalls++;
         if(revokeDuringWrite){revokeDuringWrite=false;await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,userId]);}
-      },afterPacketHandoffCommit:async()=>{if(holdPacketHandoff){signalPacketHandoff();await packetHandoffGate;}}});resources.push(host);
+      },afterPacketHandoffCommit:async()=>{
+        if(holdPacketHandoff){signalPacketHandoff();await packetHandoffGate;}
+        if(holdLastPageHandoff){signalLastPageHandoff();await lastPageHandoffGate;}
+      },beforeTrustedPacketBatchFinalCheck:async()=>{
+        if(revokeDuringTrustedBatch){revokeDuringTrustedBatch=false;await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,userId]);}
+      }});resources.push(host);
 
       const email=`${randomUUID()}@example.invalid`,password=randomBytes(24).toString("base64url");
       const created=await identity.auth.api.signUpEmail({body:{name:"E03 isolated test",email,password}});
       const login=await identity.auth.api.signInEmail({body:{email,password},headers:new Headers({origin}),asResponse:true});
       expect(login.status).toBe(200);userId=created.user.id;
       const cookie=login.headers.getSetCookie().map(value=>value.split(";")[0]).join("; ");
+      const originalSession=await identity.auth.api.getSession({headers:new Headers({cookie}),query:{disableCookieCache:true}});
+      if(!originalSession)throw new Error("Missing original Session");sessionId=originalSession.session.id;
 
       trip=`trip_e03_04_${randomBytes(8).toString("hex")}`;
       await internal.createTrip(trip,await issueInternalCapability(secret,trip,{role:"system",id:"test-bootstrap"}));
@@ -88,13 +98,14 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       });
       const readState=async()=>(await owner.query<{snapshot:State}>('SELECT "snapshot" FROM "TripStateDocument" WHERE "tripId"=$1',[trip])).rows[0].snapshot;
       const counts=async()=>(await owner.query('SELECT (SELECT count(*)::int FROM "TripStateHistory" WHERE "tripId"=$1) AS history,(SELECT count(*)::int FROM "TripStateProposal" WHERE "tripId"=$1) AS proposals,(SELECT count(*)::int FROM "TripStateIdempotency" WHERE "tripId"=$1) AS receipts',[trip])).rows[0];
-      async function packet(text:string,bodyBudgetBytes=1_000_000){
+      async function packetWithTurn(text:string,bodyBudgetBytes=1_000_000){
         const opened=await post("turns",{entry:"dialogue",text,idempotency_key:`turn_${randomUUID()}`});
         expect(opened.status,await opened.clone().text()).toBe(200);
         const turn=await opened.json() as DecisionContextContracts["turn"],task=turn.tasks[0];
         const assembled=await post("assemble",{runtime_contract_version:"0.1.0",turn_id:turn.turn_id,task_key:task.task_key,body_budget_bytes:bodyBudgetBytes});
-        expect(assembled.status).toBe(200);return await assembled.json() as DecisionContextContracts["packet"];
+        expect(assembled.status).toBe(200);return {turn,packet:await assembled.json() as DecisionContextContracts["packet"]};
       }
+      async function packet(text:string,bodyBudgetBytes=1_000_000){return (await packetWithTurn(text,bodyBudgetBytes)).packet;}
       function change(packetValue:DecisionContextContracts["packet"],key:string,commands:TripStateContracts["change-request"]["commands"]):DecisionContextContracts["change"]{
         const event=packetValue.pending_input.event;
         return {runtime_contract_version:"0.1.0",turn_id:packetValue.turn_id,packet_id:packetValue.packet_id,request:{
@@ -116,8 +127,44 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       holdPacketHandoff=false;releasePacketHandoff();
       const trustedRequest=await trustedRequestPending;
       expect(trustedRequest).toMatchObject({runtime_id:expect.stringMatching(/^runtime-/),packets:[{packet_id:actual.packet_id,turn_id:actual.turn_id}]});
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-forged-reference",
+        trigger:{kind:"user_event",reference:"host-interaction:forged"},packetIds:[actual.packet_id]})).rejects.toThrow();
+      const secondLogin=await identity.auth.api.signInEmail({body:{email,password},headers:new Headers({origin}),asResponse:true});
+      expect(secondLogin.status).toBe(200);const secondCookie=secondLogin.headers.getSetCookie().map(value=>value.split(";")[0]).join("; ");
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie:secondCookie}),decisionId:"egypt-wrong-session",
+        trigger:{kind:"user_event",reference:actual.pending_input.event.reference},packetIds:[actual.packet_id]})).rejects.toThrow();
       await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers(),decisionId:"egypt-denied",
         trigger:{kind:"user_event",reference:actual.pending_input.event.reference},packetIds:[actual.packet_id]})).rejects.toThrow();
+      const now=vi.spyOn(Date,"now").mockReturnValue(Date.now()+301_000);
+      try {
+        await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-expired-packet",
+          trigger:{kind:"user_event",reference:actual.pending_input.event.reference},packetIds:[actual.packet_id]})).rejects.toThrow();
+      } finally {now.mockRestore();}
+
+      const partial=await packet("请完整比较阿斯旺与卢克索",2);
+      expect(partial.deferred_ids.length).toBeGreaterThan(0);
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-missing-pages",
+        trigger:{kind:"user_event",reference:partial.pending_input.event.reference},packetIds:[partial.packet_id]})).rejects.toThrow();
+      holdLastPageHandoff=true;
+      const lastPage=await post("pages",{runtime_contract_version:"0.1.0",packet_id:partial.packet_id,object_ids:partial.deferred_ids});
+      expect(lastPage.status,await lastPage.clone().text()).toBe(200);expect(await lastPage.json()).toMatchObject({remaining_ids:[]});
+      await lastPageHandoffEntered;
+      const completeAfterPostflight=buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-complete-pages",
+        trigger:{kind:"user_event",reference:partial.pending_input.event.reference},packetIds:[partial.packet_id]});
+      expect(await Promise.race([completeAfterPostflight.then(()=>false,()=>false),new Promise<boolean>(resolve=>setTimeout(()=>resolve(true),250))])).toBe(true);
+      holdLastPageHandoff=false;releaseLastPageHandoff();await expect(completeAfterPostflight).resolves.toMatchObject({packets:[{packet_id:partial.packet_id}]});
+
+      await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,userId]);
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-revoked-read",
+        trigger:{kind:"state_change",reference:"membership-revoked"},packetIds:[actual.packet_id,partial.packet_id]})).rejects.toThrow();
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,userId]);
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-batch-current",
+        trigger:{kind:"state_change",reference:"batch-current"},packetIds:[actual.packet_id,partial.packet_id]})).resolves.toMatchObject({packets:expect.any(Array)});
+      revokeDuringTrustedBatch=true;
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-batch-concurrent-revoke",
+        trigger:{kind:"state_change",reference:"batch-concurrent-revoke"},packetIds:[actual.packet_id,partial.packet_id]})).rejects.toThrow();
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,userId]);
+
       await mounted.adapter.authorizeUserChange(trip,new Headers({cookie}),actualChange);
       const appliedResponse=await post("changes",actualChange);expect(appliedResponse.status).toBe(200);
       const applied=await appliedResponse.json() as TripStateContracts["response"];expect(applied).toMatchObject({outcome:"applied",revision:1});
@@ -160,12 +207,30 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       expect((await post("changes",revokedChange)).status).toBe(403);expect(writeGuardCalls).toBeGreaterThan(0);
       expect({state:await readState(),counts:await counts()}).toEqual(beforeRevocation);
       expect((await post("changes",revokedChange,"")).status).toBe(403);
+
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,userId]);
+      const recoverySource=await packetWithTurn("保存当前埃及比较并恢复");
+      const beforeRecovery=await buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-before-recovery",
+        trigger:{kind:"user_event",reference:recoverySource.packet.pending_input.event.reference},packetIds:[recoverySource.packet.packet_id]});
+      if(!recoverySource.turn.checkpoint_ack)throw new Error("Missing recovery checkpoint");
+      const restored=await post("checkpoints/restore",{runtime_contract_version:"0.1.0",workspace_key:recoverySource.turn.checkpoint_ack.workspace_key,body_budget_bytes:1_000_000});
+      expect(restored.status,await restored.clone().text()).toBe(200);
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-old-runtime",
+        trigger:{kind:"user_event",reference:recoverySource.packet.pending_input.event.reference},packetIds:[recoverySource.packet.packet_id]})).rejects.toThrow();
+      const recoveredPacket=await packet("恢复后继续比较阿斯旺与卢克索");
+      const afterRecovery=await buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-new-runtime",
+        trigger:{kind:"user_event",reference:recoveredPacket.pending_input.event.reference},packetIds:[recoveredPacket.packet_id]});
+      expect(afterRecovery.runtime_id).not.toBe(beforeRecovery.runtime_id);
+      await owner.query(`UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval '1 second' WHERE id=$1`,[sessionId]);
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-expired-session",
+        trigger:{kind:"user_event",reference:recoveredPacket.pending_input.event.reference},packetIds:[recoveredPacket.packet_id]})).rejects.toThrow();
     } finally {
       releasePacketHandoff();
+      releaseLastPageHandoff();
       if(server){server.close();await once(server,"close");}
       await Promise.allSettled(resources.reverse().map(resource=>resource.close()));await owner.end();
     }
-  },60_000);
+  },90_000);
 
   it("saves and restores the Egypt workspace through a new HTTP process without reviving old authority",async()=>{
     const cfg=config!,owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();

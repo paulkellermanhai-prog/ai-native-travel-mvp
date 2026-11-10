@@ -1,8 +1,8 @@
 # E04-01｜首批合同与可信 Packet 接线
 
-状态：首批实现完成，阶段仍在进行中；不记为 E04-01 ACCEPTED。
+状态：本阶段实现已交付，等待技术负责人验收；不自行记为 E04-01 ACCEPTED。
 
-提交：代码提交 `28528d8f583654d5c86d211a9fa9cad14d5c9453`；Draft PR [#35](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/35)，目标为 E03 最终归档分支。
+承接点：已审查提交 `384c138e80f16bf02fc7bb55cb47d6fea3f9270b`；交付位置为 Draft PR [#35](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/35)，目标仍为 E03 最终归档分支。最终验收以 PR 当前 head 绑定的 CI 为准。
 
 ## 已实现
 
@@ -10,23 +10,29 @@
 - DecisionPlan 校验唯一 Action/Step、主行动数量、Step DAG、kind 字段规则及 basis 内部引用。
 - DecisionPlan 与 DecisionRequest 中的真实 DC 0.1.0 Packet 核对 decision/runtime、trip、revision、digest、turn、task、expiry 和 packet_id。
 - E03 最终宿主新增一个窄的服务器内部 Packet 读取端口。调用方只能提交 Packet ID；正文来自宿主私有记录，并在返回前重新检查 Session、Trip membership、workspace/runtime 代次、原 Turn/Task/E11 来源、当前 Trip State、TTL 和本地交付状态。
-- NAP `buildTrustedDecisionRequest()` 不接收 Packet JSON，只从上述端口构建请求；多 Packet 必须同 runtime、trip、revision 和 snapshot digest。
+- NAP `buildTrustedDecisionRequest()` 不接收 Packet JSON，只从上述端口构建请求；`user_event` 必须精确绑定宿主登记事件的 reference。
+- 多 Packet 改为一次宿主批量读取。宿主复用私有交付账本，缺页或仍在末页 postflight 的 Packet 不得进入决策；批次返回前再次复验同一 Session、membership、runtime、当前 revision、共同 digest 和期限。
 
 ## 实际边界
 
 这批代码没有执行 Action、签发 Grant、持久化 Plan 或声称用户理解 Packet。结构合法和可信读取只使 Packet 可以进入决策阶段，不构成执行许可。旧 `context-basis-preflight.ts` 没有进入本分支；Context 不能替代 Packet。
 
-## 当前验证
+## E04-01 验收证据（待技术负责人签核）
 
-- NAP 合同、Plan integrity、Packet consistency、可信来源单元测试：40/40 通过。
+- NAP 合同、Plan integrity、Packet consistency、可信来源单元测试：41/41 通过。
 - TypeScript：通过。
 - ESLint：通过。
 - TS/DC 固定合同与 AC8 来源检查：通过。
-- 真实 Session/PostgreSQL/HTTP 用例已加入既有 E03-04 联合测试，覆盖：当前真实 Packet 可构建请求、无 Session 被拒、业务 revision 变化后旧 Packet 被拒。PR #35 的 CI 运行 [42847511221](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42847511221) 已在 head `e7ce141bb6c6fe147e4f45cf75c1afefd4b751b3` 的一次性 PostgreSQL 17 环境实际通过。
-- 本地全量非 PG 回归：861 项通过、314 项因缺 PG 配置跳过；其中 9 个既有 Python 对照用例在 iCloud 路径超过默认 5 秒，以 20 秒上限单独复跑 110/110 通过。CI 同时通过了全量 Vitest（含真实 PostgreSQL）、生产构建、Next.js HTTP/PostgreSQL 验收和认证 HTTP 执行。
+- 私有 Packet socket / 交付账本回归：7/7 通过。
+- 真实 Session/PostgreSQL/HTTP 回归已并入既有 E03-04 联合测试，最终证据以本次交付 head 的 PostgreSQL 17 CI 为准，不沿用旧 head 的通过记录。
 
-## 尚未完成
+| Gate | 真实覆盖 | 预期 |
+| --- | --- | --- |
+| 来源绑定 | 伪造 `user_event.reference`、错误 Session、无 Session | 全部拒绝 |
+| 私有交付账本 | 缺页；末页响应已发出但 postflight 未完成 | 缺页拒绝；postflight 完成前等待，完成后放行 |
+| 批次当前性 | 同批 Packet 的 Session、membership、runtime、revision、digest、TTL | 整批一次复验；任一不合法则整批拒绝 |
+| 并发失效 | 批次候选形成后撤销 membership | 最终复验拒绝，不向决策器交付 |
+| 恢复与过期 | Checkpoint 恢复换代；Session 过期 | 旧 Packet/旧 runtime 拒绝；过期 Session 拒绝 |
+| 既有 revision 边界 | 业务 revision 改变后读取旧 Packet | 拒绝 |
 
-- 多 Packet 分页完整交付与 NAP 消费策略的真实联测。
-- 撤权、过期、恢复后 runtime 轮换的 E04 专项 PG 用例扩充。
-- 不可变 Plan 保存、Decision 幂等及 Action Runtime（E04-03）。
+不可变 Plan 保存、Decision 幂等及 Action Runtime 属于 E04-03，不在本次 E04-01 验收范围内。本阶段没有新增 Owner 产品裁决事项。

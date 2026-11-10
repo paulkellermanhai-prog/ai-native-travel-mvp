@@ -3,7 +3,7 @@ import { parseDCContract, type DecisionContextContracts } from "../decision-cont
 import { validateNapMessage } from "./contracts";
 
 type Packet = DecisionContextContracts["packet"];
-type PacketSource = Pick<ReturnType<typeof createPr29HostHttpCandidate>,"readTrustedPacketCandidate">;
+type PacketSource = Pick<ReturnType<typeof createPr29HostHttpCandidate>,"readTrustedPacketBatchCandidate">;
 type Trigger = {kind:"user_event"|"tool_result"|"state_change"|"clock_tick"|"ui_action";reference:string};
 export type TrustedDecisionRequest = {
   nap_contract_version:"0.1.0";
@@ -34,18 +34,20 @@ export async function buildTrustedDecisionRequest(source:PacketSource,input:{
     !/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(input.decisionId)||ids.length<1||
     new Set(ids).size!==ids.length||ids.some(id=>!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(id)))throw new NapTrustedPacketError();
   const credential=new Headers({cookie:input.credential.get("cookie")??""});
-  let rows:Awaited<ReturnType<PacketSource["readTrustedPacketCandidate"]>>[];
-  try {rows=await Promise.all(ids.map(id=>source.readTrustedPacketCandidate(input.tripId,credential,id)));}
+  let row:Awaited<ReturnType<PacketSource["readTrustedPacketBatchCandidate"]>>;
+  try {row=await source.readTrustedPacketBatchCandidate(input.tripId,credential,ids);}
   catch {throw new NapTrustedPacketError();}
-  const packets=rows.map((row,index)=>{
-    const packet=parseDCContract("packet",structuredClone(row.packet));
+  if(row.packets.length!==ids.length)return invalid();
+  const packets=row.packets.map((value,index)=>{
+    const packet=parseDCContract("packet",structuredClone(value));
     if(packet.packet_id!==ids[index]||packet.context.trip_id!==input.tripId)return invalid();
     return packet;
   });
-  const runtimeId=rows[0]?.runtime_id;
+  const runtimeId=row.runtime_id;
   const first=packets[0];
-  if(!runtimeId||!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(runtimeId)||rows.some(row=>row.runtime_id!==runtimeId)||
-    packets.some(packet=>packet.context.state_revision!==first.context.state_revision||packet.snapshot_digest!==first.snapshot_digest))return invalid();
+  if(!runtimeId||!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(runtimeId)||
+    packets.some(packet=>packet.context.state_revision!==first.context.state_revision||packet.snapshot_digest!==first.snapshot_digest)||
+    (input.trigger.kind==="user_event"&&packets.some(packet=>packet.pending_input.event.reference!==input.trigger.reference)))return invalid();
   const request:TrustedDecisionRequest={nap_contract_version:"0.1.0",decision_id:input.decisionId,runtime_id:runtimeId,
     trigger:structuredClone(input.trigger),packets};
   try {validateNapMessage("DecisionRequest",request);} catch {return invalid();}

@@ -5,7 +5,7 @@
   "baseline_commit": "a7dde3e0e92b1e975d5c9ef2275aa23c4fd5f9cb",
   "branch": "feat/e04-next-action-policy-runtime",
   "accepted_weight_percent": 0,
-  "implemented_weight_percent": 13.5,
+  "implemented_weight_percent": 18,
   "scope": "E04 Next Action Policy for the first Egypt internal MVP; implementation progress is not technical acceptance and does not authorize merge, deployment, public APIs, production E11 or suppliers",
   "stages": [
     {
@@ -13,7 +13,7 @@
       "name": "规格基线与工程接收",
       "weight_percent": 8,
       "implementation_percent": 100,
-      "status": "DELIVERED_PENDING_REVIEW",
+      "status": "RECOMMENDED_FOR_ACCEPTANCE",
       "execution_location": "独立分支 feat/e04-next-action-policy-runtime；E03 最终归档固定提交；本地 NAP 正式目录与 Git 冻结 R3 来源",
       "responsibilities": "主工程集成人：来源、依赖、复用与缺口核对；技术负责人：增量审核并决定阶段接受",
       "owner_participation": "当前无需；仅真实产品冲突、正式合同冲突或权限边界变化时参与",
@@ -29,15 +29,15 @@
       "id": "E04-01",
       "name": "合同与可信 Packet 接入",
       "weight_percent": 10,
-      "implementation_percent": 55,
-      "status": "IN_PROGRESS",
+      "implementation_percent": 100,
+      "status": "DELIVERED_PENDING_REVIEW",
       "execution_location": "src/server/next-action-policy；E03 host-runtime；真实 Session/PostgreSQL/HTTP 测试",
       "responsibilities": "主工程集成人实现；技术负责人审核新增差异及阶段出口",
       "owner_participation": "当前无需",
       "subtasks": [
         {"id": "E04-01-1", "description": "移植 NAP 合同、Plan integrity 与 Packet consistency", "status": "DELIVERED_PENDING_REVIEW"},
         {"id": "E04-01-2", "description": "从可信 E03 宿主读取真实 Packet 并复验 Session/Trip/runtime/revision/TTL", "status": "DELIVERED_PENDING_REVIEW"},
-        {"id": "E04-01-3", "description": "验证伪造 Packet、旧 Session、撤权、过期和不完整交付不得取得执行资格", "status": "IN_PROGRESS"}
+        {"id": "E04-01-3", "description": "验证伪造引用、错误 Session、撤权、过期、恢复换代、并发失效和不完整交付不得取得决策资格", "status": "DELIVERED_PENDING_REVIEW"}
       ],
       "evidence": ["docs/E04-01首批可信Packet接线.md", "src/server/next-action-policy/trusted-packet-source.ts", "tests/next-action-policy/trusted-packet-source.test.ts", "tests/http/e03-runtime/pr29-host.pg.test.ts", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/35"],
       "blockers": []

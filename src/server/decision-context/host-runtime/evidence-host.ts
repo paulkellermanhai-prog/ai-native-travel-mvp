@@ -79,7 +79,7 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void>; beforeWriteGuard?:()=>Promise<void> }) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void>; beforeTrustedPacketBatchFinalCheck?:()=>Promise<void>; beforeWriteGuard?:()=>Promise<void> }) {
   if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
@@ -360,6 +360,45 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       return {operation,bridge:{packet:built.candidate.packet,turn:{turnId:memory.turnId,event:built.candidate.packet.pending_input.event,recovered:false},deliveredIds,
         principalId:userActorId(scope.ownerId),now:clock.now.toISOString(),runtimeId:scope.runtimeId,...(grant?{grant}:{})}};
     });
+  }
+  async function readTrustedPacketBatch(ticket:object,credential:Headers,packetIds:readonly string[]) {
+    const ids=[...packetIds];
+    if(ids.length<1||ids.length>32||new Set(ids).size!==ids.length||ids.some(id=>!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(id)))return unavailable();
+    const start=await scoped(ticket,credential),startingRuntime=start.scope.runtimeId;
+    try {
+      return await exclusive(start.scope,async()=>db.$transaction(async tx=>{
+        const packets:DecisionContextContracts["packet"][]=[],memories:PacketMemory[]=[],leaseIds:string[]=[];
+        for(const packetId of ids) {
+          const memory=start.scope.packets.get(packetId);
+          if(!memory||memory.runtimeId!==startingRuntime||memory.expiresAt<=Date.now()||memory.postflight)return unavailable();
+          const progress=memory.tracker.progress();
+          if(!progress.initial_sent||progress.pending||progress.remaining_count!==0)return unavailable();
+          const lease=turnInput(start.scope,memory.turnId);
+          const built=await packetFromCurrent(tx,start.scope,start.headers,lease.value,memory.turnId,memory.taskHash,memory.budget,memory);
+          checkTurnLease(start.scope,memory.turnId,lease.id);await built.recheck();memory.tracker.delivery(built.candidate);
+          memories.push(memory);leaseIds.push(lease.id);packets.push(structuredClone(built.candidate.packet));
+        }
+        const first=packets[0];
+        if(!first||packets.some(packet=>packet.context.state_revision!==first.context.state_revision||packet.snapshot_digest!==first.snapshot_digest))return unavailable();
+        await testHooks?.beforeTrustedPacketBatchFinalCheck?.();
+        const final=await scoped(ticket,credential);
+        if(final.scope!==start.scope||final.scope.runtimeId!==startingRuntime)return deny();
+        try {await host.guard!(final.scope.tripId,final.headers,tx);} catch {return deny();}
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${final.scope.tripId} FOR SHARE`;
+        if(!document||document.revision!==BigInt(first.context.state_revision))return unavailable();
+        const now=document.now.getTime();
+        for(let index=0;index<memories.length;index++) {
+          const memory=memories[index],progress=memory.tracker.progress();
+          if(final.scope.packets.get(memory.packetId)!==memory||memory.runtimeId!==startingRuntime||memory.expiresAt<=now||memory.postflight||
+            !progress.initial_sent||progress.pending||progress.remaining_count!==0)return unavailable();
+          checkTurnLease(final.scope,memory.turnId,leaseIds[index]);
+        }
+        return {runtime_id:startingRuntime,packets};
+      }));
+    } catch(error) {
+      if(error instanceof EvidenceBoundaryError)throw error;
+      return unavailable();
+    }
   }
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
@@ -953,26 +992,12 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
      * registry and is rebuilt against the current Session, Trip State, task
      * evidence, runtime generation and expiry before it is returned.
      */
+    async readTrustedPacketBatchCandidate(ticket:object,credential:Headers,packetIds:readonly string[]) {
+      return readTrustedPacketBatch(ticket,credential,packetIds);
+    },
     async readTrustedPacketCandidate(ticket:object,credential:Headers,packetId:string) {
-      if(!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(packetId))return unavailable();
-      const {scope,headers}=await scoped(ticket,credential);
-      try {
-        return await exclusive(scope,async()=>db.$transaction(async tx=>{
-          const memory=scope.packets.get(packetId);
-          if(!memory||memory.runtimeId!==scope.runtimeId||memory.expiresAt<=Date.now()||memory.postflight)return unavailable();
-          const progress=memory.tracker.progress();
-          if(!progress.initial_sent||progress.pending)return unavailable();
-          const lease=turnInput(scope,memory.turnId);
-          const built=await packetFromCurrent(tx,scope,headers,lease.value,memory.turnId,memory.taskHash,memory.budget,memory);
-          checkTurnLease(scope,memory.turnId,lease.id);
-          await built.recheck();
-          memory.tracker.delivery(built.candidate);
-          return {runtime_id:scope.runtimeId,packet:structuredClone(built.candidate.packet)};
-        }));
-      } catch(error) {
-        if(error instanceof EvidenceBoundaryError)throw error;
-        return unavailable();
-      }
+      const batch=await readTrustedPacketBatch(ticket,credential,[packetId]);
+      return {runtime_id:batch.runtime_id,packet:batch.packets[0]};
     },
     async authorizeTicketCandidate(ticket:object,credential:Headers) {await scoped(ticket,credential);},
     async authorizeTripCandidate(tripId:string,credential:Headers) {
