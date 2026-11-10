@@ -322,8 +322,15 @@
           "status": "IN_PROGRESS"
         }
       ],
-      "evidence": [],
-      "execution_location": "从 E03-06 接受 head fc0e89a5764c247ffa2f3278e629b5f33691d270 派生的 feat/e03-07-final-integration 分支；选择性复用原 E03-04/07 HTTP 候选",
+      "evidence": [
+        "src/server/decision-context/http-adapter/pr29-host-candidate.ts",
+        "src/server/decision-context/host-runtime/packet-http-candidate.ts",
+        "src/server/decision-context/host-runtime/evidence-host.ts",
+        "tests/http/e03-runtime/pr29-host.pg.test.ts",
+        "tests/support/e03-http-recovery-process.ts",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/33"
+      ],
+      "execution_location": "从 E03-06 接受 head fc0e89a5764c247ffa2f3278e629b5f33691d270 派生的 feat/e03-07-final-integration 分支与 Draft PR #33；选择性复用原 E03-04/07 HTTP 候选；候选仍待同 head CI 与最终 Gate",
       "responsibilities": "主集成人复用 E03-03–06 真实宿主、写桥、Checkpoint 和恢复能力，完成内部 MVP HTTP 闭环与最终工程证据",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
