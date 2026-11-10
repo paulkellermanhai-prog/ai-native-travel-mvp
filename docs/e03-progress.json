@@ -283,7 +283,8 @@
         "src/server/decision-context/host-runtime/evidence-host.ts",
         "src/server/decision-context/recovery-service/trusted-host.ts",
         "tests/decision-context/host-runtime/evidence-host.pg.test.ts",
-        "tests/decision-context/recovery-service/trusted-host.test.ts"
+        "tests/decision-context/recovery-service/trusted-host.test.ts",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/32"
       ],
       "execution_location": "从 E03-05 接受 head 90bdc72b08f89ddbe2cfb5851766dd0bd88716b1 派生的 feat/e03-06-cross-session-recovery 分支；选择性复用 ee2b1c4 的恢复候选；候选实现提交 e1939db",
       "responsibilities": "主集成人复用 recovery-core、recovery-service、E03-05 PG Repository 与 E03-03 宿主，实施最小可信 workspace reopen 和跨会话恢复",
