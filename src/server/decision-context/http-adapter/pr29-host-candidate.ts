@@ -61,6 +61,16 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       },
     };
   } });
+  async function readTrustedPacketBatchCandidate(tripId:string,credential:Headers,packetIds:readonly string[]) {
+    const tickets=packetIds.map(packetId=>packets.ticketForPacketCandidate(tripId,packetId));
+    const ticket=tickets[0];
+    if(!ticket||tickets.some(candidate=>candidate!==ticket))throw new RuntimeHttpFault("ACCESS_DENIED");
+    // The final page bytes can precede the socket postflight that seals the
+    // private delivery ledger. Consume only after every handoff has settled.
+    await packets.awaitPacketHandoffCandidate(ticket);
+    if(packetIds.some(packetId=>packets.ticketForPacketCandidate(tripId,packetId)!==ticket))throw new RuntimeHttpFault("ACCESS_DENIED");
+    return host.readTrustedPacketBatchCandidate(ticket,credential,packetIds);
+  }
 
   return {
     bindTurn: packets.bindTurn,
@@ -70,6 +80,12 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       const body=parseDCContract("change",value),ticket=packets.ticketForPacketCandidate(tripId,body.packet_id);
       if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
       return host.authorizeUserChangeCandidate(ticket,credential,body);
+    },
+    readTrustedPacketBatchCandidate,
+    /** Server-only Packet source for trusted downstream runtimes such as NAP. */
+    async readTrustedPacketCandidate(tripId:string,credential:Headers,packetId:string) {
+      const batch=await readTrustedPacketBatchCandidate(tripId,credential,[packetId]);
+      return {runtime_id:batch.runtime_id,packet:batch.packets[0]};
     },
     async handle(request: IncomingMessage, response: ServerResponse) {
       let path: string;
