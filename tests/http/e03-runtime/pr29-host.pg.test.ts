@@ -14,7 +14,9 @@ import type { DecisionContextContracts } from "../../../src/server/decision-cont
 import type { State, TripStateContracts } from "../../../src/server/trip-state/contracts.generated";
 import { buildTrustedDecisionRequest } from "../../../src/server/next-action-policy/trusted-packet-source";
 import { installE03Candidate } from "../../../scripts/e03-candidate-installer.mjs";
+import {installE04Runtime} from "../../../scripts/e04-candidate-installer.mjs";
 import { base } from "../../support/bcg-fixtures";
+import {decide,type SemanticAdapter} from "../../../src/server/next-action-policy/decision-engine";
 
 const file=process.env.E03_PR29_WRITE_STORAGE_ENV_FILE;
 if((process.env.CI||process.env.E03_PR29_REAL_TEST==="1")&&!file)throw new Error("PR29 write bridge test requires isolated E03_PR29_WRITE_STORAGE_ENV_FILE");
@@ -45,7 +47,7 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const check=await owner.query("SELECT current_database() AS name,current_setting('server_version_num')::int AS version,to_regclass('public.\"HostEvidenceWorkspace\"') IS NULL AS clean");
       if(check.rows[0]?.name!==cfg.database||check.rows[0]?.version<170000||!check.rows[0]?.clean)throw new Error("Clean dedicated PG 17 required");
       await owner.query("BEGIN");
-      try{await installE03Candidate(owner,{runtimeRole:cfg.runtimeRole,lifecycleRole:cfg.lifecycleRole});await owner.query("COMMIT");}
+      try{await installE03Candidate(owner,{runtimeRole:cfg.runtimeRole,lifecycleRole:cfg.lifecycleRole});await installE04Runtime(owner,{runtimeRole:cfg.runtimeRole});await owner.query("COMMIT");}
       catch(error){await owner.query("ROLLBACK");throw error;}
 
       const mounted:{adapter?:ReturnType<typeof createPr29HostHttpCandidate>}={};
@@ -213,6 +215,59 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       await expect(lockTimeout).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
       await owner.query("ROLLBACK");
 
+      const runtimeAdapter:SemanticAdapter={assess:async request=>{
+        const source=request.packets[0],evidence=source.objects.find(object=>object.id==="constraint-nights");
+        if(!evidence)throw new Error("Missing runtime evidence");
+        return {response:{request_ids:request.packets.map(packet=>packet.task.task_key),disposition:"answered",text:"已形成可执行前的读取计划",
+          evidence_refs:[{id:evidence.id,version:evidence.version,kind:"object"}]},candidates:[{action_id:"action-runtime",task_key:source.task.task_key,
+          packet_id:source.packet_id,request_ids:[source.task.task_key],goal:"D2",preferred_attention:"primary",reason:"读取当前交通依据",rank:100,
+          steps:[{step_id:"step-runtime",kind:"read",depends_on:[],capability_id:null,arguments:{},change_request:null,user_message:null}],
+          required_object_ids:[evidence.id],reentry_candidate_id:null}]};
+      }};
+      const runtimePlan=await decide(pair,runtimeAdapter);
+      const stored=await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),pair,runtimePlan);
+      expect(stored).toMatchObject({replayed:false,plan:{decision_id:pair.decision_id}});
+      const changedPlan=structuredClone(runtimePlan);changedPlan.response.text="重试时的不同语义文本";
+      await expect(mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),pair,changedPlan)).resolves.toEqual({plan:runtimePlan,replayed:true});
+      const concurrentClaims=await Promise.all([
+        mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),pair.packets[0].packet_id,pair.decision_id,"action-runtime","step-runtime"),
+        mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),pair.packets[0].packet_id,pair.decision_id,"action-runtime","step-runtime"),
+      ]);
+      expect(concurrentClaims.map(result=>result.disposition).sort()).toEqual(["already_claimed","claimed"]);
+      const claimed=concurrentClaims.find(result=>result.disposition==="claimed");if(!claimed?.claim_token)throw new Error("Missing atomic claim token");
+      await mounted.adapter!.markDecisionExecutionUnknownCandidate(trip,new Headers({cookie}),pair.packets[0].packet_id,pair.decision_id,"action-runtime","step-runtime",claimed.claim_token);
+      const runningRecord=await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),pair.packets[0].packet_id,pair.decision_id);
+      expect(runningRecord).toMatchObject({actions:[{phase:"running",receipt_lookup_required:true}],steps:[{status:"running"}]});
+
+      const conflictPacket=await packet("同一 decision 的不同请求"),conflictRequest=await buildTrustedDecisionRequest(mounted.adapter!,{
+        tripId:trip,credential:new Headers({cookie}),decisionId:pair.decision_id,trigger:{kind:"user_event",reference:conflictPacket.pending_input.event.reference},packetIds:[conflictPacket.packet_id]});
+      const conflictPlan=await decide(conflictRequest,runtimeAdapter);
+      await expect(mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),conflictRequest,conflictPlan)).rejects.toMatchObject({code:"DECISION_CONFLICT"});
+      const staleRequest={...conflictRequest,decision_id:"egypt-runtime-stale"},stalePlan=await decide(staleRequest,runtimeAdapter);
+      await expect(mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),staleRequest,stalePlan)).resolves.toMatchObject({replayed:false});
+      const dependencyRequest={...conflictRequest,decision_id:"egypt-runtime-dependencies"};
+      const dependencyPlan=await decide(dependencyRequest,{assess:async request=>{
+        const source=request.packets[0];return {response:{request_ids:[source.task.task_key],disposition:"answered",text:"依赖顺序测试",
+          evidence_refs:[]},candidates:[{action_id:"action-dependencies",task_key:source.task.task_key,packet_id:source.packet_id,request_ids:[source.task.task_key],
+          goal:"D2",preferred_attention:"primary",reason:"先读取再交付",rank:100,required_object_ids:[],reentry_candidate_id:null,steps:[
+            {step_id:"step-first",kind:"read",depends_on:[],capability_id:null,arguments:{},change_request:null,user_message:null},
+            {step_id:"step-second",kind:"deliver",depends_on:["step-first"],capability_id:null,arguments:{},change_request:null,user_message:"交付结果"},
+          ]}]};
+      }},new Date());
+      await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),dependencyRequest,dependencyPlan);
+      await expect(mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,dependencyRequest.decision_id,"action-dependencies","step-second"))
+        .resolves.toMatchObject({disposition:"dependency_wait"});
+      const waitingRequest={...conflictRequest,decision_id:"egypt-runtime-waiting"};
+      const waitingPlan=await decide(waitingRequest,{assess:async request=>{
+        const source=request.packets[0];return {response:{request_ids:[source.task.task_key],disposition:"clarification",text:"只询问真正阻断条件",evidence_refs:[]},
+          candidates:[{action_id:"action-waiting",task_key:source.task.task_key,packet_id:source.packet_id,request_ids:[source.task.task_key],goal:"D4",
+            preferred_attention:"primary",reason:"等待用户输入",rank:100,required_object_ids:[],reentry_candidate_id:null,
+            steps:[{step_id:"step-waiting",kind:"ask",depends_on:[],capability_id:null,arguments:{},change_request:null,user_message:"请补充起止城市"}]}]};
+      }},new Date());
+      await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),waitingRequest,waitingPlan);
+      await expect(mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,waitingRequest.decision_id,"action-waiting","step-waiting"))
+        .resolves.toMatchObject({disposition:"waiting_user"});
+
       await mounted.adapter.authorizeUserChange(trip,new Headers({cookie}),actualChange);
       const appliedResponse=await post("changes",actualChange);expect(appliedResponse.status).toBe(200);
       const applied=await appliedResponse.json() as TripStateContracts["response"];expect(applied).toMatchObject({outcome:"applied",revision:1});
@@ -269,6 +324,12 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const afterRecovery=await buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-new-runtime",
         trigger:{kind:"user_event",reference:recoveredPacket.pending_input.event.reference},packetIds:[recoveredPacket.packet_id]});
       expect(afterRecovery.runtime_id).not.toBe(beforeRecovery.runtime_id);
+      const recoveredRecord=await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),recoveredPacket.packet_id,"egypt-runtime-stale");
+      expect(recoveredRecord.decision.runtime_id).not.toBe(afterRecovery.runtime_id);
+      await expect(mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),recoveredPacket.packet_id,"egypt-runtime-stale","action-runtime","step-runtime"))
+        .resolves.toMatchObject({disposition:"stale"});
+      expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),recoveredPacket.packet_id,"egypt-runtime-stale"))
+        .toMatchObject({actions:[{phase:"stale"}],steps:[{status:"stale"}]});
       await owner.query(`UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval '1 second' WHERE id=$1`,[sessionId]);
       await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-expired-session",
         trigger:{kind:"user_event",reference:recoveredPacket.pending_input.event.reference},packetIds:[recoveredPacket.packet_id]})).rejects.toThrow();

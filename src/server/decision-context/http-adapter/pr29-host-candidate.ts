@@ -7,6 +7,8 @@ import { RuntimeHttpFault } from "../http-core/response";
 import { parseDCContract } from "../contracts";
 import { confirmChange, submitChange } from "../write-bridge/orchestrator";
 import { CheckpointError } from "../checkpoint-core";
+import type {DecisionPlan} from "../../next-action-policy/decision-engine";
+import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-packet-source";
 
 type EvidenceHost = Awaited<ReturnType<typeof openEvidenceHost>>;
 
@@ -82,6 +84,24 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       return host.authorizeUserChangeCandidate(ticket,credential,body);
     },
     readTrustedPacketBatchCandidate,
+    async saveDecisionPlanCandidate(tripId:string,credential:Headers,request:TrustedDecisionRequest,plan:DecisionPlan){
+      const tickets=request.packets.map(packet=>packets.ticketForPacketCandidate(tripId,packet.packet_id)),ticket=tickets[0];
+      if(!ticket||tickets.some(candidate=>candidate!==ticket))throw new RuntimeHttpFault("ACCESS_DENIED");
+      await packets.awaitPacketHandoffCandidate(ticket);
+      return host.saveDecisionPlanCandidate(ticket,credential,request,plan);
+    },
+    async claimDecisionStepCandidate(tripId:string,credential:Headers,packetId:string,decisionId:string,actionId:string,stepId:string){
+      const ticket=packets.ticketForPacketCandidate(tripId,packetId);if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
+      return host.claimDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId);
+    },
+    async readDecisionRecordCandidate(tripId:string,credential:Headers,packetId:string,decisionId:string){
+      const ticket=packets.ticketForPacketCandidate(tripId,packetId);if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
+      return host.readDecisionRecordCandidate(ticket,credential,decisionId);
+    },
+    async markDecisionExecutionUnknownCandidate(tripId:string,credential:Headers,packetId:string,decisionId:string,actionId:string,stepId:string,claimToken:string){
+      const ticket=packets.ticketForPacketCandidate(tripId,packetId);if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
+      return host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken);
+    },
     /** Server-only Packet source for trusted downstream runtimes such as NAP. */
     async readTrustedPacketCandidate(tripId:string,credential:Headers,packetId:string) {
       const batch=await readTrustedPacketBatchCandidate(tripId,credential,[packetId]);

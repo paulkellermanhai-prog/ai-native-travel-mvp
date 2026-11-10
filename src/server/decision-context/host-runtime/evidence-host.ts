@@ -27,6 +27,10 @@ import { openTripCommandService, type CommandHost } from "../../trip-state/inter
 import { parseContract, TripStateContractError } from "../../trip-state/contracts";
 import { BridgeRuleError, checkChangeRules, checkConfirmationRules, checkGrantFields } from "../write-bridge/rules";
 import type { TransactionalBridgeHost } from "../write-bridge/orchestrator";
+import type {DecisionPlan} from "../../next-action-policy/decision-engine";
+import {claimDecisionStep,markExecutionUnknown,readDecisionRecord,saveDecisionPlan} from "../../next-action-policy/runtime-store";
+import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-packet-source";
+import {validatePlanRequestConsistency} from "../../next-action-policy/plan-packet-consistency";
 
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
 type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>; incomplete: boolean; fingerprint: string; eventSequence: number; retentionRevision: number };
@@ -1002,6 +1006,46 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     async readTrustedPacketCandidate(ticket:object,credential:Headers,packetId:string) {
       const batch=await readTrustedPacketBatch(ticket,credential,[packetId]);
       return {runtime_id:batch.runtime_id,packet:batch.packets[0]};
+    },
+    async saveDecisionPlanCandidate(ticket:object,credential:Headers,requestValue:TrustedDecisionRequest,planValue:DecisionPlan){
+      let request:TrustedDecisionRequest,plan:DecisionPlan;
+      try{request=structuredClone(requestValue);plan=structuredClone(planValue);validatePlanRequestConsistency(request,plan);}catch{return unavailable();}
+      const batch=await readTrustedPacketBatch(ticket,credential,request.packets.map(packet=>packet.packet_id));
+      const trusted={...request,runtime_id:batch.runtime_id,packets:batch.packets};
+      if(canonicalJson(trusted)!==canonicalJson(request))return unavailable();
+      const {scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        if(!document||scope.runtimeId!==request.runtime_id||document.revision!==BigInt(plan.basis[0].state_revision)||
+          plan.basis.some(basis=>new Date(basis.expires_at).getTime()<=document.now.getTime()))return unavailable();
+        return saveDecisionPlan(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},request,plan);
+      }));
+    },
+    async claimDecisionStepCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string){
+      const {scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        if(!document)return unavailable();
+        return claimDecisionStep(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
+          Number(document.revision),document.now,decisionId,actionId,stepId,randomUUID());
+      }));
+    },
+    async readDecisionRecordCandidate(ticket:object,credential:Headers,decisionId:string){
+      const {scope,headers}=await scoped(ticket,credential);
+      return db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        return readDecisionRecord(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},decisionId);
+      });
+    },
+    async markDecisionExecutionUnknownCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string){
+      const {scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        return markExecutionUnknown(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
+          decisionId,actionId,stepId,claimToken);
+      }));
     },
     async authorizeTicketCandidate(ticket:object,credential:Headers) {await scoped(ticket,credential);},
     async authorizeTripCandidate(tripId:string,credential:Headers) {

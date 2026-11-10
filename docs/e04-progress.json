@@ -6,7 +6,7 @@
   "branch": "feat/e04-next-action-policy-runtime",
   "local_worktree_branch": "feat/e04-02-04-local",
   "accepted_weight_percent": 8,
-  "implemented_weight_percent": 36,
+  "implemented_weight_percent": 54,
   "scope": "E04 Next Action Policy for the first Egypt internal MVP; implementation progress is not technical acceptance and does not authorize merge, deployment, public APIs, production E11 or suppliers",
   "stages": [
     {
@@ -54,8 +54,14 @@
       "evidence": ["docs/E04-02最小行动决策器.md","src/server/next-action-policy/decision-engine.ts","tests/next-action-policy/decision-engine.test.ts"], "blockers": []
     },
     {
-      "id": "E04-03", "name": "Action Runtime 与运行记录", "weight_percent": 18, "implementation_percent": 0, "status": "NOT_STARTED",
-      "execution_location": "NAP Runtime、PostgreSQL 候选迁移与恢复测试", "responsibilities": "主工程集成人实现；技术负责人审核持久性与并发出口", "owner_participation": "无需工程细节参与", "subtasks": [], "evidence": [], "blockers": []
+      "id": "E04-03", "name": "Action Runtime 与运行记录", "weight_percent": 18, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
+      "execution_location": "src/server/next-action-policy/runtime-store.ts、runtime/sql、PostgreSQL 17 恢复测试", "responsibilities": "主工程集成人实现；技术负责人审核持久性与并发出口", "owner_participation": "无需工程细节参与",
+      "subtasks": [
+        {"id":"E04-03-1","description":"不可变 Plan/Decision 幂等与 owner/Trip/workspace/runtime 绑定","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-03-2","description":"ActionRecord、Step 原子认领、依赖与 waiting_user","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-03-3","description":"回执未知标记、恢复可读与旧 runtime/revision 失效","status":"DELIVERED_PENDING_REVIEW"}
+      ],
+      "evidence": ["docs/E04-03最小PG行动Runtime.md","src/server/next-action-policy/runtime-store.ts","src/server/next-action-policy/runtime/sql/001-runtime.sql","tests/http/e03-runtime/pr29-host.pg.test.ts"], "blockers": []
     },
     {
       "id": "E04-04", "name": "受控执行与业务写桥", "weight_percent": 14, "implementation_percent": 0, "status": "NOT_STARTED",
