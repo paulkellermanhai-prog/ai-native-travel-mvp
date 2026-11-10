@@ -5,8 +5,8 @@
   "candidate_pr": 12,
   "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
   "accepted_weight_percent": 56,
-  "submitted_weight_percent": 0,
-  "scope": "E03-00–04 accepted for the Egypt internal MVP at fixed reviewed heads; E03-05 sequential checkpoint-persistence development is in progress; accepted weight is 56%; production services remain disabled",
+  "submitted_weight_percent": 17,
+  "scope": "E03-00–04 accepted for the Egypt internal MVP at fixed reviewed heads; E03-05 sequential checkpoint-persistence candidate is ready for review; accepted weight remains 56%; production services remain disabled",
   "stages": [
     {
       "id": "E03-00",
@@ -215,31 +215,37 @@
       "id": "E03-05",
       "name": "Checkpoint 持久化",
       "weight_percent": 17,
-      "status": "IN_PROGRESS",
+      "status": "READY_FOR_REVIEW",
       "accepted": false,
       "subtasks": [
         {
           "id": "E03-05-1",
           "description": "在原合同内评审生产存储适配设计",
-          "status": "IN_PROGRESS"
+          "status": "READY_FOR_REVIEW"
         },
         {
           "id": "E03-05-2",
           "description": "实现owner/trip/workspace隔离、CAS、回执与仅保存重试",
-          "status": "NOT_STARTED"
+          "status": "READY_FOR_REVIEW"
         },
         {
           "id": "E03-05-3",
           "description": "验证原子性、故障、删除、容量和保留边界",
-          "status": "NOT_STARTED"
+          "status": "READY_FOR_REVIEW"
         }
       ],
-      "evidence": [],
-      "execution_location": "独立 feat/e03-05-checkpoint-persistence 分支；复用 ee2b1c4 固定候选并仅接续 Checkpoint 保存与真实 PostgreSQL 验证",
+      "evidence": [
+        "src/server/decision-context/recovery-service/trusted-host.ts",
+        "tests/decision-context/recovery-service/trusted-host.test.ts",
+        "tests/decision-context/host-runtime/evidence-host.pg.test.ts",
+        "tests/decision-context/checkpoint-store/postgres.test.ts",
+        "tests/decision-context/checkpoint-store/session.integration.test.ts"
+      ],
+      "execution_location": "独立 feat/e03-05-checkpoint-persistence 分支；复用 ee2b1c4 保存候选并通过真实 PostgreSQL 17、Session、宿主工作区和最小权限验证",
       "responsibilities": "主集成人复用原保存/恢复任务的 checkpoint-core、checkpoint-store、PG Repository 与保存接线；E03-06 恢复保持关闭",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "当前仅推进真实保存与宿主接线；跨新 Session、新进程恢复明确留给 E03-06"
+        "等待 E03-05 固定 head 的 GitHub CI 与技术负责人阶段验收；跨新 Session、新进程恢复明确留给 E03-06"
       ]
     },
     {
