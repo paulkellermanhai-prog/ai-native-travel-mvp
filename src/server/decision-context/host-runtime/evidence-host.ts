@@ -54,6 +54,7 @@ export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordI
   runtime_focus:{tasks:InterpretedTask[];focus_keys:string[];complete:boolean};mint_task_key:(ordinal:number)=>Promise<string>;
   read_task_evidence:(taskKey:string,window:{page_size:number;from:string;to:string;cursor:string|null})=>Promise<EvidencePage>})=>Promise<{tasks:unknown;focus_keys:unknown}>;
 const identityInput = z.strictObject({ expected_revision: z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER), tasks: z.unknown(), focus_keys: z.unknown() });
+const workspaceKeyInput = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/);
 const unlinkInput = z.strictObject({action:z.literal("unlink"),task_key:z.string().regex(/^task-[0-9a-f]{32}$/),event_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),
   source_turn_id:z.string().regex(/^[A-Za-z][A-Za-z0-9_-]{0,95}$/),expected_association_revision:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER-1),
   idempotency_key:z.string().min(1).max(256)});
@@ -197,6 +198,10 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       if (actor.actor.role !== "user" || actor.actor.id !== userActorId(current.ownerId)) return deny();
     } catch { return deny(); }
     return current;
+  }
+  function freshScope(p:{ownerId:string;sessionId:string},tripId:string,workspaceKey=`work_${randomUUID()}`):Scope {
+    return { ownerId:p.ownerId,sessionId:p.sessionId,tripId,workspaceKey,capability:randomBytes(32).toString("hex"),runtimeId:`runtime-${randomUUID().replaceAll("-","")}`,
+      recoveredEvents:new Set(),recoveryWatermark:null,deletionRevision:0,pendingSaves:new Set(),pendingSaveSticky:false,inflightSaves:0,keyEpochs:new Map(),tasks:new Map(),turns:new Map(),invalidTurns:new Set(),receipts:new Map(),replayReceipts:new Map(),packetInvalidators:new Set(),packets:new Map(),leaseKey:randomBytes(32),turnLeases:new Map(),disposed:false,tail:Promise.resolve() };
   }
   async function scoped(ticket: object, credential: Headers) {
     const scope = ticket && typeof ticket === "object" ? workspaces.get(ticket) : undefined;
@@ -358,7 +363,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
       const p = await authorized(tripId, credential);
-      const scope: Scope = { ownerId: p.ownerId, sessionId: p.sessionId, tripId, workspaceKey: `work_${randomUUID()}`, capability: randomBytes(32).toString("hex"), runtimeId: `runtime-${randomUUID().replaceAll("-","")}`, recoveredEvents:new Set(), recoveryWatermark:null, deletionRevision:0, pendingSaves:new Set(), pendingSaveSticky:false, inflightSaves:0, keyEpochs:new Map(), tasks: new Map(), turns: new Map(), invalidTurns: new Set(), receipts: new Map(), replayReceipts: new Map(), packetInvalidators:new Set(), packets:new Map(), leaseKey:randomBytes(32),turnLeases:new Map(), disposed:false, tail: Promise.resolve() };
+      const scope=freshScope(p,tripId);
       try {
         await db.$transaction(async tx => {
           try { await host.guard!(tripId, p.headers, tx); } catch { return deny(); }
@@ -368,6 +373,26 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       } catch (error) { if (error instanceof EvidenceBoundaryError) throw error; return unavailable(); }
       if (closed) return deny();
       const ticket = Object.freeze({}); workspaces.set(ticket, scope); activeScopes.add(scope); return ticket;
+    },
+    /**
+     * Rebinds an existing persisted workspace to the current authenticated
+     * Session. The caller-supplied key is only a locator: PostgreSQL proves the
+     * owner/trip relation, rotates the capability and rechecks the Checkpoint,
+     * Task sources and E11 barriers before this host mints a new opaque ticket.
+     */
+    async reopenWorkspace(tripId:string,credential:Headers,workspaceKey:string):Promise<object> {
+      const key=workspaceKeyInput.safeParse(workspaceKey);if(!key.success)return deny();
+      const p=await authorized(tripId,credential),scope=freshScope(p,tripId,key.data);
+      try {
+        await db.$transaction(async tx=>{
+          try{await host.guard!(tripId,p.headers,tx);}catch{return deny();}
+          const [row]=await tx.$queryRaw<Array<{ok:boolean}>>`SELECT public.host_checkpoint_reopen_workspace_candidate(${p.sessionId},${p.ownerId},${tripId},${scope.workspaceKey},${scope.capability}) AS ok`;
+          if(!row?.ok)return unavailable();
+          try{await host.guard!(tripId,p.headers,tx);}catch{return deny();}
+        });
+      } catch(error) {if(error instanceof EvidenceBoundaryError)throw error;return unavailable();}
+      if(closed)return deny();
+      const ticket=Object.freeze({});workspaces.set(ticket,scope);activeScopes.add(scope);return ticket;
     },
     /** Internal opaque Task identifier; caller-supplied labels are not proof. */
     async mintTaskKey(ticket: object, credential: Headers, operationKey: string): Promise<string> {

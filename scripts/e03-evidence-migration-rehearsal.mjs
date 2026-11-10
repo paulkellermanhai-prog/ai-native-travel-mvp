@@ -58,6 +58,7 @@ try {
     to_regclass('e03_checkpoint.heads') IS NOT NULL AS checkpoint_table,
     to_regprocedure('public.host_evidence_unlink_task_source_candidate(text,text,text,text,text,text,text,text,text,text,bigint,text)') IS NOT NULL AS correction,
     to_regprocedure('public.host_evidence_sync_trip_lifecycle_candidate(text,bigint,timestamp with time zone)') IS NOT NULL AS lifecycle,
+    to_regprocedure('public.host_checkpoint_reopen_workspace_candidate(text,text,text,text,text)') IS NOT NULL AS reopen,
     (SELECT version FROM e03_install.versions WHERE component='e03-host-candidate')::int AS install_version,
     (SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='public' AND c.relname LIKE 'HostEvidence%' AND c.relkind='r')::int AS evidence_table_count,
@@ -76,19 +77,21 @@ try {
       WHERE n.nspname='public' AND c.relname LIKE 'HostEvidence%'
         AND CASE WHEN c.relkind='S' THEN has_sequence_privilege($2,c.oid,'USAGE,SELECT,UPDATE') ELSE FALSE END) AS lifecycle_sequence_access,
     has_function_privilege($1,'public.host_evidence_record_candidate(text,text,text,text,text,bigint,text,text,text,timestamp with time zone,text,text)','EXECUTE') AS runtime_record_execute,
+    has_function_privilege($1,'public.host_checkpoint_reopen_workspace_candidate(text,text,text,text,text)','EXECUTE') AS runtime_reopen_execute,
     has_function_privilege($1,'public.host_evidence_sync_trip_lifecycle_candidate(text,bigint,timestamp with time zone)','EXECUTE') AS runtime_lifecycle_execute,
     has_function_privilege($2,'public.host_evidence_sync_trip_lifecycle_candidate(text,bigint,timestamp with time zone)','EXECUTE') AS lifecycle_execute,
     has_function_privilege($2,'public.host_evidence_record_candidate(text,text,text,text,text,bigint,text,text,text,timestamp with time zone,text,text)','EXECUTE') AS lifecycle_record_execute,
+    has_function_privilege($2,'public.host_checkpoint_reopen_workspace_candidate(text,text,text,text,text)','EXECUTE') AS lifecycle_reopen_execute,
     EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
       CROSS JOIN LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) a
       WHERE n.nspname='public' AND (p.proname LIKE 'host_evidence_%_candidate' OR p.proname LIKE 'host_checkpoint_%_candidate')
         AND a.grantee=0 AND a.privilege_type='EXECUTE') AS public_candidate_execute`,
     [config.runtimeRole,config.lifecycleRole]);
   const check = rows[0];
-  if (!check?.event_table || !check.association_table || !check.witness_table || !check.checkpoint_table || !check.correction || !check.lifecycle ||
-      check.install_version !== 1 || check.evidence_table_count !== 10 || check.runtime_direct_table_access || check.lifecycle_direct_table_access ||
-      check.runtime_sequence_access || check.lifecycle_sequence_access || !check.runtime_record_execute || check.runtime_lifecycle_execute ||
-      !check.lifecycle_execute || check.lifecycle_record_execute || check.public_candidate_execute ||
+  if (!check?.event_table || !check.association_table || !check.witness_table || !check.checkpoint_table || !check.correction || !check.lifecycle || !check.reopen ||
+      check.install_version !== 2 || check.evidence_table_count !== 10 || check.runtime_direct_table_access || check.lifecycle_direct_table_access ||
+      check.runtime_sequence_access || check.lifecycle_sequence_access || !check.runtime_record_execute || !check.runtime_reopen_execute || check.runtime_lifecycle_execute ||
+      !check.lifecycle_execute || check.lifecycle_record_execute || check.lifecycle_reopen_execute || check.public_candidate_execute ||
       first.disposition!=="installed" || repeated.disposition!=="already_installed")
     throw new Error("Candidate dependency or least-privilege rehearsal failed");
   await client.query("ROLLBACK"); began = false;

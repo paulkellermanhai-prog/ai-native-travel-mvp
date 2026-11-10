@@ -4,9 +4,9 @@
   "generated_view": "docs/E03阶段看板.md",
   "candidate_pr": 12,
   "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
-  "accepted_weight_percent": 56,
-  "submitted_weight_percent": 17,
-  "scope": "E03-00–04 accepted for the Egypt internal MVP at fixed reviewed heads; E03-05 sequential checkpoint-persistence candidate is ready for review; accepted weight remains 56%; production services remain disabled",
+  "accepted_weight_percent": 73,
+  "submitted_weight_percent": 14,
+  "scope": "E03-00–05 accepted for the Egypt internal MVP at fixed reviewed heads; E03-06 cross-session recovery is submitted for review but not accepted; accepted weight remains 73%; production services remain disabled",
   "stages": [
     {
       "id": "E03-00",
@@ -215,23 +215,23 @@
       "id": "E03-05",
       "name": "Checkpoint 持久化",
       "weight_percent": 17,
-      "status": "READY_FOR_REVIEW",
-      "accepted": false,
+      "status": "ACCEPTED",
+      "accepted": true,
       "subtasks": [
         {
           "id": "E03-05-1",
           "description": "在原合同内评审生产存储适配设计",
-          "status": "READY_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-05-2",
           "description": "实现owner/trip/workspace隔离、CAS、回执与仅保存重试",
-          "status": "READY_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-05-3",
           "description": "验证原子性、故障、删除、容量和保留边界",
-          "status": "READY_FOR_REVIEW"
+          "status": "ACCEPTED"
         }
       ],
       "evidence": [
@@ -239,49 +239,59 @@
         "tests/decision-context/recovery-service/trusted-host.test.ts",
         "tests/decision-context/host-runtime/evidence-host.pg.test.ts",
         "tests/decision-context/checkpoint-store/postgres.test.ts",
-        "tests/decision-context/checkpoint-store/session.integration.test.ts"
+        "tests/decision-context/checkpoint-store/session.integration.test.ts",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/31",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42785208869"
       ],
-      "execution_location": "独立 feat/e03-05-checkpoint-persistence 分支与 Draft PR #31；复用 ee2b1c4 保存候选并通过同 head CI、真实 PostgreSQL 17、Session、宿主工作区和最小权限验证",
+      "execution_location": "PR #31 固定验收 head 90bdc72b08f89ddbe2cfb5851766dd0bd88716b1；CI #84 成功（60/60 文件、1142/1142 Vitest）",
       "responsibilities": "主集成人复用原保存/恢复任务的 checkpoint-core、checkpoint-store、PG Repository 与保存接线；E03-06 恢复保持关闭",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "等待技术负责人阶段验收；跨新 Session、新进程恢复明确留给 E03-06"
+        "阶段已通过埃及内部 MVP Checkpoint 持久化工程验收；跨新 Session、新进程恢复、生产迁移、备份/WAL 和生产部署不包含在本阶段验收中"
       ]
     },
     {
       "id": "E03-06",
       "name": "跨会话恢复",
       "weight_percent": 14,
-      "status": "NOT_STARTED",
+      "status": "READY_FOR_REVIEW",
       "accepted": false,
       "subtasks": [
         {
           "id": "E03-06-1",
           "description": "移植DC-R01–07原有恢复范围",
-          "status": "NOT_STARTED"
+          "status": "READY_FOR_REVIEW"
         },
         {
           "id": "E03-06-2",
           "description": "重建当前权威依据、标记草稿/比较陈旧和缺失",
-          "status": "NOT_STARTED"
+          "status": "READY_FOR_REVIEW"
         },
         {
           "id": "E03-06-3",
           "description": "轮换授权代次，隔离旧输入/提案/写缓存并验证跨进程恢复",
-          "status": "NOT_STARTED"
+          "status": "READY_FOR_REVIEW"
         },
         {
           "id": "E03-06-4",
           "description": "恢复后重验当前授权与最新 TS，已删/过期宿主原话不可由旧 Checkpoint、游标或备份复活；测缺证安全恢复",
-          "status": "NOT_STARTED"
+          "status": "READY_FOR_REVIEW"
         }
       ],
-      "evidence": [],
-      "execution_location": "基于 450f994 的隔离并行工作区；授权已放行，具体实施与验证状态待执行者报告",
-      "responsibilities": "04/07 写桥及 HTTP 任务，05/06 保存恢复任务；共享文件、迁移链和单一集成由主集成人维护",
+      "evidence": [
+        "src/server/decision-context/integration/002-workspace-reopen-candidate.sql",
+        "src/server/decision-context/host-runtime/evidence-host.ts",
+        "src/server/decision-context/recovery-service/trusted-host.ts",
+        "tests/decision-context/host-runtime/evidence-host.pg.test.ts",
+        "tests/decision-context/recovery-service/trusted-host.test.ts",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/32"
+      ],
+      "execution_location": "从 E03-05 接受 head 90bdc72b08f89ddbe2cfb5851766dd0bd88716b1 派生的 feat/e03-06-cross-session-recovery 分支；选择性复用 ee2b1c4 的恢复候选；候选实现提交 e1939db",
+      "responsibilities": "主集成人复用 recovery-core、recovery-service、E03-05 PG Repository 与 E03-03 宿主，实施最小可信 workspace reopen 和跨会话恢复",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "完整恢复等待实际存储、任务注册和当前权限；涉及原话须 E11 删除/到期屏障；不等待04"
+        "候选等待技术负责人限定增量验收，未登记为 ACCEPTED",
+        "仅推进埃及内部 MVP 跨会话恢复；生产多实例、真实模型、NAP、UI 与 E03-07 全面开发不在本阶段范围"
       ]
     },
     {
