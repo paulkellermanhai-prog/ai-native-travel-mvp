@@ -24,14 +24,14 @@ export function validatePlanRequestConsistency(requestValue: unknown, planValue:
   if (plan.decision_id !== request.decision_id || plan.runtime_id !== request.runtime_id) throw new NapPacketConsistencyError();
 
   const packets = new Map<string, Packet>();
-  let baseline: {trip: string; revision: number; digest: string} | undefined;
+  let baseline: {trip: string; revision: number} | undefined;
   for (const raw of request.packets) {
     const packet = parseDCContract("packet", raw);
     // A duplicate identity would make the source object ambiguous, even if some fields match.
     if (packets.has(packet.packet_id)) throw new NapPacketConsistencyError();
     if (packet.context.task_id !== packet.task.task_key) throw new NapPacketConsistencyError();
-    const current = {trip: packet.context.trip_id, revision: packet.context.state_revision, digest: packet.snapshot_digest};
-    if (baseline && (baseline.trip !== current.trip || baseline.revision !== current.revision || baseline.digest !== current.digest)) throw new NapPacketConsistencyError();
+    const current = {trip: packet.context.trip_id, revision: packet.context.state_revision};
+    if (baseline && (baseline.trip !== current.trip || baseline.revision !== current.revision)) throw new NapPacketConsistencyError();
     baseline = current;
     packets.set(packet.packet_id, packet);
   }

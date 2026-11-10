@@ -40,14 +40,15 @@ describe("supplied plan and packet consistency, not trusted origin or authorizat
     inconsistent.context.task_id = "other-task";
     expect(() => validatePlanRequestConsistency(request([inconsistent]), plan([basisOf(inconsistent)]))).toThrow(NapPacketConsistencyError);
   });
-  it("rejects supplied packets that disagree about trip, state revision or snapshot digest", () => {
-    for (const change of ["trip", "revision", "digest"] as const) {
+  it("rejects different trips or revisions but preserves each task Packet's digest", () => {
+    for (const change of ["trip", "revision"] as const) {
       const second = structuredClone(packet); second.packet_id = "packet2";
       if (change === "trip") second.context.trip_id = "another-trip";
       if (change === "revision") second.context.state_revision += 1;
-      if (change === "digest") second.snapshot_digest = "b".repeat(64);
       expect(() => validatePlanRequestConsistency(request([packet, second]), plan())).toThrow(NapPacketConsistencyError);
     }
+    const second = structuredClone(packet); second.packet_id = "packet2"; second.snapshot_digest = "b".repeat(64);
+    expect(() => validatePlanRequestConsistency(request([packet, second]), plan([basisOf(packet), basisOf(second)]))).not.toThrow();
   });
   it("rejects a plan whose action references a different task within the stated basis", () => {
     const bad = {...plan(), actions: [{action_id: "action", task_key: "other", packet_id: packet.packet_id, request_ids: [], goal: "D1", attention: "primary", reason: "reason", steps: [{step_id: "step", kind: "read", depends_on: [], capability_id: "capability", arguments: {}, change_request: null, user_message: null}]}]};

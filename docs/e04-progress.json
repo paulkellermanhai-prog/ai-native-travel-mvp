@@ -6,7 +6,7 @@
   "branch": "feat/e04-next-action-policy-runtime",
   "local_worktree_branch": "feat/e04-02-04-local",
   "accepted_weight_percent": 8,
-  "implemented_weight_percent": 18,
+  "implemented_weight_percent": 36,
   "scope": "E04 Next Action Policy for the first Egypt internal MVP; implementation progress is not technical acceptance and does not authorize merge, deployment, public APIs, production E11 or suppliers",
   "stages": [
     {
@@ -44,8 +44,14 @@
       "blockers": []
     },
     {
-      "id": "E04-02", "name": "行动决策引擎", "weight_percent": 18, "implementation_percent": 0, "status": "NOT_STARTED",
-      "execution_location": "src/server/next-action-policy/decision-engine；规则与埃及场景测试", "responsibilities": "主工程集成人实现；语义适配器与确定性 Gate 分离", "owner_participation": "仅出现新产品取舍时", "subtasks": [], "evidence": [], "blockers": []
+      "id": "E04-02", "name": "行动决策引擎", "weight_percent": 18, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
+      "execution_location": "src/server/next-action-policy/decision-engine.ts；规则与埃及场景测试", "responsibilities": "主工程集成人实现；语义适配器与确定性 Gate 分离", "owner_participation": "仅出现新产品取舍时",
+      "subtasks": [
+        {"id":"E04-02-1","description":"按 G01→G03→G02→G03/G04 生成并选择候选行动","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-02-2","description":"宿主复制真实 Packet basis 并阻断假设写、冲突事实写与非法 Candidate 重入","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-02-3","description":"G05 从新可信事件重评，不沿用旧 Action","status":"DELIVERED_PENDING_REVIEW"}
+      ],
+      "evidence": ["docs/E04-02最小行动决策器.md","src/server/next-action-policy/decision-engine.ts","tests/next-action-policy/decision-engine.test.ts"], "blockers": []
     },
     {
       "id": "E04-03", "name": "Action Runtime 与运行记录", "weight_percent": 18, "implementation_percent": 0, "status": "NOT_STARTED",
