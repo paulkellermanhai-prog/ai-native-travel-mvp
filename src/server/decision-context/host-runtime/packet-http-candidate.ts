@@ -113,7 +113,7 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
           // postflight has committed its private delivery ledger. Wait for
           // that local handoff before an independent page request rechecks it.
           await awaitPacketHandoff(ticket);
-          await host.sendLivePacketPageCandidate(ticket,credential,value,undefined,response);
+          await trackPacketHandoff(ticket,host.sendLivePacketPageCandidate(ticket,credential,value,undefined,response));
         }
       } catch(error) {
         if(response.headersSent||response.destroyed){response.destroy();return;}
