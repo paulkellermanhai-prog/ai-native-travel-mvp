@@ -39,7 +39,7 @@
         {"id": "E04-01-2", "description": "从可信 E03 宿主读取真实 Packet 并复验 Session/Trip/runtime/revision/TTL", "status": "DELIVERED_PENDING_REVIEW"},
         {"id": "E04-01-3", "description": "验证伪造 Packet、旧 Session、撤权、过期和不完整交付不得取得执行资格", "status": "IN_PROGRESS"}
       ],
-      "evidence": ["docs/E04-01首批可信Packet接线.md", "src/server/next-action-policy/trusted-packet-source.ts", "tests/next-action-policy/trusted-packet-source.test.ts", "tests/http/e03-runtime/pr29-host.pg.test.ts"],
+      "evidence": ["docs/E04-01首批可信Packet接线.md", "src/server/next-action-policy/trusted-packet-source.ts", "tests/next-action-policy/trusted-packet-source.test.ts", "tests/http/e03-runtime/pr29-host.pg.test.ts", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/35"],
       "blockers": []
     },
     {

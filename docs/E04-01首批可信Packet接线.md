@@ -2,6 +2,8 @@
 
 状态：首批实现完成，阶段仍在进行中；不记为 E04-01 ACCEPTED。
 
+提交：代码提交 `28528d8f583654d5c86d211a9fa9cad14d5c9453`；Draft PR [#35](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/35)，目标为 E03 最终归档分支。
+
 ## 已实现
 
 - NAP 0.1.0 七类消息使用 2026-11-06 R3 固定 Schema 做离线严格校验。
@@ -21,6 +23,7 @@
 - ESLint：通过。
 - TS/DC 固定合同与 AC8 来源检查：通过。
 - 真实 Session/PostgreSQL/HTTP 用例已加入既有 E03-04 联合测试，覆盖：当前真实 Packet 可构建请求、无 Session 被拒、业务 revision 变化后旧 Packet 被拒。该用例必须由 CI 的一次性 PostgreSQL 17 环境实际运行；本地没有 PostgreSQL，因此本地结果不冒充 PG 通过。
+- 本地全量非 PG 回归：861 项通过、314 项因缺 PG 配置跳过；其中 9 个既有 Python 对照用例在 iCloud 路径超过默认 5 秒，以 20 秒上限单独复跑 110/110 通过。最终完整结论以 PR #35 同 head CI 为准。
 
 ## 尚未完成
 
