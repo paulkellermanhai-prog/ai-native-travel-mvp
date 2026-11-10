@@ -69,8 +69,9 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
       await owner.query("COMMIT");
     } catch (error) { await owner.query("ROLLBACK"); throw error; }
     await owner.query(fs.readFileSync("src/server/decision-context/integration/checkpoint-evidence-candidate.sql", "utf8"));
+    await owner.query(fs.readFileSync("src/server/decision-context/integration/002-workspace-reopen-candidate.sql", "utf8"));
     const role = `"${config.runtimeRole}"`;
-    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_unlink_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_supersede_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_task_source_current_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT) TO ${role}`);
+    await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_unlink_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_supersede_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_task_source_current_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_reopen_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT) TO ${role}`);
     const lifecycleRole=`"${config.lifecycleRole}"`;
     await owner.query(`GRANT USAGE ON SCHEMA public TO ${lifecycleRole}`);
     await owner.query(`GRANT EXECUTE ON FUNCTION public.host_evidence_sync_trip_lifecycle_candidate(TEXT,BIGINT,TIMESTAMPTZ) TO ${lifecycleRole}`);
@@ -85,7 +86,7 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
   afterAll(async () => {
     await host?.close(); await lifecycle?.close(); await internal?.close(); await identity?.close(); await runtime?.end();
     if (created) {
-      await owner.query('DROP FUNCTION public.host_checkpoint_expire_batch_candidate(BIGINT,INTEGER), public.host_checkpoint_expire_event_candidate(TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,BOOLEAN), public.host_checkpoint_view_valid_candidate(TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
+      await owner.query('DROP FUNCTION public.host_checkpoint_reopen_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_expire_batch_candidate(BIGINT,INTEGER), public.host_checkpoint_expire_event_candidate(TEXT), public.host_checkpoint_save_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_checkpoint_sources_valid_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,BOOLEAN), public.host_checkpoint_view_valid_candidate(TEXT,TEXT,TEXT,JSONB), public.host_checkpoint_scope_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)');
       await owner.query('DROP FUNCTION public.host_evidence_task_snapshot_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_unlink_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_supersede_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_task_source_current_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_mint_task_key_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT), public.host_evidence_bind_task_source_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,JSONB,TEXT,TEXT,TEXT), public.host_evidence_delete_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_checkpoint_probe_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT), public.host_evidence_cleanup_candidate(TEXT), public.host_evidence_record_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,BIGINT,TEXT,TEXT,TEXT,TIMESTAMPTZ,TEXT,TEXT), public.host_evidence_for_turn_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,TEXT,BOOLEAN), public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT), public.host_evidence_sync_trip_lifecycle_candidate(TEXT,BIGINT,TIMESTAMPTZ)');
       await owner.query('DROP TABLE public."HostEvidenceSceneEventWitness", public."HostEvidenceScene", public."HostEvidenceTaskKey", public."HostEvidenceTaskSource", public."HostEvidenceAssociationLog", public."HostEvidenceAssociationHead", public."HostEvidenceCleanup", public."HostEvidenceEvent", public."HostEvidenceWorkspace", public."HostEvidenceTripLifecycle"');
     }
@@ -951,6 +952,71 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     expect((await owner.query('SELECT 1 FROM public."HostEvidenceSceneEventWitness" WHERE event_id=$1',[ea.event_id])).rowCount).toBe(0);
     expect((await owner.query('SELECT 1 FROM public."HostEvidenceTaskSource" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3 AND event_id=$4',[a.user.id,trip,ea.workspace_key,ea.event_id])).rowCount).toBe(0);
   },30000);
+  it("reopens a saved Egypt workspace in a new Session/process without restoring old authority",async()=>{
+    const recoveryTrip=`trip_recovery_${randomBytes(8).toString("hex")}`,a=await account(),b=await account();
+    await internal.createTrip(recoveryTrip,await issueInternalCapability(secret,recoveryTrip,{role:"system",id:"recovery-fixture"}));
+    await syncLifecycle(recoveryTrip);
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[recoveryTrip,a.user.id,b.user.id]);
+    const checkpoint=connectTrustedCheckpointHost(host);
+    const saved=async(label:string,text:string)=>{
+      const ticket=await host.createWorkspace(recoveryTrip,a.headers),key=await host.mintTaskKey(ticket,a.headers,`recovery-${label}`);
+      const receipt=await host.record(ticket,a.headers,{entry:"dialogue",text,idempotency_key:`recovery_${label}_${randomUUID()}`});
+      const task={task_key:key,question:text,kind:"explore",target_ids:[],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(text).length,quote:text}],progress:"open",progress_evidence:null};
+      const turn=await host.registerTaskIdentity(ticket,a.headers,receipt,{expected_revision:0,tasks:[task],focus_keys:[key]});
+      const received=(await owner.query<{received_at:Date}>('SELECT received_at FROM public."HostEvidenceEvent" WHERE event_id=$1',[receipt.event_id])).rows[0].received_at.toISOString();
+      const payload=validateCheckpoint({checkpoint_format_version:1,trip_id:recoveryTrip,captured_state_revision:0,captured_object_versions:[],
+        tasks:[{task,event:{event_id:receipt.event_id,entry:"dialogue",text,reference:`host-interaction:${receipt.event_id}`,received_at:received},base_revision:0,processing_status:"unprocessed",result_revision:0,errors:[]}],
+        focus_keys:[key],view:{entry:"dialogue",comparison_refs:[],selected_id:null,expanded_task_keys:[]},drafts:[],deferred_issue_ids:[]},recoveryTrip,0);
+      await checkpoint.save(ticket,a.headers,payload,0,`save-${label}`);
+      return {ticket,key,receipt,task,turn,workspace:receipt.workspace_key};
+    };
+    const current=await saved("current","阿斯旺还是卢克索"),expired=await saved("expired","继续看看卢克索"),revoked=await saved("revoked","继续看看阿斯旺");
+    const before=(await owner.query('SELECT session_ref,capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,recoveryTrip,current.workspace])).rows[0];
+    await expect(host.reopenWorkspace(recoveryTrip,b.headers,current.workspace)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+    expect((await owner.query('SELECT session_ref,capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,recoveryTrip,current.workspace])).rows[0]).toEqual(before);
+
+    await owner.query(`UPDATE public."TripStateDocument" SET "revision"=1,snapshot=jsonb_set(snapshot,'{revision}','1'::jsonb) WHERE "tripId"=$1`,[recoveryTrip]);
+    await syncLifecycle(recoveryTrip,1);
+    const login=await identity.auth.api.signInEmail({body:{email:a.email,password:a.password},headers:new Headers({origin:identity.config.origin}),asResponse:true});
+    const newHeaders=new Headers({cookie:login.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ")});
+    await owner.query('DELETE FROM "AuthSession" WHERE id=$1',[a.session.session.id]);
+    const businessSnapshot=async()=> (await owner.query(`SELECT d."revision",d.snapshot,
+      (SELECT count(*) FROM "TripStateHistory" WHERE "tripId"=$1) AS history_count,
+      (SELECT count(*) FROM "TripStateProposal" WHERE "tripId"=$1) AS proposal_count,
+      (SELECT count(*) FROM "TripStateIdempotency" WHERE "tripId"=$1) AS request_count
+      FROM "TripStateDocument" d WHERE d."tripId"=$1`,[recoveryTrip])).rows[0];
+    const businessBefore=await businessSnapshot();
+    const childCode=`import {openEvidenceHost} from './src/server/decision-context/host-runtime/evidence-host.ts';
+      import {connectTrustedCheckpointHost} from './src/server/decision-context/recovery-service/trusted-host.ts';
+      const host=await openEvidenceHost(process.env),credential=new Headers({cookie:process.env.E03_TEST_COOKIE});
+      try {const checkpoint=connectTrustedCheckpointHost(host),ticket=await checkpoint.reopen(process.env.E03_TEST_TRIP,credential,process.env.E03_TEST_WORKSPACE);
+        process.stdout.write(JSON.stringify(await checkpoint.restore(ticket,credential,4096)));} finally {await host.close();}`;
+    const child=spawnSync(process.execPath,["--import","tsx","--input-type=module","--eval",childCode],{cwd:process.cwd(),encoding:"utf8",timeout:20000,
+      env:{...env,E03_TEST_COOKIE:newHeaders.get("cookie")!,E03_TEST_TRIP:recoveryTrip,E03_TEST_WORKSPACE:current.workspace}});
+    expect(child.status).toBe(0);const result=JSON.parse(child.stdout);
+    expect(result).toMatchObject({saved_state_revision:0,current_state_revision:1,restored_task_count:1});
+    expect(result.runtime_id).not.toBe(current.turn.runtime_id);
+    expect(await businessSnapshot()).toEqual(businessBefore);
+    await expect(host.restoreCheckpoint(current.ticket,a.headers)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+
+    const resumedHost=await openEvidenceHost(env);
+    try {
+      const resumed=await resumedHost.reopenWorkspace(recoveryTrip,newHeaders,current.workspace);
+      await expect(resumedHost.restoreCheckpoint(resumed,newHeaders,4096)).resolves.toMatchObject({current_state_revision:1,restored_task_count:1});
+      await expect(resumedHost.registerTaskIdentity(resumed,newHeaders,current.receipt,{expected_revision:1,tasks:[current.task],focus_keys:[current.key]}))
+        .rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+      const staleChange=(JSON.parse(fs.readFileSync("tests/decision-context/fixtures/r6-contracts.json","utf8")) as Array<{schema:string;value:unknown}>).find(row=>row.schema==="change")!.value;
+      await expect(resumedHost.authorizeUserChangeCandidate(resumed,newHeaders,staleChange)).rejects.toMatchObject({code:"PACKET_STALE"});
+      await resumedHost.deleteEvent(resumed,newHeaders,current.receipt.event_id);
+      await expect(resumedHost.reopenWorkspace(recoveryTrip,newHeaders,current.workspace)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+      await owner.query(`UPDATE public."HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval '180 days' WHERE event_id=$1`,[expired.receipt.event_id]);
+      await expect(resumedHost.reopenWorkspace(recoveryTrip,newHeaders,expired.workspace)).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+      const revokedBefore=(await owner.query('SELECT session_ref,capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,recoveryTrip,revoked.workspace])).rows[0];
+      await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[recoveryTrip,a.user.id]);
+      await expect(resumedHost.reopenWorkspace(recoveryTrip,newHeaders,revoked.workspace)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+      expect((await owner.query('SELECT session_ref,capability_token FROM public."HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[a.user.id,recoveryTrip,revoked.workspace])).rows[0]).toEqual(revokedBefore);
+    } finally {await resumedHost.close();}
+  },45000);
   it("assembles registered Egypt exploration Tasks against real Session and current PG state without delivering a Packet", async () => {
     const a=await account(),b=await account();
     await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3)',[trip,a.user.id,b.user.id]);

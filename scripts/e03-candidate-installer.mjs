@@ -2,16 +2,18 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
-export const E03_CANDIDATE_INSTALL_VERSION=1;
+export const E03_CANDIDATE_INSTALL_VERSION=2;
 export const E03_CANDIDATE_SOURCES=[
   "../src/server/decision-context/host-runtime/sql/001-evidence-record-candidate.sql",
   "../src/server/decision-context/checkpoint-store/migration.sql",
   "../src/server/decision-context/integration/checkpoint-evidence-candidate.sql",
+  "../src/server/decision-context/integration/002-workspace-reopen-candidate.sql",
 ];
 export const E03_CANDIDATE_SHA256=[
   "12e31422ae87e9531d89eb780e912089e90097237ef4a5c4ede7e11c43b62496",
   "7e5d39020d1c5f1a4997917ca0f8f57c1e7325716b811c41c20c4a2a03b63498",
   "2c8bddc21ffda951bb6b35dbda9a67b4eec3281bc6ff44d336e578e052bb744c",
+  "df27e2dbe529841f75ba61275ea4cb83e90f1f27bcf87cf7771c730cb6908938",
 ];
 const runtimeFunctions=[
   "public.host_evidence_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)",
@@ -28,6 +30,7 @@ const runtimeFunctions=[
   "public.host_checkpoint_inspect_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)",
   "public.host_checkpoint_read_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)",
   "public.host_checkpoint_delete_event_candidate(TEXT,TEXT,TEXT,TEXT,TEXT,TEXT)",
+  "public.host_checkpoint_reopen_workspace_candidate(TEXT,TEXT,TEXT,TEXT,TEXT)",
 ];
 const lifecycleFunction="public.host_evidence_sync_trip_lifecycle_candidate(TEXT,BIGINT,TIMESTAMPTZ)";
 const rolePattern=/^antu_e0[23]_(?:runtime|lifecycle)_[0-9a-f]+$/;
@@ -51,7 +54,7 @@ export async function installE03Candidate(client,{runtimeRole,lifecycleRole}) {
   if(!rolePattern.test(runtimeRole)||!rolePattern.test(lifecycleRole))throw new Error("Refusing unrecognized candidate roles");
   const roles=await client.query("SELECT rolname FROM pg_roles WHERE rolname=ANY($1::text[])",[[runtimeRole,lifecycleRole]]);
   if(new Set(roles.rows.map(row=>row.rolname)).size!==2)throw new Error("Candidate roles are missing");
-  await client.query("SELECT pg_advisory_xact_lock(hashtext('e03-candidate-installer-v1'))");
+  await client.query("SELECT pg_advisory_xact_lock(hashtext('e03-candidate-installer-v2'))");
   await client.query("CREATE SCHEMA IF NOT EXISTS e03_install");
   await client.query("REVOKE ALL ON SCHEMA e03_install FROM PUBLIC");
   await client.query(`CREATE TABLE IF NOT EXISTS e03_install.versions(
@@ -66,6 +69,7 @@ export async function installE03Candidate(client,{runtimeRole,lifecycleRole}) {
     await client.query(sources[0]);
     if(!existing.rows[0].checkpoint)await client.query(sources[1]);
     await client.query(sources[2]);
+    await client.query(sources[3]);
     await client.query("INSERT INTO e03_install.versions(component,version,manifest) VALUES('e03-host-candidate',$1,$2::jsonb)",
       [E03_CANDIDATE_INSTALL_VERSION,JSON.stringify(manifest)]);
     disposition="installed";
@@ -85,7 +89,8 @@ export async function installE03Candidate(client,{runtimeRole,lifecycleRole}) {
     to_regclass('public."HostEvidenceAssociationLog"') IS NOT NULL AS association,
     to_regclass('public."HostEvidenceSceneEventWitness"') IS NOT NULL AS witness,
     to_regclass('e03_checkpoint.heads') IS NOT NULL AS checkpoint,
-    to_regprocedure('public.host_evidence_sync_trip_lifecycle_candidate(text,bigint,timestamp with time zone)') IS NOT NULL AS lifecycle`);
+    to_regprocedure('public.host_evidence_sync_trip_lifecycle_candidate(text,bigint,timestamp with time zone)') IS NOT NULL AS lifecycle,
+    to_regprocedure('public.host_checkpoint_reopen_workspace_candidate(text,text,text,text,text)') IS NOT NULL AS reopen`);
   if(!Object.values(expected.rows[0]).every(Boolean))throw new Error("Installed candidate objects are incomplete");
   return {disposition,version:E03_CANDIDATE_INSTALL_VERSION,sha256};
 }

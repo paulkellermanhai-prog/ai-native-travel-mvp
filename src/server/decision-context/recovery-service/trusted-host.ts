@@ -8,7 +8,7 @@ type EvidenceHost = Awaited<ReturnType<typeof openEvidenceHost>>;
  * the opaque workspace ticket and revalidates the Cookie Session, Trip
  * membership, registered Task sources and E11 retention barrier in PostgreSQL.
  */
-export type TrustedCheckpointHost = Pick<EvidenceHost, "saveCheckpoint" | "inspectCheckpoint">;
+export type TrustedCheckpointHost = Pick<EvidenceHost, "saveCheckpoint" | "inspectCheckpoint" | "reopenWorkspace" | "restoreCheckpoint">;
 
 export function connectTrustedCheckpointHost(host: TrustedCheckpointHost) {
   let closed = false;
@@ -28,6 +28,18 @@ export function connectTrustedCheckpointHost(host: TrustedCheckpointHost) {
     async inspect(ticket: object, credential: Headers) {
       active();
       return host.inspectCheckpoint(ticket, credential);
+    },
+
+    /** The workspace key is a locator only; the host mints the new opaque ticket after current authorization. */
+    async reopen(tripId: string, credential: Headers, workspaceKey: string) {
+      active();
+      return host.reopenWorkspace(tripId, credential, workspaceKey);
+    },
+
+    /** Restores current, source-checked Task state without reviving old write authority. */
+    async restore(ticket: object, credential: Headers, bodyBudgetBytes?: number) {
+      active();
+      return host.restoreCheckpoint(ticket, credential, bodyBudgetBytes);
     },
 
     close() { closed = true; },
