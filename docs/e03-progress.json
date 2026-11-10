@@ -4,9 +4,9 @@
   "generated_view": "docs/E03阶段看板.md",
   "candidate_pr": 12,
   "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
-  "accepted_weight_percent": 73,
-  "submitted_weight_percent": 14,
-  "scope": "E03-00–05 accepted for the Egypt internal MVP at fixed reviewed heads; E03-06 cross-session recovery is submitted for review but not accepted; accepted weight remains 73%; production services remain disabled",
+  "accepted_weight_percent": 87,
+  "submitted_weight_percent": 0,
+  "scope": "E03-00–06 accepted for the Egypt internal MVP at fixed reviewed heads; E03-07 final HTTP and engineering acceptance development is in progress; accepted weight is 87%; production services remain disabled",
   "stages": [
     {
       "id": "E03-00",
@@ -254,28 +254,28 @@
       "id": "E03-06",
       "name": "跨会话恢复",
       "weight_percent": 14,
-      "status": "READY_FOR_REVIEW",
-      "accepted": false,
+      "status": "ACCEPTED",
+      "accepted": true,
       "subtasks": [
         {
           "id": "E03-06-1",
           "description": "移植DC-R01–07原有恢复范围",
-          "status": "READY_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-06-2",
           "description": "重建当前权威依据、标记草稿/比较陈旧和缺失",
-          "status": "READY_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-06-3",
           "description": "轮换授权代次，隔离旧输入/提案/写缓存并验证跨进程恢复",
-          "status": "READY_FOR_REVIEW"
+          "status": "ACCEPTED"
         },
         {
           "id": "E03-06-4",
           "description": "恢复后重验当前授权与最新 TS，已删/过期宿主原话不可由旧 Checkpoint、游标或备份复活；测缺证安全恢复",
-          "status": "READY_FOR_REVIEW"
+          "status": "ACCEPTED"
         }
       ],
       "evidence": [
@@ -284,50 +284,50 @@
         "src/server/decision-context/recovery-service/trusted-host.ts",
         "tests/decision-context/host-runtime/evidence-host.pg.test.ts",
         "tests/decision-context/recovery-service/trusted-host.test.ts",
-        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/32"
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/32",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42790373790"
       ],
-      "execution_location": "从 E03-05 接受 head 90bdc72b08f89ddbe2cfb5851766dd0bd88716b1 派生的 feat/e03-06-cross-session-recovery 分支；选择性复用 ee2b1c4 的恢复候选；候选实现提交 e1939db",
+      "execution_location": "PR #32 固定验收 head fc0e89a5764c247ffa2f3278e629b5f33691d270；CI #86 成功（60/60 文件、1143/1143 Vitest）",
       "responsibilities": "主集成人复用 recovery-core、recovery-service、E03-05 PG Repository 与 E03-03 宿主，实施最小可信 workspace reopen 和跨会话恢复",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "候选等待技术负责人限定增量验收，未登记为 ACCEPTED",
-        "仅推进埃及内部 MVP 跨会话恢复；生产多实例、真实模型、NAP、UI 与 E03-07 全面开发不在本阶段范围"
+        "阶段已通过埃及内部 MVP 跨会话恢复工程验收；生产迁移、备份/WAL、多实例、真实模型、NAP、UI 和公开服务不包含在本阶段验收中"
       ]
     },
     {
       "id": "E03-07",
       "name": "HTTP 与完整工程验收",
       "weight_percent": 13,
-      "status": "NOT_STARTED",
+      "status": "IN_PROGRESS",
       "accepted": false,
       "subtasks": [
         {
           "id": "E03-07-1",
           "description": "评审并实现原正式HTTP适配与真实宿主",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         },
         {
           "id": "E03-07-2",
           "description": "真实HTTP/PG和恢复故障端到端验收",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         },
         {
           "id": "E03-07-3",
           "description": "全阶段回归、需求追踪和技术负责人最终Gate",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         },
         {
           "id": "E03-07-4",
           "description": "真实 Session/PostgreSQL/HTTP/新进程联测 E11 保留期限、删除/清理失败、备份恢复先重放删除标记、最小审计和用户告知",
-          "status": "NOT_STARTED"
+          "status": "IN_PROGRESS"
         }
       ],
       "evidence": [],
-      "execution_location": "基于 450f994 的隔离并行工作区；授权已放行，具体实施与验证状态待执行者报告",
-      "responsibilities": "04/07 写桥及 HTTP 任务，05/06 保存恢复任务；共享文件、迁移链和单一集成由主集成人维护",
+      "execution_location": "从 E03-06 接受 head fc0e89a5764c247ffa2f3278e629b5f33691d270 派生的 feat/e03-07-final-integration 分支；选择性复用原 E03-04/07 HTTP 候选",
+      "responsibilities": "主集成人复用 E03-03–06 真实宿主、写桥、Checkpoint 和恢复能力，完成内部 MVP HTTP 闭环与最终工程证据",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
-        "各端点联测等待自身真实服务；完整 Gate 等待全链路与真实 HTTP/PG/新进程证据"
+        "仅推进埃及内部 MVP HTTP 与最终工程验收；生产备份/WAL、正式调度、审计告知系统、多实例、真实模型、NAP 和 UI 不在本阶段范围"
       ]
     }
   ],
