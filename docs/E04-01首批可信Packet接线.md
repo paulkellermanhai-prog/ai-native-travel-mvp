@@ -22,8 +22,8 @@
 - TypeScript：通过。
 - ESLint：通过。
 - TS/DC 固定合同与 AC8 来源检查：通过。
-- 真实 Session/PostgreSQL/HTTP 用例已加入既有 E03-04 联合测试，覆盖：当前真实 Packet 可构建请求、无 Session 被拒、业务 revision 变化后旧 Packet 被拒。该用例必须由 CI 的一次性 PostgreSQL 17 环境实际运行；本地没有 PostgreSQL，因此本地结果不冒充 PG 通过。
-- 本地全量非 PG 回归：861 项通过、314 项因缺 PG 配置跳过；其中 9 个既有 Python 对照用例在 iCloud 路径超过默认 5 秒，以 20 秒上限单独复跑 110/110 通过。最终完整结论以 PR #35 同 head CI 为准。
+- 真实 Session/PostgreSQL/HTTP 用例已加入既有 E03-04 联合测试，覆盖：当前真实 Packet 可构建请求、无 Session 被拒、业务 revision 变化后旧 Packet 被拒。PR #35 的 CI 运行 [42847511221](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42847511221) 已在 head `e7ce141bb6c6fe147e4f45cf75c1afefd4b751b3` 的一次性 PostgreSQL 17 环境实际通过。
+- 本地全量非 PG 回归：861 项通过、314 项因缺 PG 配置跳过；其中 9 个既有 Python 对照用例在 iCloud 路径超过默认 5 秒，以 20 秒上限单独复跑 110/110 通过。CI 同时通过了全量 Vitest（含真实 PostgreSQL）、生产构建、Next.js HTTP/PostgreSQL 验收和认证 HTTP 执行。
 
 ## 尚未完成
 

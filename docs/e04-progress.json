@@ -23,7 +23,7 @@
         {"id": "E04-00-3", "description": "建立复用表、接口差异、最小路线和八阶段看板", "status": "DELIVERED_PENDING_REVIEW"}
       ],
       "evidence": ["docs/E04-00工程接收与复用盘点.md", "specs/nap-r3-2026-11-06/selection.json", "docs/E03最终工程交接索引.md"],
-      "blockers": ["本地 iCloud 正文仍需在落地后逐文件哈希复核；Git 冻结来源已可读且字节数一致"]
+      "blockers": []
     },
     {
       "id": "E04-01",
