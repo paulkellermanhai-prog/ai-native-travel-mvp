@@ -947,6 +947,33 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       const scope=ticket&&typeof ticket==="object"?workspaces.get(ticket):undefined;
       return !!scope&&!scope.disposed&&!closed&&scope.packets.has(packetId);
     },
+    /**
+     * Server-only read for NAP. The caller supplies only an opaque host ticket
+     * and Packet ID; the Packet body always comes from this host's private
+     * registry and is rebuilt against the current Session, Trip State, task
+     * evidence, runtime generation and expiry before it is returned.
+     */
+    async readTrustedPacketCandidate(ticket:object,credential:Headers,packetId:string) {
+      if(!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(packetId))return unavailable();
+      const {scope,headers}=await scoped(ticket,credential);
+      try {
+        return await exclusive(scope,async()=>db.$transaction(async tx=>{
+          const memory=scope.packets.get(packetId);
+          if(!memory||memory.runtimeId!==scope.runtimeId||memory.expiresAt<=Date.now()||memory.postflight)return unavailable();
+          const progress=memory.tracker.progress();
+          if(!progress.initial_sent||progress.pending)return unavailable();
+          const lease=turnInput(scope,memory.turnId);
+          const built=await packetFromCurrent(tx,scope,headers,lease.value,memory.turnId,memory.taskHash,memory.budget,memory);
+          checkTurnLease(scope,memory.turnId,lease.id);
+          await built.recheck();
+          memory.tracker.delivery(built.candidate);
+          return {runtime_id:scope.runtimeId,packet:structuredClone(built.candidate.packet)};
+        }));
+      } catch(error) {
+        if(error instanceof EvidenceBoundaryError)throw error;
+        return unavailable();
+      }
+    },
     async authorizeTicketCandidate(ticket:object,credential:Headers) {await scoped(ticket,credential);},
     async authorizeTripCandidate(tripId:string,credential:Headers) {
       const current=await authorized(tripId,credential);

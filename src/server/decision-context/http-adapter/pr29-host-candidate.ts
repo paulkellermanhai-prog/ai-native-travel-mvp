@@ -71,6 +71,12 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
       return host.authorizeUserChangeCandidate(ticket,credential,body);
     },
+    /** Server-only Packet source for trusted downstream runtimes such as NAP. */
+    async readTrustedPacketCandidate(tripId:string,credential:Headers,packetId:string) {
+      const ticket=packets.ticketForPacketCandidate(tripId,packetId);
+      if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
+      return host.readTrustedPacketCandidate(ticket,credential,packetId);
+    },
     async handle(request: IncomingMessage, response: ServerResponse) {
       let path: string;
       try { path = new URL(request.url ?? "/", origin).pathname; }

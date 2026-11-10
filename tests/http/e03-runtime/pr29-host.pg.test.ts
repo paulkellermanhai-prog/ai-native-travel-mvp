@@ -12,6 +12,7 @@ import { openEvidenceLifecycleAdapter } from "../../../src/server/decision-conte
 import { createPr29HostHttpCandidate } from "../../../src/server/decision-context/http-adapter/pr29-host-candidate";
 import type { DecisionContextContracts } from "../../../src/server/decision-context/contracts";
 import type { State, TripStateContracts } from "../../../src/server/trip-state/contracts.generated";
+import { buildTrustedDecisionRequest } from "../../../src/server/next-action-policy/trusted-packet-source";
 import { installE03Candidate } from "../../../scripts/e03-candidate-installer.mjs";
 import { base } from "../../support/bcg-fixtures";
 
@@ -104,10 +105,17 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       expect((await post("changes",hypotheticalChange)).status).toBe(422);expect(await counts()).toEqual(empty);expect((await readState()).revision).toBe(0);
 
       const actual=await packet("请把阿斯旺行程实际增加一天"),actualChange=change(actual,"egypt-actual",revise);
+      const trustedRequest=await buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-decision",
+        trigger:{kind:"user_event",reference:actual.pending_input.event.reference},packetIds:[actual.packet_id]});
+      expect(trustedRequest).toMatchObject({runtime_id:expect.stringMatching(/^runtime-/),packets:[{packet_id:actual.packet_id,turn_id:actual.turn_id}]});
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers(),decisionId:"egypt-denied",
+        trigger:{kind:"user_event",reference:actual.pending_input.event.reference},packetIds:[actual.packet_id]})).rejects.toThrow();
       await mounted.adapter.authorizeUserChange(trip,new Headers({cookie}),actualChange);
       const appliedResponse=await post("changes",actualChange);expect(appliedResponse.status).toBe(200);
       const applied=await appliedResponse.json() as TripStateContracts["response"];expect(applied).toMatchObject({outcome:"applied",revision:1});
       expect((await readState()).objects.find(object=>object.id==="constraint-nights")).toMatchObject({value:{maximum_nights:5}});
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-stale",
+        trigger:{kind:"state_change",reference:"revision-1"},packetIds:[actual.packet_id]})).rejects.toThrow();
       expect(await (await post("changes",actualChange)).json()).toEqual(applied);
       const stale=structuredClone(actualChange);stale.request.idempotency_key="egypt-stale";expect((await post("changes",stale)).status).toBe(409);
 
