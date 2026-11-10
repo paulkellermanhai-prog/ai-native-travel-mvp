@@ -5,8 +5,8 @@
   "candidate_pr": 12,
   "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
   "accepted_weight_percent": 73,
-  "submitted_weight_percent": 0,
-  "scope": "E03-00–05 accepted for the Egypt internal MVP at fixed reviewed heads; E03-06 sequential cross-session recovery development is in progress; accepted weight is 73%; production services remain disabled",
+  "submitted_weight_percent": 14,
+  "scope": "E03-00–05 accepted for the Egypt internal MVP at fixed reviewed heads; E03-06 cross-session recovery is submitted for review but not accepted; accepted weight remains 73%; production services remain disabled",
   "stages": [
     {
       "id": "E03-00",
@@ -254,35 +254,42 @@
       "id": "E03-06",
       "name": "跨会话恢复",
       "weight_percent": 14,
-      "status": "IN_PROGRESS",
+      "status": "READY_FOR_REVIEW",
       "accepted": false,
       "subtasks": [
         {
           "id": "E03-06-1",
           "description": "移植DC-R01–07原有恢复范围",
-          "status": "IN_PROGRESS"
+          "status": "READY_FOR_REVIEW"
         },
         {
           "id": "E03-06-2",
           "description": "重建当前权威依据、标记草稿/比较陈旧和缺失",
-          "status": "IN_PROGRESS"
+          "status": "READY_FOR_REVIEW"
         },
         {
           "id": "E03-06-3",
           "description": "轮换授权代次，隔离旧输入/提案/写缓存并验证跨进程恢复",
-          "status": "IN_PROGRESS"
+          "status": "READY_FOR_REVIEW"
         },
         {
           "id": "E03-06-4",
           "description": "恢复后重验当前授权与最新 TS，已删/过期宿主原话不可由旧 Checkpoint、游标或备份复活；测缺证安全恢复",
-          "status": "IN_PROGRESS"
+          "status": "READY_FOR_REVIEW"
         }
       ],
-      "evidence": [],
-      "execution_location": "从 E03-05 接受 head 90bdc72b08f89ddbe2cfb5851766dd0bd88716b1 派生的 feat/e03-06-cross-session-recovery 分支；选择性复用 ee2b1c4 的恢复候选",
+      "evidence": [
+        "src/server/decision-context/integration/002-workspace-reopen-candidate.sql",
+        "src/server/decision-context/host-runtime/evidence-host.ts",
+        "src/server/decision-context/recovery-service/trusted-host.ts",
+        "tests/decision-context/host-runtime/evidence-host.pg.test.ts",
+        "tests/decision-context/recovery-service/trusted-host.test.ts"
+      ],
+      "execution_location": "从 E03-05 接受 head 90bdc72b08f89ddbe2cfb5851766dd0bd88716b1 派生的 feat/e03-06-cross-session-recovery 分支；选择性复用 ee2b1c4 的恢复候选；候选实现提交 e1939db",
       "responsibilities": "主集成人复用 recovery-core、recovery-service、E03-05 PG Repository 与 E03-03 宿主，实施最小可信 workspace reopen 和跨会话恢复",
       "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
       "blockers": [
+        "候选等待技术负责人限定增量验收，未登记为 ACCEPTED",
         "仅推进埃及内部 MVP 跨会话恢复；生产多实例、真实模型、NAP、UI 与 E03-07 全面开发不在本阶段范围"
       ]
     },
