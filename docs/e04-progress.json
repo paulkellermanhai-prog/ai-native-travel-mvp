@@ -4,7 +4,8 @@
   "generated_view": "docs/E04阶段看板.md",
   "baseline_commit": "a7dde3e0e92b1e975d5c9ef2275aa23c4fd5f9cb",
   "branch": "feat/e04-next-action-policy-runtime",
-  "accepted_weight_percent": 0,
+  "local_worktree_branch": "feat/e04-02-04-local",
+  "accepted_weight_percent": 8,
   "implemented_weight_percent": 18,
   "scope": "E04 Next Action Policy for the first Egypt internal MVP; implementation progress is not technical acceptance and does not authorize merge, deployment, public APIs, production E11 or suppliers",
   "stages": [
@@ -13,16 +14,16 @@
       "name": "规格基线与工程接收",
       "weight_percent": 8,
       "implementation_percent": 100,
-      "status": "RECOMMENDED_FOR_ACCEPTANCE",
+      "status": "ACCEPTED",
       "execution_location": "独立分支 feat/e04-next-action-policy-runtime；E03 最终归档固定提交；本地 NAP 正式目录与 Git 冻结 R3 来源",
       "responsibilities": "主工程集成人：来源、依赖、复用与缺口核对；技术负责人：增量审核并决定阶段接受",
       "owner_participation": "当前无需；仅真实产品冲突、正式合同冲突或权限边界变化时参与",
       "subtasks": [
-        {"id": "E04-00-1", "description": "锁定 NAP 0.1.0、TS 0.1.0、DC 0.1.0 与 E03 最终 head", "status": "DELIVERED_PENDING_REVIEW"},
-        {"id": "E04-00-2", "description": "盘点 PR #16/#17/#19/#20/#21/#22/#23/#28 的代码、测试与来源漂移", "status": "DELIVERED_PENDING_REVIEW"},
-        {"id": "E04-00-3", "description": "建立复用表、接口差异、最小路线和八阶段看板", "status": "DELIVERED_PENDING_REVIEW"}
+        {"id": "E04-00-1", "description": "锁定 NAP 0.1.0、TS 0.1.0、DC 0.1.0 与 E03 最终 head", "status": "ACCEPTED"},
+        {"id": "E04-00-2", "description": "盘点 PR #16/#17/#19/#20/#21/#22/#23/#28 的代码、测试与来源漂移", "status": "ACCEPTED"},
+        {"id": "E04-00-3", "description": "建立复用表、接口差异、最小路线和八阶段看板", "status": "ACCEPTED"}
       ],
-      "evidence": ["docs/E04-00工程接收与复用盘点.md", "specs/nap-r3-2026-11-06/selection.json", "docs/E03最终工程交接索引.md"],
+      "evidence": ["docs/E04-00工程接收与复用盘点.md", "specs/nap-r3-2026-11-06/selection.json", "docs/E03最终工程交接索引.md", "2026-11-11 承接指令：E04-00 已技术复核 PASS"],
       "blockers": []
     },
     {

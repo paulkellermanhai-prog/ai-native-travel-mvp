@@ -31,15 +31,20 @@ describe("E04 trusted E03 Packet source",()=>{
     await expect(buildTrustedDecisionRequest(sourceFor([packet]) as never,{...input,
       trigger:{kind:"user_event",reference:"host-interaction:forged"}})).rejects.toBeInstanceOf(NapTrustedPacketError);
   });
-  it("rejects mixed revisions and digests returned by one batch recheck",async()=>{
-    const second=structuredClone(packet);second.packet_id="packet-second";
-    const pair={...input,trigger:{kind:"state_change" as const,reference:"revision"},packetIds:[packet.packet_id,second.packet_id]};
-    for(const packets of [
-      [packet,{...second,context:{...second.context,state_revision:second.context.state_revision+1}}],
-      [packet,{...second,snapshot_digest:"b".repeat(64)}],
-    ]) {
-      await expect(buildTrustedDecisionRequest(sourceFor(packets as DecisionContextContracts["packet"][]) as never,pair)).rejects.toBeInstanceOf(NapTrustedPacketError);
+  it("rejects unregistered trigger kinds until the host has a trusted source",async()=>{
+    for(const kind of ["tool_result","state_change","clock_tick","ui_action"] as const) {
+      await expect(buildTrustedDecisionRequest(sourceFor([packet]) as never,{...input,trigger:{kind,reference:"untrusted"}}))
+        .rejects.toBeInstanceOf(NapTrustedPacketError);
     }
+  });
+  it("rejects mixed revisions but preserves each task Packet's own digest",async()=>{
+    const second=structuredClone(packet);second.packet_id="packet-second";
+    const pair={...input,packetIds:[packet.packet_id,second.packet_id]};
+    await expect(buildTrustedDecisionRequest(sourceFor([packet,{...second,context:{...second.context,state_revision:second.context.state_revision+1}}] as DecisionContextContracts["packet"][]) as never,pair))
+      .rejects.toBeInstanceOf(NapTrustedPacketError);
+    const otherDigest="b".repeat(64);
+    await expect(buildTrustedDecisionRequest(sourceFor([packet,{...second,snapshot_digest:otherDigest}] as DecisionContextContracts["packet"][]) as never,pair))
+      .resolves.toMatchObject({packets:[{snapshot_digest:packet.snapshot_digest},{snapshot_digest:otherDigest}]});
   });
   it("does not turn source failure or duplicate IDs into a request",async()=>{
     const source={readTrustedPacketBatchCandidate:async()=>{throw new Error("denied");}};

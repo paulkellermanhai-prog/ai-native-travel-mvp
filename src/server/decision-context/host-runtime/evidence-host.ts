@@ -18,7 +18,7 @@ import type { CheckpointPayload, DecisionContextContracts } from "../contracts.g
 import { classifyRecovery } from "../recovery-core";
 import { buildRestoredSceneCandidate } from "../integration/restored-scene-candidate";
 import { assembleContextSnapshot, validateContextSnapshot } from "../context-assembly";
-import { buildPacketCandidate, checkPacketTurn, type PacketCandidate } from "../packet-core/packet";
+import { buildPacketCandidate, checkPacketTurn, materializeDeliveredPacket, type PacketCandidate } from "../packet-core/packet";
 import { createShortPacketHandoffCandidate, type HandoffDeadline } from "./packet-short-handoff-candidate";
 import { parseStateReferences } from "../../trip-state/references";
 import { checkStateCounters } from "../../trip-state/numbers";
@@ -79,8 +79,9 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void>; beforeTrustedPacketBatchFinalCheck?:()=>Promise<void>; beforeWriteGuard?:()=>Promise<void> }) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void>; beforeTrustedPacketBatchFinalCheck?:()=>Promise<void>; trustedPacketBatchLockTimeoutMs?:number; beforeWriteGuard?:()=>Promise<void> }) {
   if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
+  if(testHooks?.trustedPacketBatchLockTimeoutMs!==undefined&&(!Number.isInteger(testHooks.trustedPacketBatchLockTimeoutMs)||testHooks.trustedPacketBatchLockTimeoutMs<1))return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
   if (typeof keySecret !== "string" || Buffer.byteLength(keySecret, "utf8") < 32) return unavailable();
@@ -367,6 +368,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     const start=await scoped(ticket,credential),startingRuntime=start.scope.runtimeId;
     try {
       return await exclusive(start.scope,async()=>db.$transaction(async tx=>{
+        if(testHooks?.trustedPacketBatchLockTimeoutMs!==undefined)
+          await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${testHooks.trustedPacketBatchLockTimeoutMs}ms`}, true)`;
         const packets:DecisionContextContracts["packet"][]=[],memories:PacketMemory[]=[],leaseIds:string[]=[];
         for(const packetId of ids) {
           const memory=start.scope.packets.get(packetId);
@@ -375,11 +378,12 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           if(!progress.initial_sent||progress.pending||progress.remaining_count!==0)return unavailable();
           const lease=turnInput(start.scope,memory.turnId);
           const built=await packetFromCurrent(tx,start.scope,start.headers,lease.value,memory.turnId,memory.taskHash,memory.budget,memory);
-          checkTurnLease(start.scope,memory.turnId,lease.id);await built.recheck();memory.tracker.delivery(built.candidate);
-          memories.push(memory);leaseIds.push(lease.id);packets.push(structuredClone(built.candidate.packet));
+          checkTurnLease(start.scope,memory.turnId,lease.id);await built.recheck();
+          const delivery=memory.tracker.delivery(built.candidate);
+          memories.push(memory);leaseIds.push(lease.id);packets.push(materializeDeliveredPacket(built.candidate,delivery));
         }
         const first=packets[0];
-        if(!first||packets.some(packet=>packet.context.state_revision!==first.context.state_revision||packet.snapshot_digest!==first.snapshot_digest))return unavailable();
+        if(!first||packets.some(packet=>packet.context.state_revision!==first.context.state_revision))return unavailable();
         await testHooks?.beforeTrustedPacketBatchFinalCheck?.();
         const final=await scoped(ticket,credential);
         if(final.scope!==start.scope||final.scope.runtimeId!==startingRuntime)return deny();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { assembleContextSnapshot } from "../../../src/server/decision-context/context-assembly";
-import { buildPacketCandidate, checkConsumption, checkPacketTurn, emptyDeliveryLedger, preparePage, recordDelivery } from "../../../src/server/decision-context/packet-core/packet";
+import { buildPacketCandidate, checkConsumption, checkPacketTurn, emptyDeliveryLedger, materializeDeliveredPacket, preparePage, recordDelivery } from "../../../src/server/decision-context/packet-core/packet";
 import { canonicalJson, digest } from "../../../src/server/trip-state/command-json";
 import type { DecisionContextContracts } from "../../../src/server/decision-context/contracts";
 import { base } from "../../support/bcg-fixtures";
@@ -80,6 +80,18 @@ describe("E03-03 packet core (synthetic host inputs)", () => {
     const broken=structuredClone(candidate); broken.packet.objects[0].version++;
     expect(()=>checkConsumption(broken,input.state,now(),ledger)).toThrowError(expect.objectContaining({code:"PACKET_MISMATCH"}));
     expect(()=>checkConsumption(candidate,input.state,now(),{packetId:"packet-test",deliveredIds:["forged-id"]})).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
+  });
+  it("materializes the complete body only after every selected object was delivered", () => {
+    const {candidate}=setup(2), partial=structuredClone(candidate.packet);
+    expect(()=>materializeDeliveredPacket(candidate,emptyDeliveryLedger(candidate))).toThrowError(expect.objectContaining({code:"DELIVERY_SCOPE"}));
+    const delivered=recordDelivery(candidate,emptyDeliveryLedger(candidate),candidate.packet.deferred_ids);
+    const complete=materializeDeliveredPacket(candidate,delivered);
+    expect(complete.objects.map(object=>object.id)).toEqual(candidate.assembly.context.selected_object_ids);
+    expect(complete).toMatchObject({packet_id:partial.packet_id,turn_id:partial.turn_id,task:partial.task,context:partial.context,
+      pending_input:partial.pending_input,evidence_checked_at:partial.evidence_checked_at,snapshot_digest:partial.snapshot_digest,
+      annotations:partial.annotations,deferred_ids:[],coverage:"complete",support:"decision_support"});
+    expect(complete.warnings).not.toEqual(expect.arrayContaining(["partial_hydration_no_trip_feasibility_claim","manifest_not_a_model_prompt"]));
+    expect(candidate.packet).toEqual(partial);
   });
   it("rejects a page crossing selected fact expiry even when the state revision does not change", () => {
     const state=structuredClone(base), fact=state.objects.find(o=>o.id==="fact-cairo-luxor");

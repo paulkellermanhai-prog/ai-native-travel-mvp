@@ -32,7 +32,8 @@ export async function buildTrustedDecisionRequest(source:PacketSource,input:{
   const ids=[...input.packetIds];
   if(!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(input.tripId)||
     !/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(input.decisionId)||ids.length<1||
-    new Set(ids).size!==ids.length||ids.some(id=>!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(id)))throw new NapTrustedPacketError();
+    input.trigger.kind!=="user_event"||new Set(ids).size!==ids.length||
+    ids.some(id=>!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(id)))throw new NapTrustedPacketError();
   const credential=new Headers({cookie:input.credential.get("cookie")??""});
   let row:Awaited<ReturnType<PacketSource["readTrustedPacketBatchCandidate"]>>;
   try {row=await source.readTrustedPacketBatchCandidate(input.tripId,credential,ids);}
@@ -46,8 +47,8 @@ export async function buildTrustedDecisionRequest(source:PacketSource,input:{
   const runtimeId=row.runtime_id;
   const first=packets[0];
   if(!runtimeId||!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(runtimeId)||
-    packets.some(packet=>packet.context.state_revision!==first.context.state_revision||packet.snapshot_digest!==first.snapshot_digest)||
-    (input.trigger.kind==="user_event"&&packets.some(packet=>packet.pending_input.event.reference!==input.trigger.reference)))return invalid();
+    packets.some(packet=>packet.context.state_revision!==first.context.state_revision||
+      packet.pending_input.event.reference!==input.trigger.reference))return invalid();
   const request:TrustedDecisionRequest={nap_contract_version:"0.1.0",decision_id:input.decisionId,runtime_id:runtimeId,
     trigger:structuredClone(input.trigger),packets};
   try {validateNapMessage("DecisionRequest",request);} catch {return invalid();}

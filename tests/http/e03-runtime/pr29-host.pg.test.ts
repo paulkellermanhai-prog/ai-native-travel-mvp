@@ -31,13 +31,16 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
 
     const owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
     const resources:Array<{close:()=>Promise<void>}>=[];
-    let server:http.Server|undefined,revokeDuringWrite=false,revokeDuringTrustedBatch=false,failLifecycleOnce=false,holdPacketHandoff=false,holdLastPageHandoff=false;
+    let server:http.Server|undefined,revokeDuringWrite=false,failLifecycleOnce=false,holdPacketHandoff=false,holdLastPageHandoff=false,holdTrustedBatch=false;
     let userId="",sessionId="",trip="",writeGuardCalls=0,lifecycleSyncCalls=0;
     let signalPacketHandoff!:()=>void,releasePacketHandoff!:()=>void,signalLastPageHandoff!:()=>void,releaseLastPageHandoff!:()=>void;
+    let signalTrustedBatch!:()=>void,releaseTrustedBatch!:()=>void;
     const packetHandoffEntered=new Promise<void>(resolve=>{signalPacketHandoff=resolve;});
     const packetHandoffGate=new Promise<void>(resolve=>{releasePacketHandoff=resolve;});
     const lastPageHandoffEntered=new Promise<void>(resolve=>{signalLastPageHandoff=resolve;});
     const lastPageHandoffGate=new Promise<void>(resolve=>{releaseLastPageHandoff=resolve;});
+    const trustedBatchEntered=new Promise<void>(resolve=>{signalTrustedBatch=resolve;});
+    const trustedBatchGate=new Promise<void>(resolve=>{releaseTrustedBatch=resolve;});
     try {
       const check=await owner.query("SELECT current_database() AS name,current_setting('server_version_num')::int AS version,to_regclass('public.\"HostEvidenceWorkspace\"') IS NULL AS clean");
       if(check.rows[0]?.name!==cfg.database||check.rows[0]?.version<170000||!check.rows[0]?.clean)throw new Error("Clean dedicated PG 17 required");
@@ -62,8 +65,8 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
         if(holdPacketHandoff){signalPacketHandoff();await packetHandoffGate;}
         if(holdLastPageHandoff){signalLastPageHandoff();await lastPageHandoffGate;}
       },beforeTrustedPacketBatchFinalCheck:async()=>{
-        if(revokeDuringTrustedBatch){revokeDuringTrustedBatch=false;await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,userId]);}
-      }});resources.push(host);
+        if(holdTrustedBatch){signalTrustedBatch();await trustedBatchGate;}
+      },trustedPacketBatchLockTimeoutMs:500});resources.push(host);
 
       const email=`${randomUUID()}@example.invalid`,password=randomBytes(24).toString("base64url");
       const created=await identity.auth.api.signUpEmail({body:{name:"E03 isolated test",email,password}});
@@ -83,10 +86,16 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       await owner.query('UPDATE "TripStateDocument" SET "snapshot"=$2::jsonb,"revision"=0 WHERE "tripId"=$1',[trip,JSON.stringify(snapshot)]);
 
       const interpret:ControlledInterpreter=async input=>{
-        const key=await input.mint_task_key(0),hypothetical=input.event.text.startsWith("如果"),decision=input.event.text.includes("选择阿斯旺");
-        return {tasks:[{task_key:key,question:input.event.text,kind:"explore",target_ids:[decision?"candidate-aswan":"constraint-nights"],
-          branch:hypothetical?"hypothetical":"actual",relation:"new",related_task_keys:[],certainty:"explicit",
-          evidence:[{start:0,end:Array.from(input.event.text).length,quote:input.event.text}],progress:"open",progress_evidence:null}],focus_keys:[key]};
+        const hypothetical=input.event.text.startsWith("如果"),decision=input.event.text.includes("选择阿斯旺");
+        const targets=input.event.text==="同轮比较阿斯旺与卢克索"?["constraint-nights","candidate-aswan"]:[decision?"candidate-aswan":"constraint-nights"];
+        const tasks:Array<DecisionContextContracts["turn"]["tasks"][number]>=[];
+        for(let ordinal=0;ordinal<targets.length;ordinal++){
+          const key=await input.mint_task_key(ordinal);
+          tasks.push({task_key:key,question:input.event.text,kind:"explore" as const,target_ids:[targets[ordinal]],
+            branch:hypothetical?"hypothetical" as const:"actual" as const,relation:"new" as const,related_task_keys:[],certainty:"explicit" as const,
+            evidence:[{start:0,end:Array.from(input.event.text).length,quote:input.event.text}],progress:"open" as const,progress_evidence:null});
+        }
+        return {tasks,focus_keys:tasks.map(task=>task.task_key)};
       };
       mounted.adapter=createPr29HostHttpCandidate(host,origin,interpret,async(tripId,revision)=>{
         lifecycleSyncCalls++;
@@ -98,13 +107,17 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       });
       const readState=async()=>(await owner.query<{snapshot:State}>('SELECT "snapshot" FROM "TripStateDocument" WHERE "tripId"=$1',[trip])).rows[0].snapshot;
       const counts=async()=>(await owner.query('SELECT (SELECT count(*)::int FROM "TripStateHistory" WHERE "tripId"=$1) AS history,(SELECT count(*)::int FROM "TripStateProposal" WHERE "tripId"=$1) AS proposals,(SELECT count(*)::int FROM "TripStateIdempotency" WHERE "tripId"=$1) AS receipts',[trip])).rows[0];
-      async function packetWithTurn(text:string,bodyBudgetBytes=1_000_000){
+      async function packetsWithTurn(text:string,bodyBudgetBytes=1_000_000){
         const opened=await post("turns",{entry:"dialogue",text,idempotency_key:`turn_${randomUUID()}`});
         expect(opened.status,await opened.clone().text()).toBe(200);
-        const turn=await opened.json() as DecisionContextContracts["turn"],task=turn.tasks[0];
-        const assembled=await post("assemble",{runtime_contract_version:"0.1.0",turn_id:turn.turn_id,task_key:task.task_key,body_budget_bytes:bodyBudgetBytes});
-        expect(assembled.status).toBe(200);return {turn,packet:await assembled.json() as DecisionContextContracts["packet"]};
+        const turn=await opened.json() as DecisionContextContracts["turn"],packets:DecisionContextContracts["packet"][]=[];
+        for(const task of turn.tasks){
+          const assembled=await post("assemble",{runtime_contract_version:"0.1.0",turn_id:turn.turn_id,task_key:task.task_key,body_budget_bytes:bodyBudgetBytes});
+          expect(assembled.status,await assembled.clone().text()).toBe(200);packets.push(await assembled.json() as DecisionContextContracts["packet"]);
+        }
+        return {turn,packets};
       }
+      async function packetWithTurn(text:string,bodyBudgetBytes=1_000_000){const result=await packetsWithTurn(text,bodyBudgetBytes);return {turn:result.turn,packet:result.packets[0]};}
       async function packet(text:string,bodyBudgetBytes=1_000_000){return (await packetWithTurn(text,bodyBudgetBytes)).packet;}
       function change(packetValue:DecisionContextContracts["packet"],key:string,commands:TripStateContracts["change-request"]["commands"]):DecisionContextContracts["change"]{
         const event=packetValue.pending_input.event;
@@ -152,25 +165,60 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const completeAfterPostflight=buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-complete-pages",
         trigger:{kind:"user_event",reference:partial.pending_input.event.reference},packetIds:[partial.packet_id]});
       expect(await Promise.race([completeAfterPostflight.then(()=>false,()=>false),new Promise<boolean>(resolve=>setTimeout(()=>resolve(true),250))])).toBe(true);
-      holdLastPageHandoff=false;releaseLastPageHandoff();await expect(completeAfterPostflight).resolves.toMatchObject({packets:[{packet_id:partial.packet_id}]});
+      holdLastPageHandoff=false;releaseLastPageHandoff();
+      const hydrated=await completeAfterPostflight;
+      expect(hydrated.packets[0]).toMatchObject({packet_id:partial.packet_id,turn_id:partial.turn_id,task:partial.task,context:partial.context,
+        pending_input:partial.pending_input,evidence_checked_at:partial.evidence_checked_at,snapshot_digest:partial.snapshot_digest,
+        annotations:partial.annotations,deferred_ids:[],coverage:"complete",support:"decision_support"});
+      expect(hydrated.packets[0].objects.map(object=>object.id)).toEqual(partial.context.selected_object_ids);
+
+      const sameTurn=await packetsWithTurn("同轮比较阿斯旺与卢克索",2);
+      expect(sameTurn.packets).toHaveLength(2);
+      const pairInput={tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-two-task-batch",
+        trigger:{kind:"user_event" as const,reference:sameTurn.packets[0].pending_input.event.reference},packetIds:sameTurn.packets.map(value=>value.packet_id)};
+      for(const sourcePacket of sameTurn.packets){expect(sourcePacket.turn_id).toBe(sameTurn.turn.turn_id);expect(sourcePacket.deferred_ids.length).toBeGreaterThan(0);}
+      const firstDelivered=await post("pages",{runtime_contract_version:"0.1.0",packet_id:sameTurn.packets[0].packet_id,object_ids:sameTurn.packets[0].deferred_ids});
+      expect(firstDelivered.status,await firstDelivered.clone().text()).toBe(200);expect(await firstDelivered.json()).toMatchObject({remaining_ids:[]});
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{...pairInput,decisionId:"egypt-batch-one-incomplete"})).rejects.toThrow();
+      const secondDelivered=await post("pages",{runtime_contract_version:"0.1.0",packet_id:sameTurn.packets[1].packet_id,object_ids:sameTurn.packets[1].deferred_ids});
+      expect(secondDelivered.status,await secondDelivered.clone().text()).toBe(200);expect(await secondDelivered.json()).toMatchObject({remaining_ids:[]});
+      const pair=await buildTrustedDecisionRequest(mounted.adapter!,pairInput);
+      expect(pair.packets.map(value=>[value.packet_id,value.turn_id,value.task.task_key])).toEqual(sameTurn.packets.map(value=>[value.packet_id,sameTurn.turn.turn_id,value.task.task_key]));
+      for(let index=0;index<pair.packets.length;index++){
+        expect(pair.packets[index].objects.map(object=>object.id)).toEqual(pair.packets[index].context.selected_object_ids);
+        expect(pair.packets[index]).toMatchObject({evidence_checked_at:sameTurn.packets[index].evidence_checked_at,context:{expires_at:sameTurn.packets[index].context.expires_at}});
+      }
 
       await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,userId]);
-      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-revoked-read",
-        trigger:{kind:"state_change",reference:"membership-revoked"},packetIds:[actual.packet_id,partial.packet_id]})).rejects.toThrow();
+      await expect(mounted.adapter!.readTrustedPacketBatchCandidate(trip,new Headers({cookie}),pairInput.packetIds)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
       await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,userId]);
-      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-batch-current",
-        trigger:{kind:"state_change",reference:"batch-current"},packetIds:[actual.packet_id,partial.packet_id]})).resolves.toMatchObject({packets:expect.any(Array)});
-      revokeDuringTrustedBatch=true;
-      await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-batch-concurrent-revoke",
-        trigger:{kind:"state_change",reference:"batch-concurrent-revoke"},packetIds:[actual.packet_id,partial.packet_id]})).rejects.toThrow();
+      await expect(buildTrustedDecisionRequest(mounted.adapter!,{...pairInput,decisionId:"egypt-batch-current"})).resolves.toMatchObject({packets:expect.any(Array)});
+      holdTrustedBatch=true;
+      const concurrentRevocation=buildTrustedDecisionRequest(mounted.adapter!,{...pairInput,decisionId:"egypt-batch-concurrent-revoke"});
+      await trustedBatchEntered;
+      await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,userId]);
+      holdTrustedBatch=false;releaseTrustedBatch();
+      await expect(concurrentRevocation).rejects.toThrow();
       await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,userId]);
+
+      await owner.query("BEGIN");
+      await owner.query('SELECT 1 FROM "TripStateDocument" WHERE "tripId"=$1 FOR UPDATE',[trip]);
+      const waitsForLock=mounted.adapter!.readTrustedPacketBatchCandidate(trip,new Headers({cookie}),pairInput.packetIds);
+      expect(await Promise.race([waitsForLock.then(()=>false,()=>false),new Promise<boolean>(resolve=>setTimeout(()=>resolve(true),150))])).toBe(true);
+      await owner.query("COMMIT");
+      await expect(waitsForLock).resolves.toMatchObject({packets:expect.any(Array)});
+      await owner.query("BEGIN");
+      await owner.query('SELECT 1 FROM "TripStateDocument" WHERE "tripId"=$1 FOR UPDATE',[trip]);
+      const lockTimeout=mounted.adapter!.readTrustedPacketBatchCandidate(trip,new Headers({cookie}),pairInput.packetIds);
+      await expect(lockTimeout).rejects.toMatchObject({code:"EVIDENCE_UNAVAILABLE"});
+      await owner.query("ROLLBACK");
 
       await mounted.adapter.authorizeUserChange(trip,new Headers({cookie}),actualChange);
       const appliedResponse=await post("changes",actualChange);expect(appliedResponse.status).toBe(200);
       const applied=await appliedResponse.json() as TripStateContracts["response"];expect(applied).toMatchObject({outcome:"applied",revision:1});
       expect((await readState()).objects.find(object=>object.id==="constraint-nights")).toMatchObject({value:{maximum_nights:5}});
       await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-stale",
-        trigger:{kind:"state_change",reference:"revision-1"},packetIds:[actual.packet_id]})).rejects.toThrow();
+        trigger:{kind:"user_event",reference:actual.pending_input.event.reference},packetIds:[actual.packet_id]})).rejects.toThrow();
       expect(await (await post("changes",actualChange)).json()).toEqual(applied);
       const stale=structuredClone(actualChange);stale.request.idempotency_key="egypt-stale";expect((await post("changes",stale)).status).toBe(409);
 
@@ -227,6 +275,7 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
     } finally {
       releasePacketHandoff();
       releaseLastPageHandoff();
+      releaseTrustedBatch();
       if(server){server.close();await once(server,"close");}
       await Promise.allSettled(resources.reverse().map(resource=>resource.close()));await owner.end();
     }
