@@ -75,6 +75,9 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
     async readTrustedPacketCandidate(tripId:string,credential:Headers,packetId:string) {
       const ticket=packets.ticketForPacketCandidate(tripId,packetId);
       if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
+      // Receiving the Packet body can precede the socket postflight that seals
+      // the private delivery ledger. NAP must consume only after that handoff.
+      await packets.awaitPacketHandoffCandidate(ticket);
       return host.readTrustedPacketCandidate(ticket,credential,packetId);
     },
     async handle(request: IncomingMessage, response: ServerResponse) {

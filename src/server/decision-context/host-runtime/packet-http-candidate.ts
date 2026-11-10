@@ -26,6 +26,10 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
     void settled.then(()=>{pending.delete(settled);if(!pending.size)packetHandoffs.delete(ticket);});
     return operation;
   }
+  async function awaitPacketHandoff(ticket:object) {
+    const pending=packetHandoffs.get(ticket);
+    if(pending)await Promise.all([...pending]);
+  }
   function forgetTurn(turnId:string) {
     const prior=turns.get(turnId);if(!prior)return;
     clearTimeout(prior.timer);turns.delete(turnId);
@@ -53,6 +57,7 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
   }
   return {
     bindTurn,forgetWorkspace,
+    awaitPacketHandoffCandidate:awaitPacketHandoff,
     ticketForSessionCandidate(sessionKey:string) {
       const entry=sessionWorkspaces.get(sessionKey);
       return entry&&entry.expiresAt>Date.now()?entry.ticket:undefined;
@@ -107,7 +112,7 @@ export function createPacketHttpCandidate(host:EvidenceHost,origin:string,interp
           // The Packet bytes may reach a client before the socket-finish
           // postflight has committed its private delivery ledger. Wait for
           // that local handoff before an independent page request rechecks it.
-          const pending=packetHandoffs.get(ticket);if(pending)await Promise.all([...pending]);
+          await awaitPacketHandoff(ticket);
           await host.sendLivePacketPageCandidate(ticket,credential,value,undefined,response);
         }
       } catch(error) {
