@@ -19,6 +19,7 @@ import { createInternalHost, issueInternalCapability, openInternalTripService } 
 import { openEvidenceLifecycleAdapter } from "../../../src/server/decision-context/host-runtime/lifecycle-adapter";
 import { base } from "../../support/bcg-fixtures";
 import { checkpointDigest, validateCheckpoint } from "../../../src/server/decision-context/checkpoint-core";
+import { connectTrustedCheckpointHost } from "../../../src/server/decision-context/recovery-service/trusted-host";
 import { digest } from "../../../src/server/trip-state/command-json";
 
 const file = process.env.E02_STORAGE_ENV_FILE;
@@ -704,6 +705,7 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
   it("saves and inspects a source-bound checkpoint without exposing its payload; cross-workspace, tamper and deletion fail closed", async () => {
     const a=await account(); await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,a.user.id]);
     const wa=await host.createWorkspace(trip,a.headers), wb=await host.createWorkspace(trip,a.headers);
+    const checkpoint=connectTrustedCheckpointHost(host);
     const keyA=await host.mintTaskKey(wa,a.headers,"task-key-a"),keyB=await host.mintTaskKey(wb,a.headers,"task-key-b");
     const firstInput={entry:"dialogue",text:"trusted source",idempotency_key:`checkpoint_${randomUUID()}`};
     const ea=await host.record(wa,a.headers,firstInput);
@@ -743,8 +745,8 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     expect(await save(ea.workspace_key,ca,forgedEvent,"forged-reference")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
     const forgedText=structuredClone(payload); forgedText.tasks[0].event.text="different body";
     expect(await save(ea.workspace_key,ca,forgedText,"forged-text")).toEqual({fault:"RECOVERY_UNAVAILABLE"});
-    expect(await host.saveCheckpoint(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
-    expect(await host.saveCheckpoint(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
+    expect(await checkpoint.save(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
+    expect(await checkpoint.save(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
     const witness=await owner.query<{event_id:string}>(`SELECT w.event_id FROM public."HostEvidenceSceneEventWitness" w JOIN public."HostEvidenceScene" s ON s.scene_ref=w.scene_ref WHERE s.owner_id=$1 AND s.trip_id=$2 AND s.workspace_key=$3`,[a.user.id,trip,ea.workspace_key]);
     expect(witness.rows).toEqual([{event_id:ea.event_id}]);
     // The other event may still have contributed to question: omission from
@@ -754,7 +756,7 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     await owner.query(`GRANT SELECT ON public."HostEvidenceSceneEventWitness" TO "${config!.runtimeRole}"`);
     try { await expect(openEvidenceHost(env)).rejects.toThrow("without checkpoint access"); }
     finally { await owner.query(`REVOKE SELECT ON public."HostEvidenceSceneEventWitness" FROM "${config!.runtimeRole}"`); }
-    expect(await host.inspectCheckpoint(wa,a.headers)).toMatchObject({revision:1});
+    expect(await checkpoint.inspect(wa,a.headers)).toMatchObject({revision:1});
     // An event not declared in TaskSource is still a possible source. Its
     // expiry closes the whole candidate, even while the selected event is live.
     const priorStamp=(await owner.query<{recorded_at:string}>('SELECT recorded_at::text FROM public."HostEvidenceEvent" WHERE event_id=$1',[priorUnrelated.event_id])).rows[0].recorded_at;
@@ -783,11 +785,11 @@ describe.skipIf(!config?.authUrl||!config?.lifecycleUrl)("E11 host recording and
     expect(restored).toMatchObject({checkpoint_revision:1,saved_state_revision:0,current_state_revision:0,restored_task_count:1,candidate_turn_count:1,candidate_packet_count:1,candidate_save_unacknowledged:false});
     expect(restored.runtime_id).not.toBe(originalTurn.runtime_id);
     expect(restored).not.toHaveProperty("payload");
-    await expect(host.saveCheckpoint(wa,a.headers,payload,7,"conflict-save")).rejects.toMatchObject({code:"CHECKPOINT_CONFLICT"});
+    await expect(checkpoint.save(wa,a.headers,payload,7,"conflict-save")).rejects.toMatchObject({code:"CHECKPOINT_CONFLICT"});
     await host.restoreCheckpoint(wa,a.headers,2);
     expect(capturedWarnings).toContain("scene_save_unacknowledged_business_state_is_separate");
     // Replaying an older success must not erase a distinct failed request.
-    expect(await host.saveCheckpoint(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
+    expect(await checkpoint.save(wa,a.headers,payload,0,"save")).toMatchObject({checkpoint_revision:1});
     const pendingRestore=await host.restoreCheckpoint(wa,a.headers,2);
     expect(pendingRestore).toMatchObject({candidate_save_unacknowledged:true});
     expect(capturedWarnings).toContain("scene_save_unacknowledged_business_state_is_separate");
