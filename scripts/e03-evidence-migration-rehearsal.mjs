@@ -89,7 +89,7 @@ try {
     [config.runtimeRole,config.lifecycleRole]);
   const check = rows[0];
   if (!check?.event_table || !check.association_table || !check.witness_table || !check.checkpoint_table || !check.correction || !check.lifecycle || !check.reopen ||
-      check.install_version !== 2 || check.evidence_table_count !== 10 || check.runtime_direct_table_access || check.lifecycle_direct_table_access ||
+      check.install_version !== 3 || check.evidence_table_count !== 10 || check.runtime_direct_table_access || check.lifecycle_direct_table_access ||
       check.runtime_sequence_access || check.lifecycle_sequence_access || !check.runtime_record_execute || !check.runtime_reopen_execute || check.runtime_lifecycle_execute ||
       !check.lifecycle_execute || check.lifecycle_record_execute || check.lifecycle_reopen_execute || check.public_candidate_execute ||
       first.disposition!=="installed" || repeated.disposition!=="already_installed")

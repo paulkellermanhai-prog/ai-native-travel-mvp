@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import http from "node:http";
 import { once } from "node:events";
+import { spawn, type ChildProcess } from "node:child_process";
 import { randomBytes, randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { describe, expect, it } from "vitest";
@@ -84,7 +85,8 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const readState=async()=>(await owner.query<{snapshot:State}>('SELECT "snapshot" FROM "TripStateDocument" WHERE "tripId"=$1',[trip])).rows[0].snapshot;
       const counts=async()=>(await owner.query('SELECT (SELECT count(*)::int FROM "TripStateHistory" WHERE "tripId"=$1) AS history,(SELECT count(*)::int FROM "TripStateProposal" WHERE "tripId"=$1) AS proposals,(SELECT count(*)::int FROM "TripStateIdempotency" WHERE "tripId"=$1) AS receipts',[trip])).rows[0];
       async function packet(text:string,bodyBudgetBytes=1_000_000){
-        const opened=await post("turns",{entry:"dialogue",text,idempotency_key:`turn_${randomUUID()}`});expect(opened.status).toBe(200);
+        const opened=await post("turns",{entry:"dialogue",text,idempotency_key:`turn_${randomUUID()}`});
+        expect(opened.status,await opened.clone().text()).toBe(200);
         const turn=await opened.json() as DecisionContextContracts["turn"],task=turn.tasks[0];
         const assembled=await post("assemble",{runtime_contract_version:"0.1.0",turn_id:turn.turn_id,task_key:task.task_key,body_budget_bytes:bodyBudgetBytes});
         expect(assembled.status).toBe(200);return await assembled.json() as DecisionContextContracts["packet"];
@@ -147,4 +149,132 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       await Promise.allSettled(resources.reverse().map(resource=>resource.close()));await owner.end();
     }
   },60_000);
+
+  it("saves and restores the Egypt workspace through a new HTTP process without reviving old authority",async()=>{
+    const cfg=config!,owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
+    const resources:Array<{close:()=>Promise<void>}>=[];let server:http.Server|undefined,child:ChildProcess|undefined;
+    let trip="",otherTrip="";
+    try {
+      expect((await owner.query("SELECT to_regclass('public.\"HostEvidenceScene\"') IS NOT NULL AS installed")).rows[0].installed).toBe(true);
+      server=http.createServer();server.listen(0,"127.0.0.1");await once(server,"listening");
+      const address=server.address();if(!address||typeof address==="string")throw new Error("Missing test socket");
+      const origin=`http://127.0.0.1:${address.port}`,secret=randomBytes(32).toString("hex");
+      const env={...process.env,DATABASE_URL:cfg.runtimeUrl,AUTH_DATABASE_URL:cfg.authUrl,BETTER_AUTH_URL:origin,
+        BETTER_AUTH_SECRET:randomBytes(32).toString("hex"),E11_IDEMPOTENCY_SECRET:randomBytes(32).toString("hex")};
+      const identity=await openIdentity(env);resources.push(identity);
+      const internal=await openInternalTripService(cfg.runtimeUrl,secret);resources.push(internal);
+      const lifecycle=await openEvidenceLifecycleAdapter(cfg.lifecycleUrl,createInternalHost(secret));resources.push(lifecycle);
+      const host=await openEvidenceHost(env);resources.push(host);
+      async function account(label:string){
+        const email=`${randomUUID()}@example.invalid`,password=randomBytes(24).toString("base64url");
+        const user=(await identity.auth.api.signUpEmail({body:{name:label,email,password}})).user;
+        const login=await identity.auth.api.signInEmail({body:{email,password},headers:new Headers({origin}),asResponse:true});
+        expect(login.status).toBe(200);const cookie=login.headers.getSetCookie().map(value=>value.split(";")[0]).join("; ");
+        const session=await identity.auth.api.getSession({headers:new Headers({cookie})});if(!session)throw new Error("Missing test Session");
+        return {user,email,password,cookie,sessionId:session.session.id};
+      }
+      const primary=await account("E03-07 owner"),other=await account("E03-07 other user");
+      trip=`trip_e03_07_${randomBytes(8).toString("hex")}`;otherTrip=`trip_e03_07_other_${randomBytes(8).toString("hex")}`;
+      for(const value of [trip,otherTrip]){
+        await internal.createTrip(value,await issueInternalCapability(secret,value,{role:"system",id:"e03-07-bootstrap"}));
+        await lifecycle.sync(await issueInternalCapability(secret,value,{role:"system",id:"e03-07-lifecycle"}),{trip_id:value,source_revision:0,ended_at:null});
+        const snapshot=structuredClone(base);snapshot.trip_id=value;
+        const observed=new Date(Date.now()-60_000).toISOString(),expires=new Date(Date.now()+3_600_000).toISOString();
+        for(const object of snapshot.objects){object.trip_id=value;object.updated_at=observed;object.source.at=observed;if(object.type==="ExternalFact"){object.observed_at=observed;object.expires_at=expires;}}
+        await owner.query('UPDATE "TripStateDocument" SET "snapshot"=$2::jsonb,"revision"=0 WHERE "tripId"=$1',[value,JSON.stringify(snapshot)]);
+      }
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2),($1,$3),($4,$2)',[trip,primary.user.id,other.user.id,otherTrip]);
+      const interpret:ControlledInterpreter=async input=>{
+        const hypothetical=input.event.text.startsWith("如果"),prior=input.runtime_focus.tasks.find(task=>input.runtime_focus.focus_keys.includes(task.task_key)&&task.branch===(hypothetical?"hypothetical":"actual"));
+        const key=prior?.task_key??await input.mint_task_key(0);
+        return {tasks:[{task_key:key,question:input.event.text,kind:"explore",target_ids:["constraint-nights"],branch:hypothetical?"hypothetical":"actual",
+          relation:prior?"continue":"new",related_task_keys:[],certainty:"explicit",evidence:[{start:0,end:Array.from(input.event.text).length,quote:input.event.text}],
+          progress:"open",progress_evidence:null}],focus_keys:[key]};
+      };
+      const adapter=createPr29HostHttpCandidate(host,origin,interpret,async(tripId,revision)=>{
+        await lifecycle.sync(await issueInternalCapability(secret,tripId,{role:"system",id:"e03-07-write"}),{trip_id:tripId,source_revision:revision,ended_at:null});
+      });
+      server.removeAllListeners("request");server.on("request",(request,response)=>{void adapter.handle(request,response);});
+      const post=(baseUrl:string,targetTrip:string,operation:string,body:unknown,cookie:string)=>fetch(`${baseUrl}/runtime/trips/${targetTrip}/${operation}`,{
+        method:"POST",headers:{origin:baseUrl,cookie,"content-type":"application/json"},body:JSON.stringify(body),
+      });
+      const readBusiness=async()=> (await owner.query('SELECT "revision",snapshot,(SELECT count(*)::int FROM "TripStateHistory" WHERE "tripId"=$1) history FROM "TripStateDocument" WHERE "tripId"=$1',[trip])).rows[0];
+      const open=await post(origin,trip,"turns",{entry:"dialogue",text:"如果阿斯旺多住一天，再与卢克索比较会怎样",idempotency_key:`turn_${randomUUID()}`},primary.cookie);
+      expect(open.status,await open.clone().text()).toBe(200);const firstTurn=await open.json() as DecisionContextContracts["turn"];
+      expect(firstTurn.checkpoint_ack).toMatchObject({checkpoint_revision:1,durable:true,deleted:false});
+      const assembled=await post(origin,trip,"assemble",{runtime_contract_version:"0.1.0",turn_id:firstTurn.turn_id,task_key:firstTurn.tasks[0].task_key,body_budget_bytes:1_000_000},primary.cookie);
+      expect(assembled.status).toBe(200);const firstPacket=await assembled.json() as DecisionContextContracts["packet"];
+      const hypothetical:DecisionContextContracts["change"]={runtime_contract_version:"0.1.0",turn_id:firstTurn.turn_id,packet_id:firstPacket.packet_id,request:{
+        expected_revision:0,idempotency_key:"egypt-e03-07-hypothetical",reason:"只做假设比较",input:{kind:"dialogue",reference:firstPacket.pending_input.event.reference,
+          text:firstPacket.pending_input.event.text,target_ids:firstPacket.task.target_ids},commands:[{op:"revise",object_type:"Constraint",id:"constraint-nights",changes:{value:{kind:"duration",maximum_nights:5}}}]}};
+      const beforeHypothetical=await readBusiness();expect((await post(origin,trip,"changes",hypothetical,primary.cookie)).status).toBe(422);expect(await readBusiness()).toEqual(beforeHypothetical);
+      const actualOpened=await post(origin,trip,"turns",{entry:"dialogue",text:"明确将埃及行程调整为五晚",idempotency_key:`turn_${randomUUID()}`},primary.cookie);
+      expect(actualOpened.status).toBe(200);const actualTurn=await actualOpened.json() as DecisionContextContracts["turn"];
+      const actualAssembled=await post(origin,trip,"assemble",{runtime_contract_version:"0.1.0",turn_id:actualTurn.turn_id,task_key:actualTurn.tasks[0].task_key,body_budget_bytes:1_000_000},primary.cookie);
+      expect(actualAssembled.status).toBe(200);const actualPacket=await actualAssembled.json() as DecisionContextContracts["packet"];
+      const actual=structuredClone(hypothetical);actual.turn_id=actualTurn.turn_id;actual.packet_id=actualPacket.packet_id;
+      actual.request.idempotency_key="egypt-e03-07-actual";actual.request.reason="明确将埃及行程调整为五晚";
+      actual.request.input={kind:"dialogue",reference:actualPacket.pending_input.event.reference,text:actualPacket.pending_input.event.text,target_ids:actualPacket.task.target_ids};
+      await adapter.authorizeUserChange(trip,new Headers({cookie:primary.cookie}),actual);
+      const applied=await post(origin,trip,"changes",actual,primary.cookie);expect(applied.status).toBe(200);expect(await applied.json()).toMatchObject({outcome:"applied",revision:1});
+      expect((await readBusiness()).revision).toBe("1");
+      const continued=await post(origin,trip,"turns",{entry:"comparison",text:"保存当前卢克索和阿斯旺比较，稍后继续",idempotency_key:`turn_${randomUUID()}`},primary.cookie);
+      expect(continued.status,await continued.clone().text()).toBe(200);const continuedTurn=await continued.json() as DecisionContextContracts["turn"];
+      expect(continuedTurn.tasks[0].relation).toBe("continue");expect(continuedTurn.checkpoint_ack?.checkpoint_revision).toBe(3);
+      const candidateVersion=(await readBusiness()).snapshot.objects.find((object:{id:string;version:number})=>object.id==="candidate-aswan").version;
+      const saveBody={runtime_contract_version:"0.1.0",workspace_key:continuedTurn.checkpoint_ack!.workspace_key,
+        expected_checkpoint_revision:3,idempotency_key:"egypt-e03-07-explicit-save",focus_keys:continuedTurn.focus_keys,
+        view:{entry:"comparison",comparison_refs:[{id:"candidate-aswan",version:candidateVersion}],selected_id:"candidate-aswan",expanded_task_keys:continuedTurn.focus_keys},
+        drafts:[{draft_id:"draft-aswan-extra-night",draft_kind:"hypothetical",base_revision:1,target_ids:["constraint-nights"],text:"如果阿斯旺再多住一天",
+          source_reference:"synthetic-egypt-internal-mvp",proposal:null}]};
+      const saved=await post(origin,trip,"checkpoints/save",saveBody,primary.cookie);expect(saved.status,await saved.clone().text()).toBe(200);
+      const saveAck=await saved.json() as DecisionContextContracts["scene-ack"];expect(saveAck.ack.checkpoint_revision).toBe(4);
+      expect(await (await post(origin,trip,"checkpoints/save",saveBody,primary.cookie)).json()).toEqual(saveAck);
+      const status=await post(origin,trip,"checkpoints/status",{runtime_contract_version:"0.1.0"},primary.cookie);
+      expect(await status.json()).toMatchObject({current_checkpoint_revision:4,save_pending:false,last_error:null});
+      const newLogin=await identity.auth.api.signInEmail({body:{email:primary.email,password:primary.password},headers:new Headers({origin}),asResponse:true});
+      const newCookie=newLogin.headers.getSetCookie().map(value=>value.split(";")[0]).join("; ");
+      await owner.query('DELETE FROM "AuthSession" WHERE id=$1',[primary.sessionId]);
+      server.close();await once(server,"close");server=undefined;
+      await Promise.all(resources.reverse().map(resource=>resource.close()));resources.length=0;
+
+      const childEnv={...env,BETTER_AUTH_URL:undefined,INTERNAL_SERVICE_SECRET:secret,E03_CHILD_LIFECYCLE_URL:cfg.lifecycleUrl};
+      child=spawn(process.execPath,["--import","tsx","tests/support/e03-http-recovery-process.ts"],{cwd:process.cwd(),env:childEnv,stdio:["pipe","pipe","pipe"]});
+      const childOrigin=await new Promise<string>((resolve,reject)=>{let stdout="",stderr="";
+        child!.stdout!.setEncoding("utf8");child!.stderr!.setEncoding("utf8");child!.stderr!.on("data",chunk=>{stderr+=chunk;});
+        child!.stdout!.on("data",chunk=>{stdout+=chunk;const end=stdout.indexOf("\n");if(end>=0){try{resolve((JSON.parse(stdout.slice(0,end)) as {origin:string}).origin);}catch(error){reject(error);}}});
+        child!.once("exit",code=>reject(new Error(`Recovery child exited ${code}: ${stderr}`)));
+      });
+      const restoreBody={runtime_contract_version:"0.1.0",workspace_key:saveAck.ack.workspace_key,body_budget_bytes:1_000_000};
+      expect((await post(childOrigin,trip,"checkpoints/restore",restoreBody,primary.cookie)).status).toBe(403);
+      expect([403,503]).toContain((await post(childOrigin,trip,"checkpoints/restore",restoreBody,other.cookie)).status);
+      expect([403,503]).toContain((await post(childOrigin,otherTrip,"checkpoints/restore",restoreBody,newCookie)).status);
+      const restoredResponse=await post(childOrigin,trip,"checkpoints/restore",restoreBody,newCookie);expect(restoredResponse.status,await restoredResponse.clone().text()).toBe(200);
+      const restored=await restoredResponse.json() as DecisionContextContracts["scene-restored"];
+      expect(restored).toMatchObject({workspace_key:saveAck.ack.workspace_key,checkpoint_revision:4,saved_state_revision:1,current_state_revision:1,
+        recovery_requires_new_authorization:true,drafts:[expect.objectContaining({draft_id:"draft-aswan-extra-night"})]});
+      expect(restored.runtime_id).not.toBe(continuedTurn.runtime_id);
+      expect((await post(childOrigin,trip,"changes",actual,newCookie)).status).toBe(403);
+      const next=await post(childOrigin,trip,"turns",{entry:"dialogue",text:"继续规划阿斯旺和卢克索",idempotency_key:`turn_${randomUUID()}`},newCookie);
+      expect(next.status,await next.clone().text()).toBe(200);const nextTurn=await next.json() as DecisionContextContracts["turn"];
+      expect(nextTurn).toMatchObject({runtime_id:restored.runtime_id,tasks:[expect.objectContaining({relation:"continue"})]});
+      const nextPacketResponse=await post(childOrigin,trip,"assemble",{runtime_contract_version:"0.1.0",turn_id:nextTurn.turn_id,task_key:nextTurn.tasks[0].task_key,body_budget_bytes:1_000_000},newCookie);
+      expect(nextPacketResponse.status).toBe(200);const nextPacket=await nextPacketResponse.json() as DecisionContextContracts["packet"];
+      const stale=structuredClone(actual);stale.turn_id=nextTurn.turn_id;stale.packet_id=nextPacket.packet_id;stale.request.idempotency_key="egypt-e03-07-stale-after-restore";
+      stale.request.input={kind:"dialogue",reference:nextPacket.pending_input.event.reference,text:nextPacket.pending_input.event.text,target_ids:nextPacket.task.target_ids};
+      expect((await post(childOrigin,trip,"changes",stale,newCookie)).status).toBe(409);
+      const businessBeforeBarrier=await readBusiness();
+      const source=(await owner.query<{event_id:string;recorded_at:string}>('SELECT event_id,recorded_at::text FROM "HostEvidenceEvent" WHERE owner_id=$1 AND trip_id=$2 ORDER BY sequence LIMIT 1',[primary.user.id,trip])).rows[0];
+      await owner.query('UPDATE "HostEvidenceEvent" SET recorded_at=clock_timestamp()-interval \'180 days\' WHERE event_id=$1',[source.event_id]);
+      expect((await post(childOrigin,trip,"checkpoints/restore",restoreBody,newCookie)).status).toBe(503);expect(await readBusiness()).toEqual(businessBeforeBarrier);
+      await owner.query('UPDATE "HostEvidenceEvent" SET recorded_at=$2::timestamptz WHERE event_id=$1',[source.event_id,source.recorded_at]);
+      const scope=(await owner.query<{session_ref:string;capability_token:string}>('SELECT session_ref,capability_token FROM "HostEvidenceWorkspace" WHERE owner_id=$1 AND trip_id=$2 AND workspace_key=$3',[primary.user.id,trip,saveAck.ack.workspace_key])).rows[0];
+      expect((await owner.query('SELECT * FROM public.host_evidence_delete_candidate($1,$2,$3,$4,$5,$6)',[scope.session_ref,primary.user.id,trip,saveAck.ack.workspace_key,scope.capability_token,source.event_id])).rows[0].disposition).toBe("deleted");
+      expect((await post(childOrigin,trip,"checkpoints/restore",restoreBody,newCookie)).status).toBe(503);expect(await readBusiness()).toEqual(businessBeforeBarrier);
+    } finally {
+      if(child&&!child.killed){child.stdin?.end();await Promise.race([once(child,"exit"),new Promise(resolve=>setTimeout(resolve,5_000))]);if(child.exitCode===null)child.kill();}
+      if(server){server.close();await once(server,"close");}
+      await Promise.allSettled(resources.reverse().map(resource=>resource.close()));await owner.end();
+    }
+  },90_000);
 });

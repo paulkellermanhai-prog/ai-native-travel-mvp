@@ -39,6 +39,7 @@ type PacketMemory = { packetId:string; turnId:string; taskHash:string; budget:nu
 type TurnLease = { id:string; cipher:Buffer; iv:Buffer; tag:Buffer; expiresAt:number; timer:NodeJS.Timeout };
 type Scope = { ownerId: string; sessionId: string; tripId: string; workspaceKey: string; capability: string; runtimeId: string;
   recoveredEvents: Set<string>; recoveryWatermark: number | null; deletionRevision: number; pendingSaves: Set<string>; pendingSaveSticky: boolean; inflightSaves: number; keyEpochs: Map<string,number>; tasks: Map<string, TaskMemory>;
+  recoveredTasks: Map<string,InterpretedTask>; recoveredFocus:string[];
   turns: Map<string, { digest: string; result: Pick<Registration,"turn_id"|"revision">; sources: Map<string,string>; sequence: number }>;
   invalidTurns: Set<string>; receipts: Map<string,Set<object>>; replayReceipts: Map<string,EventReceipt>; packetInvalidators:Set<()=>void>; packets:Map<string,PacketMemory>; leaseKey:Buffer; turnLeases:Map<string,TurnLease>; disposed: boolean; tail: Promise<void> };
 type RecordRow = { disposition: string; out_event_id: string | null; out_sequence: bigint | null; out_recorded_at: Date | null };
@@ -201,7 +202,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   }
   function freshScope(p:{ownerId:string;sessionId:string},tripId:string,workspaceKey=`work_${randomUUID()}`):Scope {
     return { ownerId:p.ownerId,sessionId:p.sessionId,tripId,workspaceKey,capability:randomBytes(32).toString("hex"),runtimeId:`runtime-${randomUUID().replaceAll("-","")}`,
-      recoveredEvents:new Set(),recoveryWatermark:null,deletionRevision:0,pendingSaves:new Set(),pendingSaveSticky:false,inflightSaves:0,keyEpochs:new Map(),tasks:new Map(),turns:new Map(),invalidTurns:new Set(),receipts:new Map(),replayReceipts:new Map(),packetInvalidators:new Set(),packets:new Map(),leaseKey:randomBytes(32),turnLeases:new Map(),disposed:false,tail:Promise.resolve() };
+      recoveredEvents:new Set(),recoveryWatermark:null,deletionRevision:0,pendingSaves:new Set(),pendingSaveSticky:false,inflightSaves:0,keyEpochs:new Map(),tasks:new Map(),recoveredTasks:new Map(),recoveredFocus:[],turns:new Map(),invalidTurns:new Set(),receipts:new Map(),replayReceipts:new Map(),packetInvalidators:new Set(),packets:new Map(),leaseKey:randomBytes(32),turnLeases:new Map(),disposed:false,tail:Promise.resolve() };
   }
   async function scoped(ticket: object, credential: Headers) {
     const scope = ticket && typeof ticket === "object" ? workspaces.get(ticket) : undefined;
@@ -571,6 +572,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           for (const prior of dependencies) if (prior) for (const [id,token] of prior.sources) taskSources.set(id,token);
           for (const [id,token] of taskSources) sources.set(id,token);
           scope.tasks.set(taskIndex(scope,task.task_key),{ kind:task.kind, branch:task.branch, progress:task.progress, sources:taskSources, incomplete:false, fingerprint:taskFingerprint(scope,task), eventSequence:receipt.sequence, retentionRevision:result.retentionRevision });
+          scope.recoveredTasks.delete(taskIndex(scope,task.task_key));scope.recoveredFocus=scope.recoveredFocus.filter(key=>key!==task.task_key);
         }
         scope.turns.set(proof.eventId,{ digest:result.fingerprint, result:{turn_id:registration.turn_id,revision:registration.revision}, sources,sequence:receipt.sequence });
         rememberTurn(scope,registration.turn_id,parsed.data);
@@ -589,6 +591,13 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         const parsed=parseStateReferences(decodeCommandJson(document.snapshot));checkStateCounters(parsed);
         if(parsed.trip_id!==scope.tripId||BigInt(parsed.revision)!==document.revision)return unavailable();
         const prior=new Map<string,InterpretedTask>();let focus:string[]=[],complete=true;
+        for(const [token,task] of scope.recoveredTasks){
+          const current=scope.tasks.get(token);
+          if(!current||current.incomplete||current.fingerprint!==taskFingerprint(scope,task)){complete=false;continue;}
+          try{await taskSourcesCurrent(tx,scope,token,current.sources);prior.set(task.task_key,structuredClone(task));}
+          catch{complete=false;}
+        }
+        focus=scope.recoveredFocus.filter(key=>prior.has(key));
         for(const turn of scope.turns.values()){
           let candidate:DecisionContextContracts["turn"];
           try {
@@ -1057,11 +1066,67 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         response.end(bytes);
       }));} catch(error){if(response.headersSent)response.destroy();if(error instanceof EvidenceBoundaryError)throw error;return unavailable();}
     },
-    /**
-     * Internal bounded save only. Drafts, errors and non-unprocessed states
-     * require sources/host state not yet available and are rejected, not trimmed.
-     * This does not install a recovered scene or expose checkpoint payloads.
-     */
+    /** Builds the formal scene payload from host-held Task/Event state; HTTP never supplies it. */
+    async saveSceneCandidate(ticket:object,credential:Headers,value:unknown) {
+      const body=parseDCContract("scene-save",value),{scope,headers}=await scoped(ticket,credential);
+      if(body.workspace_key!==scope.workspaceKey)return deny();
+      const payload=await exclusive(scope,async()=>db.$transaction(async tx=>{
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;snapshot:string}>>`SELECT "revision","snapshot"::text AS snapshot FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        if(!document)return deny();
+        const state=parseStateReferences(decodeCommandJson(document.snapshot));checkStateCounters(state);
+        if(state.trip_id!==scope.tripId||BigInt(state.revision)!==document.revision||!body.focus_keys.length)return unavailable();
+        const tasks:CheckpointPayload["tasks"]=[];
+        for(const taskKey of body.focus_keys){
+          const token=taskIndex(scope,taskKey),memory=scope.tasks.get(token);if(!memory||memory.incomplete)return unavailable();
+          let selected:DecisionContextContracts["open-turn"]|undefined;
+          const candidates=[...scope.turns.entries()].filter(([,row])=>row.result.revision===state.revision).sort(([,a],[,b])=>b.sequence-a.sequence);
+          for(const [eventId,row] of candidates){
+            try{
+              const opened=identityInput.safeParse(turnInput(scope,row.result.turn_id).value),eventToken=row.sources.get(eventId);
+              if(!opened.success||!eventToken)continue;
+              const [source]=await tx.$queryRaw<EventRow[]>`SELECT * FROM public.host_evidence_for_turn_candidate(${scope.sessionId},${scope.ownerId},${scope.tripId},${scope.workspaceKey},${scope.capability},${eventId},${eventToken},${false})`;
+              if(!source?.allowed||counter(source.out_retention_revision)!==scope.deletionRevision||!source.out_entry||!source.out_body||!source.out_received_at)continue;
+              const candidate=parseDCContract("open-turn",{runtime_contract_version:"0.1.0",trip_id:scope.tripId,expected_revision:opened.data.expected_revision,
+                event:{event_id:eventId,entry:source.out_entry,text:source.out_body,reference:`host-interaction:${eventId}`,received_at:source.out_received_at.toISOString()},
+                tasks:opened.data.tasks,focus_keys:opened.data.focus_keys});
+              const task=candidate.tasks.find(item=>item.task_key===taskKey);
+              if(task&&memory.fingerprint===taskFingerprint(scope,task)){selected=candidate;break;}
+            }catch{/* an expired lease is not recoverable save authority */}
+          }
+          const task=selected?.tasks.find(item=>item.task_key===taskKey);if(!selected||!task)return unavailable();
+          await taskSourcesCurrent(tx,scope,token,memory.sources);
+          tasks.push({task:structuredClone(task),event:structuredClone(selected.event),base_revision:state.revision,
+            processing_status:"unprocessed",result_revision:state.revision,errors:[]});
+        }
+        const candidate={checkpoint_format_version:1 as const,trip_id:scope.tripId,captured_state_revision:state.revision,
+          captured_object_versions:state.objects.map(object=>({id:object.id,version:object.version})).sort((a,b)=>a.id.localeCompare(b.id)),
+          tasks,focus_keys:structuredClone(body.focus_keys),view:structuredClone(body.view),drafts:structuredClone(body.drafts),
+          deferred_issue_ids:state.objects.filter(object=>object.type==="OpenIssue"&&object.status==="dismissed").map(object=>object.id).sort()};
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        return validateCheckpoint(candidate,scope.tripId,state.revision);
+      }));
+      const ack=await this.saveCheckpoint(ticket,credential,payload,body.expected_checkpoint_revision,body.idempotency_key);
+      return parseDCContract("scene-ack",{runtime_contract_version:"0.1.0",ack});
+    },
+    /** Formal open-turn autosave; failure never pretends that a Checkpoint was acknowledged. */
+    async autosaveTurnCandidate(ticket:object,credential:Headers,value:unknown,entry:RecordInput["entry"]) {
+      const turn=parseDCContract("turn",value),{scope}=await scoped(ticket,credential);
+      const status=await this.checkpointStatusCandidate(ticket,credential);
+      return this.saveSceneCandidate(ticket,credential,{runtime_contract_version:"0.1.0",workspace_key:scope.workspaceKey,
+        expected_checkpoint_revision:status.current_checkpoint_revision,idempotency_key:`auto-${turn.turn_id}`,
+        focus_keys:turn.focus_keys,view:{entry,comparison_refs:[],selected_id:null,expanded_task_keys:turn.focus_keys},drafts:[]});
+    },
+    /** Metadata-only wire status; payload and original text never cross this boundary. */
+    async checkpointStatusCandidate(ticket:object,credential:Headers) {
+      const {scope}=await scoped(ticket,credential);let revision=0;
+      try{const current=await this.inspectCheckpoint(ticket,credential);revision=Number.isSafeInteger(current.revision)?current.revision!:unavailable();}
+      catch(error){if(!(error instanceof CheckpointError)||error.code!=="CHECKPOINT_NOT_FOUND")throw error;}
+      const pending=scope.pendingSaveSticky||scope.pendingSaves.size>0||scope.inflightSaves>0;
+      return parseDCContract("scene-status-result",{runtime_contract_version:"0.1.0",recovery_available:true,
+        last_acknowledged_revision:revision,current_checkpoint_revision:revision,save_pending:pending,last_error:pending?"CHECKPOINT_STORAGE":null});
+    },
+    /** Internal bounded save only. Non-unprocessed task state remains rejected. */
     async saveCheckpoint(ticket: object, credential: Headers, input: unknown, expectedRevision: number, operationKey: string) {
       const startingScope=ticket && typeof ticket === "object" ? workspaces.get(ticket) : undefined;
       const startingRuntime=startingScope?.runtimeId, startingRetention=startingScope?.deletionRevision;
@@ -1086,7 +1151,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
             throw new CheckpointError("CHECKPOINT_POLICY");
           const captured = snapshot as Partial<CheckpointPayload>;
           payload = validateCheckpoint(snapshot,scope.tripId,captured?.captured_state_revision ?? -1);
-          if (!payload.tasks.length || payload.drafts.length || payload.tasks.some(row => row.errors.length || row.processing_status !== "unprocessed" ||
+          if (!payload.tasks.length || payload.tasks.some(row => row.errors.length || row.processing_status !== "unprocessed" ||
             row.base_revision !== payload.captured_state_revision || row.result_revision !== payload.captured_state_revision))
             throw new CheckpointError("RECOVERY_UNAVAILABLE");
           for (const row of payload.tasks) {
@@ -1194,8 +1259,9 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
             }
             if (candidate) testHooks?.onCandidatePacketWarnings?.(candidate.packets.flatMap(packet=>packet.packet.warnings));
             const candidateCounts=candidate ? {turns:candidate.turns.length,packets:candidate.packets.length} : undefined;
-            return { installed,eventIds:payload.tasks.map(item=>item.event.event_id),checkpointRevision:row.value.revision!,
-              savedRevision:classified.saved_state_revision,currentRevision:classified.current_state_revision,taskCount:payload.tasks.length,watermark:row.value.event_highwater!,candidateCounts,candidateUnacknowledged:unacknowledged };
+            return { installed,recoveredTasks:payload.tasks.map(item=>structuredClone(item.task)),recoveredFocus:structuredClone(payload.focus_keys),eventIds:payload.tasks.map(item=>item.event.event_id),checkpointRevision:row.value.revision!,
+              savedRevision:classified.saved_state_revision,currentRevision:classified.current_state_revision,taskCount:payload.tasks.length,watermark:row.value.event_highwater!,
+              candidateCounts,candidateScene:candidate?.scene,candidateUnacknowledged:unacknowledged };
           });
           await testHooks?.afterRestoreCommit?.();
           if (closed || scope.disposed) return deny();
@@ -1208,10 +1274,12 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           // delivery and the real Packet/Grant host remain separately gated.
           for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
           invalidatePackets(scope);clearTurnLeases(scope);scope.leaseKey=randomBytes(32); scope.receipts.clear(); scope.replayReceipts.clear(); scope.turns.clear(); scope.invalidTurns.clear();
-          scope.recoveredEvents=new Set(restored.eventIds); scope.recoveryWatermark=restored.watermark; scope.tasks=restored.installed; scope.runtimeId=runtimeId;
+          scope.recoveredEvents=new Set(restored.eventIds); scope.recoveryWatermark=restored.watermark; scope.tasks=restored.installed;
+          scope.recoveredTasks=new Map(restored.recoveredTasks.map(task=>[taskIndex(scope,task.task_key),task]));scope.recoveredFocus=restored.recoveredFocus;scope.runtimeId=runtimeId;
           return {runtime_id:runtimeId,checkpoint_revision:restored.checkpointRevision,saved_state_revision:restored.savedRevision,
             current_state_revision:restored.currentRevision,restored_task_count:restored.taskCount,
-            ...(restored.candidateCounts ? {candidate_turn_count:restored.candidateCounts.turns,candidate_packet_count:restored.candidateCounts.packets,candidate_save_unacknowledged:scope.pendingSaveSticky || scope.pendingSaves.size>0 || scope.inflightSaves>0} : {})};
+            ...(restored.candidateCounts ? {candidate_turn_count:restored.candidateCounts.turns,candidate_packet_count:restored.candidateCounts.packets,
+              candidate_save_unacknowledged:scope.pendingSaveSticky || scope.pendingSaves.size>0 || scope.inflightSaves>0,scene:structuredClone(restored.candidateScene)} : {})};
         } catch(error) {
           if (error instanceof CheckpointError || error instanceof EvidenceBoundaryError) throw error;
           throw new CheckpointError("CHECKPOINT_STORAGE");
@@ -1244,7 +1312,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       await exclusive(scope,async()=> {
         scope.disposed=true; scope.capability=""; invalidatePackets(scope);clearTurnLeases(scope);
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
-        scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
+        scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear();scope.recoveredTasks.clear();scope.recoveredFocus=[]; scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
         workspaces.delete(ticket); activeScopes.delete(scope);
       });
     },
@@ -1253,7 +1321,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       for (const scope of activeScopes) {
         scope.disposed=true; scope.capability=""; invalidatePackets(scope);clearTurnLeases(scope);
         for (const receipts of scope.receipts.values()) for (const receipt of receipts) eventProofs.delete(receipt);
-        scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear(); scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
+        scope.receipts.clear(); scope.replayReceipts.clear(); scope.tasks.clear();scope.recoveredTasks.clear();scope.recoveredFocus=[]; scope.turns.clear(); scope.invalidTurns.clear(); scope.recoveredEvents.clear(); scope.recoveryWatermark=null; scope.pendingSaves.clear(); scope.pendingSaveSticky=false; scope.keyEpochs.clear();
       }
       activeScopes.clear();routingSecret.fill(0);
       await Promise.all([db.$disconnect(),identity.close(),...(writeServicePromise?[writeServicePromise.then(service=>service.close())]:[])]);
