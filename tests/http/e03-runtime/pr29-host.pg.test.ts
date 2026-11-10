@@ -128,9 +128,22 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
           input:{kind:"dialogue",reference:event.reference,text:event.text,target_ids:packetValue.task.target_ids},commands,
         }};
       }
+      async function saveChangePlan(packetValue:DecisionContextContracts["packet"],decisionId:string,body:DecisionContextContracts["change"]){
+        const decisionRequest=await buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId,
+          trigger:{kind:"user_event",reference:packetValue.pending_input.event.reference},packetIds:[packetValue.packet_id]});
+        const plan=await decide(decisionRequest,{assess:async()=>({response:{request_ids:[packetValue.task.task_key],disposition:"answered",
+          text:"已按当前请求生成受控变更步骤",evidence_refs:[]},candidates:[{action_id:"action-change",task_key:packetValue.task.task_key,
+          packet_id:packetValue.packet_id,request_ids:[packetValue.task.task_key],goal:"D5",preferred_attention:"primary",reason:"通过原 E03 写桥提交",rank:100,
+          steps:[{step_id:"step-change",kind:"change",depends_on:[],capability_id:null,arguments:{},change_request:body.request,user_message:null}],
+          required_object_ids:packetValue.task.target_ids,reentry_candidate_id:null}]})});
+        await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),decisionRequest,plan);
+        return {decisionRequest,plan};
+      }
 
       const revise=[{op:"revise",object_type:"Constraint",id:"constraint-nights",changes:{value:{kind:"duration",maximum_nights:5}}}] as TripStateContracts["change-request"]["commands"];
       const hypothetical=await packet("如果阿斯旺多住一天会怎样"),hypotheticalChange=change(hypothetical,"egypt-hypothetical",revise),empty=await counts();
+      const hypotheticalPlan=await saveChangePlan(hypothetical,"egypt-hypothetical-plan",hypotheticalChange);
+      expect(hypotheticalPlan.plan.actions).toEqual([]);
       expect((await post("changes",hypotheticalChange)).status).toBe(422);expect(await counts()).toEqual(empty);expect((await readState()).revision).toBe(0);
 
       holdPacketHandoff=true;
@@ -267,13 +280,34 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),waitingRequest,waitingPlan);
       await expect(mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,waitingRequest.decision_id,"action-waiting","step-waiting"))
         .resolves.toMatchObject({disposition:"waiting_user"});
+      const readRequest={...conflictRequest,decision_id:"egypt-runtime-read"},readPlan=await decide(readRequest,runtimeAdapter);
+      await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),readRequest,readPlan);
+      const beforeReadDispatch=await counts();
+      const readDispatch=await mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,readRequest.decision_id,"action-runtime","step-runtime");
+      expect(readDispatch).toMatchObject({disposition:"executed",result:{outcome:"read",packet_id:conflictPacket.packet_id,state_revision:0,objects:expect.any(Array)}});
+      expect((readDispatch.result as {objects:unknown[]}).objects.length).toBeGreaterThan(0);expect(await counts()).toEqual(beforeReadDispatch);
+      expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,readRequest.decision_id))
+        .toMatchObject({actions:[{phase:"succeeded"}],steps:[{status:"succeeded"}]});
 
+      const actualPlan=await saveChangePlan(actual,"egypt-change-actual",actualChange);
+      const staleNapChange=change(conflictPacket,"egypt-nap-stale",revise);await saveChangePlan(conflictPacket,"egypt-change-stale",staleNapChange);
+      const beforeWrongSession=await counts();
+      await expect(mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie:secondCookie}),actual.packet_id,actualPlan.decisionRequest.decision_id,"action-change","step-change"))
+        .rejects.toThrow();
+      expect(await counts()).toEqual(beforeWrongSession);
       await mounted.adapter.authorizeUserChange(trip,new Headers({cookie}),actualChange);
-      const appliedResponse=await post("changes",actualChange);expect(appliedResponse.status).toBe(200);
-      const applied=await appliedResponse.json() as TripStateContracts["response"];expect(applied).toMatchObject({outcome:"applied",revision:1});
+      const appliedDispatch=await mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),actual.packet_id,actualPlan.decisionRequest.decision_id,"action-change","step-change");
+      expect(appliedDispatch.disposition).toBe("executed");
+      const applied=appliedDispatch.result as TripStateContracts["response"];expect(applied).toMatchObject({outcome:"applied",revision:1});
       expect((await readState()).objects.find(object=>object.id==="constraint-nights")).toMatchObject({value:{maximum_nights:5}});
+      const afterAppliedCounts=await counts();
+      await expect(mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,"egypt-change-stale","action-change","step-change"))
+        .rejects.toThrow();
+      expect(await counts()).toEqual(afterAppliedCounts);
       await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-stale",
         trigger:{kind:"user_event",reference:actual.pending_input.event.reference},packetIds:[actual.packet_id]})).rejects.toThrow();
+      await expect(mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),actual.packet_id,actualPlan.decisionRequest.decision_id,"action-change","step-change"))
+        .resolves.toEqual({disposition:"recorded",result:applied});
       expect(await (await post("changes",actualChange)).json()).toEqual(applied);
       const stale=structuredClone(actualChange);stale.request.idempotency_key="egypt-stale";expect((await post("changes",stale)).status).toBe(409);
 
@@ -282,8 +316,10 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       expect((await readState()).revision).toBe(1);
 
       const choice=await packet("我想选择阿斯旺"),modelChange=change(choice,"egypt-model-proposal",[{op:"decide_candidate",id:"candidate-aswan",value:"accept"}]);
-      const pendingResponse=await post("changes",modelChange);expect(pendingResponse.status).toBe(202);
-      const pending=await pendingResponse.json() as TripStateContracts["response"];expect(pending).toMatchObject({outcome:"pending_confirmation",revision:1,confirmation_required:true});
+      const choicePlan=await saveChangePlan(choice,"egypt-change-choice",modelChange);
+      const pendingDispatch=await mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),choice.packet_id,choicePlan.decisionRequest.decision_id,"action-change","step-change");
+      expect(pendingDispatch.disposition).toBe("executed");
+      const pending=pendingDispatch.result as TripStateContracts["response"];expect(pending).toMatchObject({outcome:"pending_confirmation",revision:1,confirmation_required:true});
       expect((await readState()).revision).toBe(1);
       const confirmation:DecisionContextContracts["confirm"]={runtime_contract_version:"0.1.0",turn_id:choice.turn_id,proposal_id:pending.proposal_id!,request:{
         expected_revision:1,idempotency_key:"egypt-confirm",proposal_digest:pending.proposal_digest!,accept:true,
@@ -294,20 +330,25 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
 
       const reviseSix=[{op:"revise",object_type:"Constraint",id:"constraint-nights",changes:{value:{kind:"duration",maximum_nights:6}}}] as TripStateContracts["change-request"]["commands"];
       const syncPacket=await packet("请把阿斯旺行程实际调整为六晚"),syncChange=change(syncPacket,"egypt-sync-retry",reviseSix);
+      const syncPlan=await saveChangePlan(syncPacket,"egypt-change-receipt-recovery",syncChange);
       await mounted.adapter.authorizeUserChange(trip,new Headers({cookie}),syncChange);
       const beforeSyncFailure=await counts(),syncCallsBefore=lifecycleSyncCalls;failLifecycleOnce=true;
-      expect((await post("changes",syncChange)).status).toBe(500);
+      await expect(mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),syncPacket.packet_id,syncPlan.decisionRequest.decision_id,"action-change","step-change")).rejects.toThrow();
       expect(await readState()).toMatchObject({revision:3,objects:expect.arrayContaining([expect.objectContaining({id:"constraint-nights",value:{kind:"duration",maximum_nights:6}})])});
       const afterSyncFailure=await counts();expect(afterSyncFailure).toMatchObject({history:beforeSyncFailure.history+1,receipts:beforeSyncFailure.receipts+1});
+      expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),syncPacket.packet_id,syncPlan.decisionRequest.decision_id))
+        .toMatchObject({actions:[{phase:"running",receipt_lookup_required:true}],steps:[{status:"running"}]});
       expect((await post("turns",{entry:"dialogue",text:"生命周期未同步时读取",idempotency_key:`turn_${randomUUID()}`})).status).toBe(503);
-      const syncRetry=await post("changes",syncChange);expect(syncRetry.status).toBe(200);
-      expect(await syncRetry.json()).toMatchObject({outcome:"applied",revision:3});expect(await counts()).toEqual(afterSyncFailure);
+      const syncRetry=await mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),syncPacket.packet_id,syncPlan.decisionRequest.decision_id,"action-change","step-change");
+      expect(syncRetry).toMatchObject({disposition:"receipt_recovered",result:{outcome:"applied",revision:3}});expect(await counts()).toEqual(afterSyncFailure);
       expect(lifecycleSyncCalls).toBe(syncCallsBefore+2);
 
       const revokedPacket=await packet("请再次实际修改阿斯旺天数"),revokedChange=change(revokedPacket,"egypt-revoked",revise);
+      const revokedPlan=await saveChangePlan(revokedPacket,"egypt-change-revoked",revokedChange);
       await mounted.adapter.authorizeUserChange(trip,new Headers({cookie}),revokedChange);
       const beforeRevocation={state:await readState(),counts:await counts()};revokeDuringWrite=true;
-      expect((await post("changes",revokedChange)).status).toBe(403);expect(writeGuardCalls).toBeGreaterThan(0);
+      await expect(mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),revokedPacket.packet_id,revokedPlan.decisionRequest.decision_id,"action-change","step-change")).rejects.toThrow();
+      expect(writeGuardCalls).toBeGreaterThan(0);
       expect({state:await readState(),counts:await counts()}).toEqual(beforeRevocation);
       expect((await post("changes",revokedChange,"")).status).toBe(403);
 

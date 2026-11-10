@@ -9,6 +9,8 @@ import { confirmChange, submitChange } from "../write-bridge/orchestrator";
 import { CheckpointError } from "../checkpoint-core";
 import type {DecisionPlan} from "../../next-action-policy/decision-engine";
 import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-packet-source";
+import {canonicalJson} from "../../trip-state/command-json";
+import {validatePlanRequestConsistency} from "../../next-action-policy/plan-packet-consistency";
 
 type EvidenceHost = Awaited<ReturnType<typeof openEvidenceHost>>;
 
@@ -101,6 +103,46 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
     async markDecisionExecutionUnknownCandidate(tripId:string,credential:Headers,packetId:string,decisionId:string,actionId:string,stepId:string,claimToken:string){
       const ticket=packets.ticketForPacketCandidate(tripId,packetId);if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
       return host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken);
+    },
+    async dispatchDecisionStepCandidate(tripId:string,credential:Headers,packetId:string,decisionId:string,actionId:string,stepId:string){
+      const ticket=packets.ticketForPacketCandidate(tripId,packetId);if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
+      const record=await host.readDecisionRecordCandidate(ticket,credential,decisionId),plan=record.decision.plan_json as DecisionPlan;
+      const action=plan.actions.find(candidate=>candidate.action_id===actionId),step=action?.steps.find(candidate=>candidate.step_id===stepId);
+      const actionRecord=record.actions.find(candidate=>candidate.action_id===actionId),stepRecord=record.steps.find(candidate=>candidate.action_id===actionId&&candidate.step_id===stepId);
+      if(!action||!step||!actionRecord||!stepRecord)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+      if(["succeeded","partial","failed"].includes(actionRecord.phase))return {disposition:"recorded" as const,result:actionRecord.result_json};
+      if(!["change","read","ask"].includes(step.kind))return {disposition:"unsupported" as const,result:null};
+      let claimToken:string|null=null,receipt:unknown=null,validatedPackets:Awaited<ReturnType<typeof readTrustedPacketBatchCandidate>>["packets"]=[];
+      if(actionRecord.phase==="running"&&actionRecord.receipt_lookup_required&&stepRecord.status==="running"&&stepRecord.claim_token){
+        claimToken=stepRecord.claim_token;
+        if(step.kind==="change")receipt=await host.lookupChangeReceiptCandidate(ticket,credential,step.change_request);
+      }else{
+        const storedRequest=record.decision.request_json as TrustedDecisionRequest,ids=plan.basis.map(basis=>basis.packet_id);
+        const batch=await readTrustedPacketBatchCandidate(tripId,credential,ids),current={...storedRequest,runtime_id:batch.runtime_id,packets:batch.packets};
+        if(canonicalJson(current)!==canonicalJson(storedRequest))throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+        validatePlanRequestConsistency(current,plan);validatedPackets=batch.packets;
+        const claim=await host.claimDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId);
+        if(claim.disposition!=="claimed")return {disposition:claim.disposition,result:null};
+        claimToken=claim.claim_token;
+      }
+      if(!claimToken)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+      try{
+        let result=receipt;
+        if(step.kind==="change"&&!result){
+          const body=parseDCContract("change",{runtime_contract_version:"0.1.0",turn_id:plan.basis.find(basis=>basis.packet_id===action.packet_id)!.turn_id,
+            packet_id:action.packet_id,request:step.change_request});
+          result=await submitChange(host.createTransactionalBridgeCandidate(ticket,credential),body);
+        }else if(step.kind==="read"){
+          const packet=validatedPackets.find(candidate=>candidate.packet_id===action.packet_id);
+          if(!packet)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+          result={outcome:"read",packet_id:packet.packet_id,state_revision:packet.context.state_revision,evidence_checked_at:packet.evidence_checked_at,objects:packet.objects};
+        }
+        else if(step.kind!=="change")return {disposition:"unsupported" as const,result:null};
+        if((result as {outcome?:string;revision?:number}|null)?.outcome==="applied"&&syncLifecycle)
+          await syncLifecycle(tripId,(result as {revision:number}).revision);
+        await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,"success",result);
+        return {disposition:receipt?"receipt_recovered" as const:"executed" as const,result};
+      }catch(error){try{await host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken);}catch{}throw error;}
     },
     /** Server-only Packet source for trusted downstream runtimes such as NAP. */
     async readTrustedPacketCandidate(tripId:string,credential:Headers,packetId:string) {

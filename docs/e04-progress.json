@@ -6,7 +6,7 @@
   "branch": "feat/e04-next-action-policy-runtime",
   "local_worktree_branch": "feat/e04-02-04-local",
   "accepted_weight_percent": 8,
-  "implemented_weight_percent": 54,
+  "implemented_weight_percent": 68,
   "scope": "E04 Next Action Policy for the first Egypt internal MVP; implementation progress is not technical acceptance and does not authorize merge, deployment, public APIs, production E11 or suppliers",
   "stages": [
     {
@@ -64,8 +64,14 @@
       "evidence": ["docs/E04-03最小PG行动Runtime.md","src/server/next-action-policy/runtime-store.ts","src/server/next-action-policy/runtime/sql/001-runtime.sql","tests/http/e03-runtime/pr29-host.pg.test.ts"], "blockers": []
     },
     {
-      "id": "E04-04", "name": "受控执行与业务写桥", "weight_percent": 14, "implementation_percent": 0, "status": "NOT_STARTED",
-      "execution_location": "E03 write-bridge 与 E02 权威事务的窄适配", "responsibilities": "主工程集成人接线；不改既有业务真值", "owner_participation": "仅权限边界冲突时", "subtasks": [], "evidence": [], "blockers": []
+      "id": "E04-04", "name": "受控执行与业务写桥", "weight_percent": 14, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
+      "execution_location": "E03 trusted host/http adapter、write-bridge 与 E02 权威事务的窄适配", "responsibilities": "主工程集成人接线；不改既有业务真值", "owner_participation": "仅权限边界冲突时",
+      "subtasks": [
+        {"id":"E04-04-1","description":"从宿主保存 Plan 按引用 dispatch 并重验 Session/membership/runtime/Packet/revision/TTL","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-04-2","description":"自主只读准备返回真实 Packet 对象，无 TS 写入","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-04-3","description":"change 仅经 E03 write-bridge/E02，保留 Grant、Proposal、confirm 与幂等回执","status":"DELIVERED_PENDING_REVIEW"}
+      ],
+      "evidence": ["docs/E04-04受控执行与原写桥.md","src/server/decision-context/http-adapter/pr29-host-candidate.ts","tests/http/e03-runtime/pr29-host.pg.test.ts"], "blockers": []
     },
     {
       "id": "E04-05", "name": "工具结果及外部依据处理", "weight_percent": 10, "implementation_percent": 0, "status": "NOT_STARTED",
