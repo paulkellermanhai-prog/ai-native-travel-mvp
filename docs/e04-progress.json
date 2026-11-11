@@ -3,11 +3,11 @@
   "maintenance_source": "docs/e04-progress.json",
   "generated_view": "docs/E04阶段看板.md",
   "baseline_commit": "a7dde3e0e92b1e975d5c9ef2275aa23c4fd5f9cb",
-  "branch": "feat/e04-next-action-policy-runtime",
-  "local_worktree_branch": "feat/e04-02-04-local",
-  "final_gate_code_sha": "f6b0c862ae200d72d8300f68433ca807ce3d7309",
+  "branch": "feat/e04-05-tool-results",
+  "local_worktree_branch": "feat/e04-05-tool-results",
+  "final_gate_code_sha": "182638217e8745730c5364f579112d10c7cd4c5f",
   "accepted_weight_percent": 8,
-  "implemented_weight_percent": 68,
+  "implemented_weight_percent": 78,
   "scope": "E04 Next Action Policy for the first Egypt internal MVP; implementation progress is not technical acceptance and does not authorize merge, deployment, public APIs, production E11 or suppliers",
   "stages": [
     {
@@ -52,7 +52,7 @@
         {"id":"E04-02-2","description":"宿主证明 source/object evidence、delivery fail closed，并从真实 change command 阻断非法 Candidate 重入","status":"DELIVERED_PENDING_REVIEW"},
         {"id":"E04-02-3","description":"G05 从新可信事件重评，不沿用旧 Action","status":"DELIVERED_PENDING_REVIEW"}
       ],
-      "evidence": ["docs/E04-02最小行动决策器.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","src/server/next-action-policy/decision-engine.ts","tests/next-action-policy/decision-engine.test.ts","f6b0c862ae200d72d8300f68433ca807ce3d7309"], "blockers": []
+      "evidence": ["docs/E04-02最小行动决策器.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","src/server/next-action-policy/decision-engine.ts","tests/next-action-policy/decision-engine.test.ts","c98dcfd8e6b49554158d9ef754dbfb265a714f17","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/37","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43030733010"], "blockers": []
     },
     {
       "id": "E04-03", "name": "Action Runtime 与运行记录", "weight_percent": 18, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
@@ -75,8 +75,16 @@
       "evidence": ["docs/E04-04受控执行与原写桥.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","src/server/decision-context/http-adapter/pr29-host-candidate.ts","src/server/decision-context/host-runtime/expiry-maintenance-candidate.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","f6b0c862ae200d72d8300f68433ca807ce3d7309"], "blockers": []
     },
     {
-      "id": "E04-05", "name": "工具结果及外部依据处理", "weight_percent": 10, "implementation_percent": 0, "status": "NOT_STARTED",
-      "execution_location": "最小能力注册表、调用账本与合成埃及数据适配器", "responsibilities": "主工程集成人实现；真实供应商另行验证", "owner_participation": "首版数据范围变化时参与", "subtasks": [], "evidence": [], "blockers": []
+      "id": "E04-05", "name": "工具结果及外部依据处理", "weight_percent": 10, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
+      "execution_location": "src/server/next-action-policy/tool-*、E04 PG Runtime、E03 trusted host、真实本地 HTTP 合成埃及交通适配器", "responsibilities": "主工程集成人实现并提供真实 PG/Session/HTTP 证据；技术负责人审核阶段出口；真实供应商另行验证", "owner_participation": "当前无需；首版数据范围或事实权限变化时参与",
+      "subtasks": [
+        {"id":"E04-05-1","description":"可信宿主注册 query/calculate Capability；真实本地 HTTP 合成交通和确定性费用计算","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-05-2","description":"ToolInvocation/ToolCompletion 与 Decision/Action/Step、provider、query、revision、TTL 的 PostgreSQL 绑定","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-05-3","description":"result/partial/empty/timeout/error/no_service 分级、晚到/重复/过期/跨权限隔离","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-05-4","description":"可信 tool_result/state_change 触发、当前 Packet 复验和 G05 新计划重评，不复活旧 Action","status":"DELIVERED_PENDING_REVIEW"}
+      ],
+      "evidence": ["docs/E04-05工具结果与可信依据.md","src/server/next-action-policy/tool-capabilities.ts","src/server/next-action-policy/tool-runtime-store.ts","src/server/next-action-policy/tool-dispatch.ts","src/server/next-action-policy/runtime/sql/002-tool-results.sql","tests/next-action-policy/tool-capabilities.test.ts","tests/next-action-policy/completion-binding.test.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","182638217e8745730c5364f579112d10c7cd4c5f"],
+      "blockers": ["E04-07 的 58 scenario、3 walkthrough、12 calibration 尚未真实执行；actual_policy_runs=0","真实供应商、预订、支付与生产 E11 不在本阶段范围"]
     },
     {
       "id": "E04-06", "name": "回应、反馈与多轮连续性", "weight_percent": 10, "implementation_percent": 0, "status": "NOT_STARTED",
