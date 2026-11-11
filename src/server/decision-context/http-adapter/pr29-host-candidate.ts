@@ -4,13 +4,15 @@ import type { ControlledInterpreter, openEvidenceHost } from "../host-runtime/ev
 import { EvidenceBoundaryError } from "../../interaction-evidence/contracts";
 import { createRuntimeHandler } from "./handler";
 import { RuntimeHttpFault } from "../http-core/response";
-import { parseDCContract } from "../contracts";
+import { DecisionContextContractError, parseDCContract } from "../contracts";
 import { confirmChange, submitChange } from "../write-bridge/orchestrator";
+import { BridgeRuleError } from "../write-bridge/rules";
 import { CheckpointError } from "../checkpoint-core";
 import type {DecisionPlan} from "../../next-action-policy/decision-engine";
 import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-packet-source";
 import {canonicalJson} from "../../trip-state/command-json";
 import {validatePlanRequestConsistency} from "../../next-action-policy/plan-packet-consistency";
+import {TripStateContractError} from "../../trip-state/contracts";
 
 type EvidenceHost = Awaited<ReturnType<typeof openEvidenceHost>>;
 
@@ -118,6 +120,7 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       if(["succeeded","failed","stale"].includes(stepRecord.status))return {disposition:"recorded" as const,result:stepRecord.result_json};
       if(["partial","failed","stale","cancelled","blocked"].includes(actionRecord.phase))return {disposition:"action_terminal" as const,result:null};
       if(!["change","read","ask"].includes(step.kind))return {disposition:"unsupported" as const,result:null};
+      if(step.kind==="change"&&!syncLifecycle)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
       let claimToken:string|null=null,receipt:unknown=null,validatedPackets:Awaited<ReturnType<typeof readTrustedPacketBatchCandidate>>["packets"]=[];
       if(actionRecord.phase==="running"&&actionRecord.receipt_lookup_required&&stepRecord.status==="running"&&stepRecord.claim_token){
         claimToken=stepRecord.claim_token;
@@ -145,11 +148,19 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
           result={outcome:"read",step_id:step.step_id,packet_id:packet.packet_id,state_revision:packet.context.state_revision,evidence_checked_at:packet.evidence_checked_at,objects:packet.objects};
         }
         else if(step.kind!=="change")return {disposition:"unsupported" as const,result:null};
-        if((result as {outcome?:string;revision?:number}|null)?.outcome==="applied"&&syncLifecycle)
-          await syncLifecycle(tripId,(result as {revision:number}).revision);
-        await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,"success",result);
+        const changeResult=result as {outcome?:string;revision?:number}|null;
+        if(changeResult?.outcome==="applied")await syncLifecycle!(tripId,changeResult.revision!);
+        // The host derives waiting_user from the preserved pending_confirmation
+        // receipt; only applied/pending receipts are successful submissions.
+        const outcome=step.kind==="change"&&!["applied","pending_confirmation"].includes(changeResult?.outcome??"")?"failure":"success";
+        await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,outcome,result);
         return {disposition:receipt?"receipt_recovered" as const:"executed" as const,result};
-      }catch(error){try{await host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken);}catch{}throw error;}
+      }catch(error){
+        if(error instanceof BridgeRuleError||error instanceof TripStateContractError||error instanceof DecisionContextContractError||error instanceof RuntimeHttpFault){
+          try{await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,"failure",{error:{name:error.name,code:"code" in error?error.code:null,message:error.message}});}catch{}
+        }else try{await host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken);}catch{}
+        throw error;
+      }
     },
     /** Server-only Packet source for trusted downstream runtimes such as NAP. */
     async readTrustedPacketCandidate(tripId:string,credential:Headers,packetId:string) {

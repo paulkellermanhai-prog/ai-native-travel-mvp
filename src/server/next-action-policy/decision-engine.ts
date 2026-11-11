@@ -28,6 +28,16 @@ export class NapDecisionError extends Error {
 const fail=(code:NapDecisionError["code"]):never=>{throw new NapDecisionError(code);};
 const clone=<T>(value:T):T=>structuredClone(value);
 const objectMap=(packet:Packet)=>new Map(packet.objects.map(object=>[object.id,object]));
+const excludedCandidateTarget=(packet:Packet,change:ReturnType<typeof parseContract<"change-request">>)=>{
+  const objects=objectMap(packet);
+  return change.commands.some(command=>{
+    if(!("id" in command))return false;
+    const candidate=objects.get(command.id);
+    if(!candidate||candidate.type!=="Candidate"||!["excluded","conditionally_excluded"].includes(candidate.status))return false;
+    return command.op==="reconsider"||command.op==="decide_candidate"&&command.value!=="reject"||
+      command.op==="transition"&&["activate","reconsider","restore","retain"].includes(command.event);
+  });
+};
 
 function actionEligible(candidate:SemanticAction,packet:Packet,responseIds:Set<string>,now:Date):boolean{
   if(candidate.packet_id!==packet.packet_id||candidate.task_key!==packet.task.task_key||
@@ -43,6 +53,10 @@ function actionEligible(candidate:SemanticAction,packet:Packet,responseIds:Set<s
   if(candidate.reentry_candidate_id!==null){
     const value=objects.get(candidate.reentry_candidate_id);
     if(!value||value.type!=="Candidate"||["excluded","conditionally_excluded"].includes(value.status))return false;
+  }
+  for(const step of candidate.steps)if(step.kind==="change"){
+    try{if(excludedCandidateTarget(packet,parseContract("change-request",step.change_request)))return false;}
+    catch{return false;}
   }
   return true;
 }
@@ -68,6 +82,7 @@ export function validateDecisionPlanHostEligibility(request:TrustedDecisionReque
       const event=packet.pending_input.event;
       if(change.expected_revision!==packet.context.state_revision||change.input.reference!==event.reference||change.input.text!==event.text||
         change.input.kind!==event.entry||canonicalJson([...change.input.target_ids].sort())!==canonicalJson([...packet.task.target_ids].sort()))return fail("INVALID_REQUEST");
+      if(excludedCandidateTarget(packet,change))return fail("INVALID_REQUEST");
     }
   }
 }
@@ -79,8 +94,10 @@ export function decisionEligibilityBinding(request:TrustedDecisionRequest,plan:D
 
 function evidenceCurrent(response:SemanticDecision["response"],packets:Packet[]):boolean{
   const objects=new Map(packets.flatMap(packet=>packet.objects).map(object=>[object.id,object]));
+  const sources=new Set(packets.flatMap(packet=>[packet.pending_input.event.reference,...packet.objects.map(object=>object.source.reference)]));
   return response.evidence_refs.every(reference=>{
-    if(reference.kind!=="object")return true;
+    if(reference.kind==="delivery")return false;
+    if(reference.kind==="source")return reference.version===null&&sources.has(reference.id);
     const object=objects.get(reference.id);
     return !!object&&reference.version===object.version;
   });

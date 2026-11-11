@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import {describe,expect,it} from "vitest";
 import type {DecisionContextContracts} from "../../src/server/decision-context/contracts";
-import {decide,reevaluate,type SemanticAction,type SemanticAdapter,type SemanticDecision} from "../../src/server/next-action-policy/decision-engine";
+import {decide,reevaluate,validateDecisionPlanHostEligibility,type SemanticAction,type SemanticAdapter,type SemanticDecision} from "../../src/server/next-action-policy/decision-engine";
 import type {TrustedDecisionRequest} from "../../src/server/next-action-policy/trusted-packet-source";
 
 const rows=JSON.parse(fs.readFileSync("tests/decision-context/fixtures/r6-contracts.json","utf8")) as Array<{schema:string;value:unknown}>;
@@ -102,5 +102,35 @@ describe("E04-02 deterministic orchestration fixtures",()=>{
       .rejects.toMatchObject({code:"NO_CURRENT_PACKET"});
     const bad={...response(),evidence_refs:[{id:"missing",version:1,kind:"object" as const}]};
     await expect(decide(request(),fixed({response:bad,candidates:[]}),now)).rejects.toMatchObject({code:"SEMANTIC_OUTPUT"});
+  });
+
+  it("accepts only evidence references proved by the trusted Packet",async()=>{
+    const trustedSource={...response(),evidence_refs:[{id:sourcePacket.pending_input.event.reference,version:null,kind:"source" as const}]};
+    await expect(decide(request(),fixed({response:trustedSource,candidates:[]}),now)).resolves.toMatchObject({response:trustedSource});
+    for(const evidence_refs of [
+      [{id:"host-interaction:forged",version:null,kind:"source" as const}],
+      [{id:"delivery-forged",version:null,kind:"delivery" as const}],
+      [{id:"constraint-nights",version:999,kind:"object" as const}],
+    ])await expect(decide(request(),fixed({response:{...response(),evidence_refs},candidates:[]}),now))
+      .rejects.toMatchObject({code:"SEMANTIC_OUTPUT"});
+  });
+
+  it("derives excluded Candidate reentry from the change command instead of trusting the adapter field",async()=>{
+    const packet=structuredClone(sourcePacket),candidate=packet.objects.find(object=>object.type==="Candidate");
+    if(!candidate||candidate.type!=="Candidate")throw new Error("Candidate fixture missing");
+    const event=packet.pending_input.event,change=structuredClone(changeRequest);
+    change.expected_revision=packet.context.state_revision;
+    change.input={kind:event.entry as typeof change.input.kind,reference:event.reference,text:event.text,target_ids:[...packet.task.target_ids]};
+    change.commands=[{op:"decide_candidate",id:candidate.id,value:"accept"}];
+    const action=deliver(packet,{action_id:"action-candidate-change",rank:200,reentry_candidate_id:null,required_object_ids:[candidate.id],
+      steps:[{step_id:"step-candidate-change",kind:"change",depends_on:[],capability_id:null,arguments:{},change_request:change,user_message:null}]});
+    const legalRequest=request(packet,"decision-candidate-legal"),legal=await decide(legalRequest,fixed({response:response(packet),candidates:[action]}),now);
+    expect(legal.actions).toHaveLength(1);
+    const excludedRequest=structuredClone(legalRequest),excluded=excludedRequest.packets[0].objects.find(object=>object.id===candidate.id);
+    if(!excluded||excluded.type!=="Candidate")throw new Error("Candidate fixture missing");
+    excluded.status="excluded";excluded.exclusion_reason="用户已拒绝";
+    await expect(decide(excludedRequest,fixed({response:response(excludedRequest.packets[0]),candidates:[action]}),now))
+      .resolves.toMatchObject({actions:[]});
+    expect(()=>validateDecisionPlanHostEligibility(excludedRequest,legal,now)).toThrow();
   });
 });

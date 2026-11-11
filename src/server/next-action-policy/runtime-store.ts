@@ -71,7 +71,11 @@ async function locked(tx:Prisma.TransactionClient,scope:NapRuntimeScope,decision
 
 async function stale(tx:Prisma.TransactionClient,scope:NapRuntimeScope,decisionId:string,actionId:string){
   await tx.$executeRaw`UPDATE e04_runtime.actions SET phase='stale',updated_at=clock_timestamp()
-    WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND decision_id=${decisionId} AND action_id=${actionId} AND phase IN ('eligible','waiting_user')`;
+    WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND decision_id=${decisionId} AND action_id=${actionId}
+    AND (phase IN ('eligible','waiting_user') OR (phase='running' AND receipt_lookup_required=FALSE AND NOT EXISTS (
+      SELECT 1 FROM e04_runtime.steps WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey}
+      AND decision_id=${decisionId} AND action_id=${actionId} AND status='running'
+    )))`;
   await tx.$executeRaw`UPDATE e04_runtime.steps SET status='stale'
     WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND decision_id=${decisionId} AND action_id=${actionId} AND status='pending'`;
 }

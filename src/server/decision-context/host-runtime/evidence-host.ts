@@ -82,7 +82,7 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void>; beforeTrustedPacketBatchFinalCheck?:()=>Promise<void>; trustedPacketBatchLockTimeoutMs?:number; beforeWriteGuard?:()=>Promise<void> }) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void>; beforeTrustedPacketBatchFinalCheck?:()=>Promise<void>; trustedPacketBatchLockTimeoutMs?:number; beforeWriteGuard?:()=>Promise<void>; beforeExecuteWrite?:()=>Promise<void> }) {
   if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
   if(testHooks?.trustedPacketBatchLockTimeoutMs!==undefined&&(!Number.isInteger(testHooks.trustedPacketBatchLockTimeoutMs)||testHooks.trustedPacketBatchLockTimeoutMs<1))return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
@@ -345,6 +345,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   async function executeWrite(operation:WriteOperation,request:Change["request"]|Confirm["request"],proposalId?:string) {
     const credential=Object.freeze({});writeCredentials.set(credential,operation);
     try {
+      await testHooks?.beforeExecuteWrite?.();
       const service=await writeService();
       return await (operation.kind==="change"?service.submit(operation.scope.tripId,request,credential):service.confirm(operation.scope.tripId,proposalId!,request,credential));
     } finally {writeCredentials.delete(credential);}
@@ -373,7 +374,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       return await exclusive(start.scope,async()=>db.$transaction(async tx=>{
         if(testHooks?.trustedPacketBatchLockTimeoutMs!==undefined)
           await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${testHooks.trustedPacketBatchLockTimeoutMs}ms`}, true)`;
-        const packets:DecisionContextContracts["packet"][]=[],memories:PacketMemory[]=[],leaseIds:string[]=[];
+        const packets:DecisionContextContracts["packet"][]=[],memories:PacketMemory[]=[],leaseIds:string[]=[],deadlines:number[]=[];
         for(const packetId of ids) {
           const memory=start.scope.packets.get(packetId);
           if(!memory||memory.runtimeId!==startingRuntime||memory.expiresAt<=Date.now()||memory.postflight)return unavailable();
@@ -383,11 +384,11 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           const built=await packetFromCurrent(tx,start.scope,start.headers,lease.value,memory.turnId,memory.taskHash,memory.budget,memory);
           checkTurnLease(start.scope,memory.turnId,lease.id);await built.recheck();
           const delivery=memory.tracker.delivery(built.candidate);
-          memories.push(memory);leaseIds.push(lease.id);packets.push(materializeDeliveredPacket(built.candidate,delivery));
+          memories.push(memory);leaseIds.push(lease.id);deadlines.push(built.deadline().wallMs);packets.push(materializeDeliveredPacket(built.candidate,delivery));
         }
         const first=packets[0];
         if(!first||packets.some(packet=>packet.context.state_revision!==first.context.state_revision))return unavailable();
-        const batchExpiresAt=Math.min(...memories.map(memory=>memory.expiresAt),...packets.map(packet=>Date.parse(packet.context.expires_at)));
+        const batchExpiresAt=Math.min(...memories.map(memory=>memory.expiresAt),...packets.map(packet=>Date.parse(packet.context.expires_at)),...deadlines);
         await testHooks?.beforeTrustedPacketBatchFinalCheck?.();
         const final=await scoped(ticket,credential);
         if(final.scope!==start.scope||final.scope.runtimeId!==startingRuntime)return deny();

@@ -17,6 +17,7 @@ import { installE03Candidate } from "../../../scripts/e03-candidate-installer.mj
 import {installE04Runtime} from "../../../scripts/e04-candidate-installer.mjs";
 import { base } from "../../support/bcg-fixtures";
 import {decide,type SemanticAdapter} from "../../../src/server/next-action-policy/decision-engine";
+import {runEvidenceMaintenanceCandidate} from "../../../src/server/decision-context/host-runtime/expiry-maintenance-candidate";
 
 const file=process.env.E03_PR29_WRITE_STORAGE_ENV_FILE;
 if((process.env.CI||process.env.E03_PR29_REAL_TEST==="1")&&!file)throw new Error("PR29 write bridge test requires isolated E03_PR29_WRITE_STORAGE_ENV_FILE");
@@ -33,11 +34,13 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
 
     const owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
     const resources:Array<{close:()=>Promise<void>}>=[];
-    let server:http.Server|undefined,revokeDuringWrite=false,failLifecycleOnce=false,holdPacketHandoff=false,holdLastPageHandoff=false,holdTrustedBatch=false,holdExpiringBatch=false;
+    let server:http.Server|undefined,revokeDuringWrite=false,failLifecycleOnce=false,createConflictingReceipt:TripStateContracts["change-request"]|null=null,
+      holdPacketHandoff=false,holdLastPageHandoff=false,holdTrustedBatch=false,holdExpiringBatch=false,holdSourceDeadlineBatch=false;
     let userId="",sessionId="",trip="",writeGuardCalls=0,lifecycleSyncCalls=0;
     let signalPacketHandoff!:()=>void,releasePacketHandoff!:()=>void,signalLastPageHandoff!:()=>void,releaseLastPageHandoff!:()=>void;
     let signalTrustedBatch!:()=>void,releaseTrustedBatch!:()=>void;
     let signalExpiringBatch!:()=>void,releaseExpiringBatch!:()=>void;
+    let signalSourceDeadlineBatch!:()=>void,releaseSourceDeadlineBatch!:()=>void;
     const packetHandoffEntered=new Promise<void>(resolve=>{signalPacketHandoff=resolve;});
     const packetHandoffGate=new Promise<void>(resolve=>{releasePacketHandoff=resolve;});
     const lastPageHandoffEntered=new Promise<void>(resolve=>{signalLastPageHandoff=resolve;});
@@ -46,6 +49,8 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
     const trustedBatchGate=new Promise<void>(resolve=>{releaseTrustedBatch=resolve;});
     const expiringBatchEntered=new Promise<void>(resolve=>{signalExpiringBatch=resolve;});
     const expiringBatchGate=new Promise<void>(resolve=>{releaseExpiringBatch=resolve;});
+    const sourceDeadlineBatchEntered=new Promise<void>(resolve=>{signalSourceDeadlineBatch=resolve;});
+    const sourceDeadlineBatchGate=new Promise<void>(resolve=>{releaseSourceDeadlineBatch=resolve;});
     try {
       const check=await owner.query("SELECT current_database() AS name,current_setting('server_version_num')::int AS version,to_regclass('public.\"HostEvidenceWorkspace\"') IS NULL AS clean");
       if(check.rows[0]?.name!==cfg.database||check.rows[0]?.version<170000||!check.rows[0]?.clean)throw new Error("Clean dedicated PG 17 required");
@@ -72,6 +77,13 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       },beforeTrustedPacketBatchFinalCheck:async()=>{
         if(holdTrustedBatch){signalTrustedBatch();await trustedBatchGate;}
         if(holdExpiringBatch){signalExpiringBatch();await expiringBatchGate;}
+        if(holdSourceDeadlineBatch){signalSourceDeadlineBatch();await sourceDeadlineBatchGate;}
+      },beforeExecuteWrite:async()=>{
+        if(createConflictingReceipt){
+          const request=createConflictingReceipt;createConflictingReceipt=null;
+          await expect(internal.submit(trip,request,await issueInternalCapability(secret,trip,{role:"model",id:"model-e03-runtime"})))
+            .resolves.toMatchObject({outcome:"pending_confirmation",revision:0});
+        }
       },trustedPacketBatchLockTimeoutMs:500});resources.push(host);
 
       const email=`${randomUUID()}@example.invalid`,password=randomBytes(24).toString("base64url");
@@ -304,6 +316,35 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,readRequest.decision_id))
         .toMatchObject({actions:[{phase:"succeeded"}],steps:[{status:"succeeded"}]});
 
+      const noSyncAdapter=createPr29HostHttpCandidate(host,origin,interpret),syncedAdapter=mounted.adapter!;
+      mounted.adapter=noSyncAdapter;
+      try{
+        const noSyncPacket=await packet("没有 lifecycle 同步能力时不得先写入"),noSyncChange=change(noSyncPacket,"egypt-no-sync",revise);
+        const noSyncPlan=await saveChangePlan(noSyncPacket,"egypt-change-no-sync",noSyncChange),beforeNoSync={state:await readState(),counts:await counts()};
+        await noSyncAdapter.authorizeUserChange(trip,new Headers({cookie}),noSyncChange);
+        await expect(noSyncAdapter.dispatchDecisionStepCandidate(trip,new Headers({cookie}),noSyncPacket.packet_id,noSyncPlan.decisionRequest.decision_id,"action-change","step-change"))
+          .rejects.toMatchObject({code:"RECOVERY_UNAVAILABLE"});
+        expect({state:await readState(),counts:await counts()}).toEqual(beforeNoSync);
+      }finally{mounted.adapter=syncedAdapter;}
+
+      const rejectedPacket=await packet("无效业务对象必须明确拒绝"),rejectedChange=change(rejectedPacket,"egypt-business-rejected",
+        [{op:"revise",object_type:"Constraint",id:"constraint-does-not-exist",changes:{value:{kind:"duration",maximum_nights:5}}}]);
+      const rejectedPlan=await saveChangePlan(rejectedPacket,"egypt-change-rejected",rejectedChange),beforeRejected={state:await readState(),counts:await counts()};
+      const rejectedDispatch=await mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),rejectedPacket.packet_id,rejectedPlan.decisionRequest.decision_id,"action-change","step-change");
+      expect(rejectedDispatch).toMatchObject({disposition:"executed",result:{outcome:"rejected",revision:0,errors:expect.any(Array)}});
+      expect(await readState()).toEqual(beforeRejected.state);
+      expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),rejectedPacket.packet_id,rejectedPlan.decisionRequest.decision_id))
+        .toMatchObject({actions:[{phase:"failed",result_json:{outcome:"rejected"}}],steps:[{status:"failed",result_json:{outcome:"rejected"}}]});
+
+      const conflictWritePacket=await packet("幂等冲突必须明确失败"),conflictWriteChange=change(conflictWritePacket,"egypt-business-conflict",revise);
+      const conflictingReceipt=structuredClone(conflictWriteChange.request);conflictingReceipt.commands=[{op:"revise",object_type:"Constraint",id:"constraint-nights",changes:{value:{kind:"duration",maximum_nights:4}}}];
+      const conflictWritePlan=await saveChangePlan(conflictWritePacket,"egypt-change-conflict",conflictWriteChange);createConflictingReceipt=conflictingReceipt;
+      const conflictDispatch=await mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),conflictWritePacket.packet_id,conflictWritePlan.decisionRequest.decision_id,"action-change","step-change");
+      expect(conflictDispatch).toMatchObject({disposition:"executed",result:{outcome:"conflict",revision:0,errors:expect.any(Array)}});
+      expect((await readState()).revision).toBe(0);
+      expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),conflictWritePacket.packet_id,conflictWritePlan.decisionRequest.decision_id))
+        .toMatchObject({actions:[{phase:"failed",result_json:{outcome:"conflict"}}],steps:[{status:"failed",result_json:{outcome:"conflict"}}]});
+
       const unknownPacket=await packet("执行结果未知时不要重提业务写入"),unknownChange=change(unknownPacket,"egypt-unknown-no-receipt",[{op:"decide_candidate",id:"candidate-aswan",value:"accept"}]);
       const unknownPlan=await saveChangePlan(unknownPacket,"egypt-change-unknown-no-receipt",unknownChange);
       const unknownClaim=await mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),unknownPacket.packet_id,unknownPlan.decisionRequest.decision_id,"action-change","step-change");
@@ -316,6 +357,17 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
 
       const actualPlan=await saveChangePlan(actual,"egypt-change-actual",actualChange);
       const staleNapChange=change(conflictPacket,"egypt-nap-stale",revise);await saveChangePlan(conflictPacket,"egypt-change-stale",staleNapChange);
+      const staleDependencyRequest={...conflictRequest,decision_id:"egypt-runtime-running-stale"};
+      const staleDependencyPlan=await decide(staleDependencyRequest,{assess:async request=>{
+        const source=request.packets[0];return {response:{request_ids:[source.task.task_key],disposition:"answered",text:"多步骤失效测试",evidence_refs:[]},
+          candidates:[{action_id:"action-running-stale",task_key:source.task.task_key,packet_id:source.packet_id,request_ids:[source.task.task_key],
+            goal:"D2",preferred_attention:"primary",reason:"第一步完成后保留结果",rank:100,required_object_ids:[],reentry_candidate_id:null,steps:[
+              {step_id:"step-running-first",kind:"read",depends_on:[],capability_id:null,arguments:{},change_request:null,user_message:null},
+              {step_id:"step-running-second",kind:"read",depends_on:["step-running-first"],capability_id:null,arguments:{},change_request:null,user_message:null},
+            ]}]};
+      }});await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),staleDependencyRequest,staleDependencyPlan);
+      const runningFirst=await mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,staleDependencyRequest.decision_id,"action-running-stale","step-running-first");
+      expect(runningFirst).toMatchObject({disposition:"executed",result:{outcome:"read",step_id:"step-running-first"}});
       const beforeWrongSession=await counts();
       await expect(mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie:secondCookie}),actual.packet_id,actualPlan.decisionRequest.decision_id,"action-change","step-change"))
         .rejects.toThrow();
@@ -326,6 +378,13 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const applied=appliedDispatch.result as TripStateContracts["response"];expect(applied).toMatchObject({outcome:"applied",revision:1});
       expect((await readState()).objects.find(object=>object.id==="constraint-nights")).toMatchObject({value:{maximum_nights:5}});
       const afterAppliedCounts=await counts();
+      await expect(mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,staleDependencyRequest.decision_id,"action-running-stale","step-running-second"))
+        .resolves.toMatchObject({disposition:"stale"});
+      expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,staleDependencyRequest.decision_id))
+        .toMatchObject({actions:[{phase:"stale",receipt_lookup_required:false}],steps:[
+          {step_id:"step-running-first",status:"succeeded",result_json:{outcome:"read",step_id:"step-running-first"}},
+          {step_id:"step-running-second",status:"stale",result_json:null},
+        ]});
       await expect(mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,"egypt-change-stale","action-change","step-change"))
         .rejects.toThrow();
       expect(await counts()).toEqual(afterAppliedCounts);
@@ -415,6 +474,30 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       expect((await owner.query<{request_json:string;plan_json:string}>('SELECT request_json::text,plan_json::text FROM e04_runtime.decisions WHERE decision_id=$1',[expiryRequest.decision_id])).rows[0])
         .toEqual({request_json:'{"redacted": true}',plan_json:'{"redacted": true}'});
 
+      const maintainedText="自然到期维护必须主动删除的独特用户原文",maintainedPacket=await packet(maintainedText);
+      const maintainedRequest=await buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-maintained-expiry",
+        trigger:{kind:"user_event",reference:maintainedPacket.pending_input.event.reference},packetIds:[maintainedPacket.packet_id]});
+      const maintainedPlan=await decide(maintainedRequest,runtimeAdapter);await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),maintainedRequest,maintainedPlan);
+      await owner.query("UPDATE e04_runtime.decisions SET expires_at=clock_timestamp()+interval '250 milliseconds' WHERE decision_id=$1",[maintainedRequest.decision_id]);
+      await new Promise(resolve=>setTimeout(resolve,350));
+      const maintenance=await runEvidenceMaintenanceCandidate(owner,0,64);expect(maintenance).toMatchObject({redacted:expect.any(Number)});expect(maintenance.redacted).toBeGreaterThan(0);
+      const maintainedRow=(await owner.query<{request_json:string;plan_json:string;content_available:boolean;decision_id:string;request_digest:string}>(
+        'SELECT decision_id,request_digest,request_json::text,plan_json::text,content_available FROM e04_runtime.decisions WHERE decision_id=$1',[maintainedRequest.decision_id])).rows[0];
+      expect(maintainedRow).toMatchObject({decision_id:maintainedRequest.decision_id,request_digest:expect.stringMatching(/^[a-f0-9]{64}$/),
+        request_json:'{"redacted": true}',plan_json:'{"redacted": true}',content_available:false});
+      expect(JSON.stringify(maintainedRow)).not.toContain(maintainedText);
+
+      const sourceDeadlineBatch=await packetsWithTurn("来源精确期限必须进入整批最终复验");
+      await owner.query(`UPDATE public."HostEvidenceTripLifecycle" SET ended_at=clock_timestamp()-interval '30 days'+interval '2 seconds' WHERE trip_id=$1`,[trip]);
+      expect(Date.parse(sourceDeadlineBatch.packets[0].context.expires_at)).toBeGreaterThan(Date.now()+2_000);
+      holdSourceDeadlineBatch=true;
+      const sourceDeadlineRead=buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-batch-source-deadline",
+        trigger:{kind:"user_event",reference:sourceDeadlineBatch.packets[0].pending_input.event.reference},packetIds:sourceDeadlineBatch.packets.map(value=>value.packet_id)});
+      await sourceDeadlineBatchEntered;await new Promise(resolve=>setTimeout(resolve,2_100));holdSourceDeadlineBatch=false;releaseSourceDeadlineBatch();
+      try{await expect(sourceDeadlineRead).rejects.toThrow();}finally{
+        await owner.query('UPDATE public."HostEvidenceTripLifecycle" SET ended_at=NULL WHERE trip_id=$1',[trip]);
+      }
+
       const expiringState=await readState(),batchExpiry=new Date(Date.now()+2_000).toISOString();
       for(const object of expiringState.objects)if(object.type==="ExternalFact")object.expires_at=batchExpiry;
       await owner.query('UPDATE "TripStateDocument" SET "snapshot"=$2::jsonb WHERE "tripId"=$1',[trip,JSON.stringify(expiringState)]);
@@ -439,6 +522,7 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       releaseLastPageHandoff();
       releaseTrustedBatch();
       releaseExpiringBatch();
+      releaseSourceDeadlineBatch();
       if(server){server.close();await once(server,"close");}
       await Promise.allSettled(resources.reverse().map(resource=>resource.close()));await owner.end();
     }
