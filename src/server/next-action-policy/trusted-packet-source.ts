@@ -3,7 +3,8 @@ import { parseDCContract, type DecisionContextContracts } from "../decision-cont
 import { validateNapMessage } from "./contracts";
 
 type Packet = DecisionContextContracts["packet"];
-type PacketSource = Pick<ReturnType<typeof createPr29HostHttpCandidate>,"readTrustedPacketBatchCandidate">;
+type PacketSource = Pick<ReturnType<typeof createPr29HostHttpCandidate>,"readTrustedPacketBatchCandidate">&
+  Partial<Pick<ReturnType<typeof createPr29HostHttpCandidate>,"readTrustedTriggerCandidate">>;
 type Trigger = {kind:"user_event"|"tool_result"|"state_change"|"clock_tick"|"ui_action";reference:string};
 export type TrustedDecisionRequest = {
   nap_contract_version:"0.1.0";
@@ -32,7 +33,7 @@ export async function buildTrustedDecisionRequest(source:PacketSource,input:{
   const ids=[...input.packetIds];
   if(!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(input.tripId)||
     !/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(input.decisionId)||ids.length<1||
-    input.trigger.kind!=="user_event"||new Set(ids).size!==ids.length||
+    !["user_event","tool_result","state_change"].includes(input.trigger.kind)||new Set(ids).size!==ids.length||
     ids.some(id=>!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(id)))throw new NapTrustedPacketError();
   const credential=new Headers({cookie:input.credential.get("cookie")??""});
   let row:Awaited<ReturnType<PacketSource["readTrustedPacketBatchCandidate"]>>;
@@ -48,7 +49,13 @@ export async function buildTrustedDecisionRequest(source:PacketSource,input:{
   const first=packets[0];
   if(!runtimeId||!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(runtimeId)||
     packets.some(packet=>packet.context.state_revision!==first.context.state_revision||
-      packet.pending_input.event.reference!==input.trigger.reference))return invalid();
+      input.trigger.kind==="user_event"&&packet.pending_input.event.reference!==input.trigger.reference))return invalid();
+  if(input.trigger.kind!=="user_event"){
+    if(!source.readTrustedTriggerCandidate)return invalid();
+    let trigger:Awaited<ReturnType<NonNullable<PacketSource["readTrustedTriggerCandidate"]>>>;
+    try{trigger=await source.readTrustedTriggerCandidate(input.tripId,credential,input.trigger,ids);}catch{return invalid();}
+    if(trigger.runtime_id!==runtimeId||trigger.state_revision!==first.context.state_revision)return invalid();
+  }
   const request:TrustedDecisionRequest={nap_contract_version:"0.1.0",decision_id:input.decisionId,runtime_id:runtimeId,
     trigger:structuredClone(input.trigger),packets};
   try {validateNapMessage("DecisionRequest",request);} catch {return invalid();}

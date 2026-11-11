@@ -123,7 +123,7 @@ export async function completeDecisionStep(tx:Prisma.TransactionClient,scope:Nap
     outcome==="pending_confirmation"?nextActionPhase(value.action.phase,{kind:"await_confirmation",proposalRecorded:true}):
     outcome==="success"&&!allSucceeded?{phase:"running" as const,receiptLookupRequired:false}:
     nextActionPhase(value.action.phase,{kind:"complete",basisCurrent:true,outcome});
-  const stepStatus=!basisCurrent?"stale":outcome==="success"||outcome==="pending_confirmation"?"succeeded":"failed";
+  const stepStatus=!basisCurrent?"stale":outcome==="failure"?"failed":"succeeded";
   await tx.$executeRaw`UPDATE e04_runtime.steps SET status=${stepStatus},result_json=${JSON.stringify(result)}::jsonb,completed_at=clock_timestamp()
     WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND decision_id=${decisionId} AND action_id=${actionId} AND step_id=${stepId}`;
   const actionResult=["running","waiting_user"].includes(transition.phase)?null:result;

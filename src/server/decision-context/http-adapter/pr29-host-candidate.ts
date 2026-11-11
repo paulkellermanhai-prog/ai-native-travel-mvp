@@ -13,12 +13,16 @@ import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-pack
 import {canonicalJson} from "../../trip-state/command-json";
 import {validatePlanRequestConsistency} from "../../next-action-policy/plan-packet-consistency";
 import {TripStateContractError} from "../../trip-state/contracts";
+import type {CapabilityRegistry} from "../../next-action-policy/tool-capabilities";
+import {NapCapabilityError} from "../../next-action-policy/tool-capabilities";
+import {executeToolStep} from "../../next-action-policy/tool-dispatch";
+import {NapToolRuntimeError} from "../../next-action-policy/tool-runtime-store";
 
 type EvidenceHost = Awaited<ReturnType<typeof openEvidenceHost>>;
 
 /** Internal MVP candidate. Opaque host tickets and User grants never cross HTTP. */
 export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, interpret?: ControlledInterpreter,
-  syncLifecycle?: (tripId:string,revision:number)=>Promise<void>) {
+  syncLifecycle?: (tripId:string,revision:number)=>Promise<void>,toolRegistry?:CapabilityRegistry) {
   const packets = createPacketHttpCandidate(host, origin, interpret);
   const writes = createRuntimeHandler({ origin, async authorize(tripId, headers) {
     let sessionKey:string;
@@ -77,6 +81,16 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
     if(packetIds.some(packetId=>packets.ticketForPacketCandidate(tripId,packetId)!==ticket))throw new RuntimeHttpFault("ACCESS_DENIED");
     return host.readTrustedPacketBatchCandidate(ticket,credential,packetIds);
   }
+  async function readTrustedTriggerCandidate(tripId:string,credential:Headers,trigger:{kind:string;reference:string},packetIds:readonly string[]){
+    if(!["tool_result","state_change"].includes(trigger.kind))throw new RuntimeHttpFault("ACCESS_DENIED");
+    const completionId=trigger.kind==="state_change"&&trigger.reference.startsWith("state-change:")?trigger.reference.slice(13):trigger.reference;
+    if(!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(completionId))throw new RuntimeHttpFault("ACCESS_DENIED");
+    const tickets=packetIds.map(packetId=>packets.ticketForPacketCandidate(tripId,packetId)),ticket=tickets[0];
+    if(!ticket||tickets.some(candidate=>candidate!==ticket))throw new RuntimeHttpFault("ACCESS_DENIED");
+    const row=await host.readToolTriggerCandidate(ticket,credential,completionId);
+    if(trigger.kind==="state_change"&&row.completion.validated_fact_ids.length===0)throw new RuntimeHttpFault("ACCESS_DENIED");
+    return {runtime_id:row.runtime_id,state_revision:row.state_revision};
+  }
 
   return {
     bindTurn: packets.bindTurn,
@@ -93,7 +107,12 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       return host.deleteEvent(ticket,credential,eventId);
     },
     readTrustedPacketBatchCandidate,
+    readTrustedTriggerCandidate,
     async saveDecisionPlanCandidate(tripId:string,credential:Headers,request:TrustedDecisionRequest,plan:DecisionPlan){
+      for(const action of plan.actions)for(const step of action.steps)if(step.kind==="query"||step.kind==="calculate"){
+        if(!toolRegistry)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+        try{toolRegistry.prepare(step.kind,step.capability_id,step.arguments);}catch{throw new RuntimeHttpFault("ACCESS_DENIED");}
+      }
       const tickets=request.packets.map(packet=>packets.ticketForPacketCandidate(tripId,packet.packet_id)),ticket=tickets[0];
       if(!ticket||tickets.some(candidate=>candidate!==ticket))throw new RuntimeHttpFault("ACCESS_DENIED");
       await packets.awaitPacketHandoffCandidate(ticket);
@@ -119,8 +138,10 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       if(!action||!step||!actionRecord||!stepRecord)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
       if(["succeeded","failed","stale"].includes(stepRecord.status))return {disposition:"recorded" as const,result:stepRecord.result_json};
       if(["partial","failed","stale","cancelled","blocked"].includes(actionRecord.phase))return {disposition:"action_terminal" as const,result:null};
-      if(!["change","read","ask"].includes(step.kind))return {disposition:"unsupported" as const,result:null};
+      if(!["change","read","ask","query","calculate"].includes(step.kind))return {disposition:"unsupported" as const,result:null};
       if(step.kind==="change"&&!syncLifecycle)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+      if((step.kind==="query"||step.kind==="calculate")&&!toolRegistry)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+      if(step.kind==="query"&&!syncLifecycle)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
       let claimToken:string|null=null,receipt:unknown=null,validatedPackets:Awaited<ReturnType<typeof readTrustedPacketBatchCandidate>>["packets"]=[];
       if(actionRecord.phase==="running"&&actionRecord.receipt_lookup_required&&stepRecord.status==="running"&&stepRecord.claim_token){
         claimToken=stepRecord.claim_token;
@@ -130,6 +151,7 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
         const storedRequest=record.decision.request_json as TrustedDecisionRequest,ids=plan.basis.map(basis=>basis.packet_id);
         const batch=await readTrustedPacketBatchCandidate(tripId,credential,ids),current={...storedRequest,runtime_id:batch.runtime_id,packets:batch.packets};
         if(canonicalJson(current)!==canonicalJson(storedRequest))throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
+        if(storedRequest.trigger.kind!=="user_event")await readTrustedTriggerCandidate(tripId,credential,storedRequest.trigger,ids);
         validatePlanRequestConsistency(current,plan);validatedPackets=batch.packets;
         const claim=await host.claimDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId);
         if(claim.disposition!=="claimed")return {disposition:claim.disposition,result:null};
@@ -137,6 +159,11 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       }
       if(!claimToken)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
       try{
+        if(step.kind==="query"||step.kind==="calculate"){
+          const executed=await executeToolStep({host,ticket,credential:new Headers({cookie:credential.get("cookie")??""}),registry:toolRegistry!,plan,
+            action,step,claimToken,syncLifecycle,tripId});
+          return {disposition:"executed" as const,result:executed.result};
+        }
         let result=receipt;
         if(step.kind==="change"&&!result){
           const body=parseDCContract("change",{runtime_contract_version:"0.1.0",turn_id:plan.basis.find(basis=>basis.packet_id===action.packet_id)!.turn_id,
@@ -156,7 +183,8 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
         await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,outcome,result);
         return {disposition:receipt?"receipt_recovered" as const:"executed" as const,result};
       }catch(error){
-        if(error instanceof BridgeRuleError||error instanceof TripStateContractError||error instanceof DecisionContextContractError||error instanceof RuntimeHttpFault){
+        if(error instanceof BridgeRuleError||error instanceof TripStateContractError||error instanceof DecisionContextContractError||error instanceof RuntimeHttpFault||
+          error instanceof NapCapabilityError||error instanceof NapToolRuntimeError){
           try{await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,"failure",{error:{name:error.name,code:"code" in error?error.code:null,message:error.message}});}catch{}
         }else try{await host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken);}catch{}
         throw error;

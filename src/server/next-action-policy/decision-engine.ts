@@ -65,9 +65,9 @@ function actionEligible(candidate:SemanticAction,packet:Packet,responseIds:Set<s
 export function validateDecisionPlanHostEligibility(request:TrustedDecisionRequest,plan:DecisionPlan,now=new Date()):void{
   validatePlanRequestConsistency(request,plan);
   if(!evidenceCurrent(plan.response,request.packets))return fail("INVALID_REQUEST");
-  if(request.trigger.kind!=="user_event")return fail("INVALID_REQUEST");
+  if(!["user_event","tool_result","state_change"].includes(request.trigger.kind))return fail("INVALID_REQUEST");
   const packets=new Map(request.packets.map(packet=>[packet.packet_id,packet]));
-  for(const packet of request.packets)if(packet.pending_input.event.reference!==request.trigger.reference||packet.coverage!=="complete"||
+  for(const packet of request.packets)if(request.trigger.kind==="user_event"&&packet.pending_input.event.reference!==request.trigger.reference||packet.coverage!=="complete"||
     packet.support!=="decision_support"||packet.deferred_ids.length!==0||packet.context.status!=="active"||
     new Date(packet.context.expires_at).getTime()<=now.getTime())return fail("NO_CURRENT_PACKET");
   for(const action of plan.actions){
@@ -108,7 +108,7 @@ function evidenceCurrent(response:SemanticDecision["response"],packets:Packet[],
 export async function decide(requestValue:TrustedDecisionRequest,adapter:SemanticAdapter,now=new Date()):Promise<DecisionPlan>{
   let request:TrustedDecisionRequest;
   try{request=clone(requestValue);validateNapMessage("DecisionRequest",request);}catch{return fail("INVALID_REQUEST");}
-  if(request.trigger.kind!=="user_event"||request.packets.some(packet=>packet.pending_input.event.reference!==request.trigger.reference||
+  if(!["user_event","tool_result","state_change"].includes(request.trigger.kind)||request.packets.some(packet=>request.trigger.kind==="user_event"&&packet.pending_input.event.reference!==request.trigger.reference||
     new Date(packet.context.expires_at).getTime()<=now.getTime()))return fail("NO_CURRENT_PACKET");
   let semantic:SemanticDecision;
   try{semantic=clone(await adapter.assess(clone(request)));}catch{return fail("SEMANTIC_OUTPUT");}
@@ -138,7 +138,6 @@ export async function decide(requestValue:TrustedDecisionRequest,adapter:Semanti
 /** G05 always reruns semantics and host eligibility from a new trusted request. */
 export async function reevaluate(previous:DecisionPlan,previousRequest:TrustedDecisionRequest,request:TrustedDecisionRequest,adapter:SemanticAdapter,now=new Date()):Promise<DecisionPlan>{
   try{validatePlanRequestConsistency(previousRequest,previous);}catch{return fail("INVALID_REQUEST");}
-  if(previous.decision_id===request.decision_id||previousRequest.trigger.kind!==request.trigger.kind||
-    previousRequest.trigger.reference===request.trigger.reference)return fail("INVALID_REQUEST");
+  if(previous.decision_id===request.decision_id||previousRequest.trigger.reference===request.trigger.reference)return fail("INVALID_REQUEST");
   return decide(request,adapter,now);
 }
