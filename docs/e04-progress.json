@@ -83,7 +83,7 @@
         {"id":"E04-05-3","description":"result/partial/empty/timeout/error/no_service 分级、晚到/重复/过期/跨权限隔离","status":"DELIVERED_PENDING_REVIEW"},
         {"id":"E04-05-4","description":"可信 tool_result/state_change 触发、当前 Packet 复验和 G05 新计划重评，不复活旧 Action","status":"DELIVERED_PENDING_REVIEW"}
       ],
-      "evidence": ["docs/E04-05工具结果与可信依据.md","src/server/next-action-policy/tool-capabilities.ts","src/server/next-action-policy/tool-runtime-store.ts","src/server/next-action-policy/tool-dispatch.ts","src/server/next-action-policy/runtime/sql/002-tool-results.sql","tests/next-action-policy/tool-capabilities.test.ts","tests/next-action-policy/completion-binding.test.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","182638217e8745730c5364f579112d10c7cd4c5f"],
+      "evidence": ["docs/E04-05工具结果与可信依据.md","src/server/next-action-policy/tool-capabilities.ts","src/server/next-action-policy/tool-runtime-store.ts","src/server/next-action-policy/tool-dispatch.ts","src/server/next-action-policy/runtime/sql/002-tool-results.sql","tests/next-action-policy/tool-capabilities.test.ts","tests/next-action-policy/completion-binding.test.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","182638217e8745730c5364f579112d10c7cd4c5f","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/38","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43043895599"],
       "blockers": ["E04-07 的 58 scenario、3 walkthrough、12 calibration 尚未真实执行；actual_policy_runs=0","真实供应商、预订、支付与生产 E11 不在本阶段范围"]
     },
     {
