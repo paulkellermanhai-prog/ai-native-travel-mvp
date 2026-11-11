@@ -85,6 +85,11 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
       return host.authorizeUserChangeCandidate(ticket,credential,body);
     },
+    /** Server-side E11 erasure path; it also redacts NAP records bound to the deleted source event. */
+    async deleteEvidenceEventCandidate(tripId:string,credential:Headers,packetId:string,eventId:string) {
+      const ticket=packets.ticketForPacketCandidate(tripId,packetId);if(!ticket)throw new RuntimeHttpFault("ACCESS_DENIED");
+      return host.deleteEvent(ticket,credential,eventId);
+    },
     readTrustedPacketBatchCandidate,
     async saveDecisionPlanCandidate(tripId:string,credential:Headers,request:TrustedDecisionRequest,plan:DecisionPlan){
       const tickets=request.packets.map(packet=>packets.ticketForPacketCandidate(tripId,packet.packet_id)),ticket=tickets[0];
@@ -110,12 +115,14 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       const action=plan.actions.find(candidate=>candidate.action_id===actionId),step=action?.steps.find(candidate=>candidate.step_id===stepId);
       const actionRecord=record.actions.find(candidate=>candidate.action_id===actionId),stepRecord=record.steps.find(candidate=>candidate.action_id===actionId&&candidate.step_id===stepId);
       if(!action||!step||!actionRecord||!stepRecord)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
-      if(["succeeded","partial","failed"].includes(actionRecord.phase))return {disposition:"recorded" as const,result:actionRecord.result_json};
+      if(["succeeded","failed","stale"].includes(stepRecord.status))return {disposition:"recorded" as const,result:stepRecord.result_json};
+      if(["partial","failed","stale","cancelled","blocked"].includes(actionRecord.phase))return {disposition:"action_terminal" as const,result:null};
       if(!["change","read","ask"].includes(step.kind))return {disposition:"unsupported" as const,result:null};
       let claimToken:string|null=null,receipt:unknown=null,validatedPackets:Awaited<ReturnType<typeof readTrustedPacketBatchCandidate>>["packets"]=[];
       if(actionRecord.phase==="running"&&actionRecord.receipt_lookup_required&&stepRecord.status==="running"&&stepRecord.claim_token){
         claimToken=stepRecord.claim_token;
         if(step.kind==="change")receipt=await host.lookupChangeReceiptCandidate(ticket,credential,step.change_request);
+        if(receipt===null)return {disposition:"execution_unknown" as const,result:null};
       }else{
         const storedRequest=record.decision.request_json as TrustedDecisionRequest,ids=plan.basis.map(basis=>basis.packet_id);
         const batch=await readTrustedPacketBatchCandidate(tripId,credential,ids),current={...storedRequest,runtime_id:batch.runtime_id,packets:batch.packets};
@@ -135,7 +142,7 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
         }else if(step.kind==="read"){
           const packet=validatedPackets.find(candidate=>candidate.packet_id===action.packet_id);
           if(!packet)throw new RuntimeHttpFault("RECOVERY_UNAVAILABLE");
-          result={outcome:"read",packet_id:packet.packet_id,state_revision:packet.context.state_revision,evidence_checked_at:packet.evidence_checked_at,objects:packet.objects};
+          result={outcome:"read",step_id:step.step_id,packet_id:packet.packet_id,state_revision:packet.context.state_revision,evidence_checked_at:packet.evidence_checked_at,objects:packet.objects};
         }
         else if(step.kind!=="change")return {disposition:"unsupported" as const,result:null};
         if((result as {outcome?:string;revision?:number}|null)?.outcome==="applied"&&syncLifecycle)

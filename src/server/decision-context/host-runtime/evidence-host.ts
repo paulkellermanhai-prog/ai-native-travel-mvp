@@ -27,10 +27,9 @@ import { openTripCommandService, type CommandHost } from "../../trip-state/inter
 import { parseContract, TripStateContractError } from "../../trip-state/contracts";
 import { BridgeRuleError, checkChangeRules, checkConfirmationRules, checkGrantFields } from "../write-bridge/rules";
 import type { TransactionalBridgeHost } from "../write-bridge/orchestrator";
-import type {DecisionPlan} from "../../next-action-policy/decision-engine";
-import {claimDecisionStep,completeDecisionStep,markExecutionUnknown,readDecisionRecord,saveDecisionPlan} from "../../next-action-policy/runtime-store";
+import {validateDecisionPlanHostEligibility,type DecisionPlan} from "../../next-action-policy/decision-engine";
+import {claimDecisionStep,completeDecisionStep,markExecutionUnknown,readDecisionRecord,redactDecisionsForSourceEvent,saveDecisionPlan} from "../../next-action-policy/runtime-store";
 import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-packet-source";
-import {validatePlanRequestConsistency} from "../../next-action-policy/plan-packet-consistency";
 
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
 type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>; incomplete: boolean; fingerprint: string; eventSequence: number; retentionRevision: number };
@@ -388,6 +387,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         }
         const first=packets[0];
         if(!first||packets.some(packet=>packet.context.state_revision!==first.context.state_revision))return unavailable();
+        const batchExpiresAt=Math.min(...memories.map(memory=>memory.expiresAt),...packets.map(packet=>Date.parse(packet.context.expires_at)));
         await testHooks?.beforeTrustedPacketBatchFinalCheck?.();
         const final=await scoped(ticket,credential);
         if(final.scope!==start.scope||final.scope.runtimeId!==startingRuntime)return deny();
@@ -395,13 +395,14 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${final.scope.tripId} FOR SHARE`;
         if(!document||document.revision!==BigInt(first.context.state_revision))return unavailable();
         const now=document.now.getTime();
+        if(!Number.isFinite(batchExpiresAt)||batchExpiresAt<=now)return unavailable();
         for(let index=0;index<memories.length;index++) {
           const memory=memories[index],progress=memory.tracker.progress();
           if(final.scope.packets.get(memory.packetId)!==memory||memory.runtimeId!==startingRuntime||memory.expiresAt<=now||memory.postflight||
             !progress.initial_sent||progress.pending||progress.remaining_count!==0)return unavailable();
           checkTurnLease(final.scope,memory.turnId,leaseIds[index]);
         }
-        return {runtime_id:startingRuntime,packets};
+        return {runtime_id:startingRuntime,expires_at:new Date(batchExpiresAt).toISOString(),packets};
       }));
     } catch(error) {
       if(error instanceof EvidenceBoundaryError)throw error;
@@ -510,6 +511,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           if (!result || result.disposition === "denied") return deny();
           if (result.disposition === "missing") throw new EvidenceBoundaryError("EVIDENCE_MISSING");
           if (result.disposition !== "deleted" || !result.accepted_at || result.cleanup_pending === null) return unavailable();
+          const [runtime]=await tx.$queryRaw<Array<{installed:boolean}>>`SELECT to_regclass('e04_runtime.decisions') IS NOT NULL AS installed`;
+          if(runtime?.installed)await redactDecisionsForSourceEvent(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey},`host-interaction:${eventId}`);
           counter(result.deletion_revision); counter(result.event_highwater); return result;
         });
         // The first deletion's persisted cutoff is replayed unchanged. It
@@ -1009,7 +1012,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     },
     async saveDecisionPlanCandidate(ticket:object,credential:Headers,requestValue:TrustedDecisionRequest,planValue:DecisionPlan){
       let request:TrustedDecisionRequest,plan:DecisionPlan;
-      try{request=structuredClone(requestValue);plan=structuredClone(planValue);validatePlanRequestConsistency(request,plan);}catch{return unavailable();}
+      try{request=structuredClone(requestValue);plan=structuredClone(planValue);validateDecisionPlanHostEligibility(request,plan);}catch{return unavailable();}
       const batch=await readTrustedPacketBatch(ticket,credential,request.packets.map(packet=>packet.packet_id));
       const trusted={...request,runtime_id:batch.runtime_id,packets:batch.packets};
       if(canonicalJson(trusted)!==canonicalJson(request))return unavailable();
@@ -1019,7 +1022,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
         if(!document||scope.runtimeId!==request.runtime_id||document.revision!==BigInt(plan.basis[0].state_revision)||
           plan.basis.some(basis=>new Date(basis.expires_at).getTime()<=document.now.getTime()))return unavailable();
-        return saveDecisionPlan(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},request,plan);
+        return saveDecisionPlan(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},request,plan,new Date(batch.expires_at));
       }));
     },
     async claimDecisionStepCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string){
@@ -1052,8 +1055,13 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       const {scope,headers}=await scoped(ticket,credential);
       return exclusive(scope,async()=>db.$transaction(async tx=>{
         try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        if(!document)return unavailable();
+        const response=result&&typeof result==="object"&&!Array.isArray(result)?result as {outcome?:unknown;revision?:unknown}:null;
+        const authoritativeRevision=response?.outcome==="applied"&&Number.isSafeInteger(response.revision)?response.revision as number:null;
+        const completionOutcome=response?.outcome==="pending_confirmation"?"pending_confirmation" as const:outcome;
         return completeDecisionStep(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
-          decisionId,actionId,stepId,claimToken,outcome,true,result);
+          decisionId,actionId,stepId,claimToken,completionOutcome,Number(document.revision),document.now,authoritativeRevision,result);
       }));
     },
     async lookupChangeReceiptCandidate(ticket:object,credential:Headers,value:unknown){

@@ -33,16 +33,19 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
 
     const owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
     const resources:Array<{close:()=>Promise<void>}>=[];
-    let server:http.Server|undefined,revokeDuringWrite=false,failLifecycleOnce=false,holdPacketHandoff=false,holdLastPageHandoff=false,holdTrustedBatch=false;
+    let server:http.Server|undefined,revokeDuringWrite=false,failLifecycleOnce=false,holdPacketHandoff=false,holdLastPageHandoff=false,holdTrustedBatch=false,holdExpiringBatch=false;
     let userId="",sessionId="",trip="",writeGuardCalls=0,lifecycleSyncCalls=0;
     let signalPacketHandoff!:()=>void,releasePacketHandoff!:()=>void,signalLastPageHandoff!:()=>void,releaseLastPageHandoff!:()=>void;
     let signalTrustedBatch!:()=>void,releaseTrustedBatch!:()=>void;
+    let signalExpiringBatch!:()=>void,releaseExpiringBatch!:()=>void;
     const packetHandoffEntered=new Promise<void>(resolve=>{signalPacketHandoff=resolve;});
     const packetHandoffGate=new Promise<void>(resolve=>{releasePacketHandoff=resolve;});
     const lastPageHandoffEntered=new Promise<void>(resolve=>{signalLastPageHandoff=resolve;});
     const lastPageHandoffGate=new Promise<void>(resolve=>{releaseLastPageHandoff=resolve;});
     const trustedBatchEntered=new Promise<void>(resolve=>{signalTrustedBatch=resolve;});
     const trustedBatchGate=new Promise<void>(resolve=>{releaseTrustedBatch=resolve;});
+    const expiringBatchEntered=new Promise<void>(resolve=>{signalExpiringBatch=resolve;});
+    const expiringBatchGate=new Promise<void>(resolve=>{releaseExpiringBatch=resolve;});
     try {
       const check=await owner.query("SELECT current_database() AS name,current_setting('server_version_num')::int AS version,to_regclass('public.\"HostEvidenceWorkspace\"') IS NULL AS clean");
       if(check.rows[0]?.name!==cfg.database||check.rows[0]?.version<170000||!check.rows[0]?.clean)throw new Error("Clean dedicated PG 17 required");
@@ -68,6 +71,7 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
         if(holdLastPageHandoff){signalLastPageHandoff();await lastPageHandoffGate;}
       },beforeTrustedPacketBatchFinalCheck:async()=>{
         if(holdTrustedBatch){signalTrustedBatch();await trustedBatchGate;}
+        if(holdExpiringBatch){signalExpiringBatch();await expiringBatchGate;}
       },trustedPacketBatchLockTimeoutMs:500});resources.push(host);
 
       const email=`${randomUUID()}@example.invalid`,password=randomBytes(24).toString("base64url");
@@ -144,6 +148,11 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const hypothetical=await packet("如果阿斯旺多住一天会怎样"),hypotheticalChange=change(hypothetical,"egypt-hypothetical",revise),empty=await counts();
       const hypotheticalPlan=await saveChangePlan(hypothetical,"egypt-hypothetical-plan",hypotheticalChange);
       expect(hypotheticalPlan.plan.actions).toEqual([]);
+      const forgedHypothetical=structuredClone(hypotheticalPlan.plan);
+      forgedHypothetical.actions=[{action_id:"forged-change",task_key:hypothetical.task.task_key,packet_id:hypothetical.packet_id,
+        request_ids:[hypothetical.task.task_key],goal:"D5",attention:"primary",reason:"伪造通过的 G02 结论",
+        steps:[{step_id:"forged-step",kind:"change",depends_on:[],capability_id:null,arguments:{},change_request:hypotheticalChange.request,user_message:null}]}];
+      await expect(mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),hypotheticalPlan.decisionRequest,forgedHypothetical)).rejects.toThrow();
       expect((await post("changes",hypotheticalChange)).status).toBe(422);expect(await counts()).toEqual(empty);expect((await readState()).revision).toBe(0);
 
       holdPacketHandoff=true;
@@ -264,12 +273,18 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
           evidence_refs:[]},candidates:[{action_id:"action-dependencies",task_key:source.task.task_key,packet_id:source.packet_id,request_ids:[source.task.task_key],
           goal:"D2",preferred_attention:"primary",reason:"先读取再交付",rank:100,required_object_ids:[],reentry_candidate_id:null,steps:[
             {step_id:"step-first",kind:"read",depends_on:[],capability_id:null,arguments:{},change_request:null,user_message:null},
-            {step_id:"step-second",kind:"deliver",depends_on:["step-first"],capability_id:null,arguments:{},change_request:null,user_message:"交付结果"},
+            {step_id:"step-second",kind:"read",depends_on:["step-first"],capability_id:null,arguments:{},change_request:null,user_message:null},
           ]}]};
       }},new Date());
       await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),dependencyRequest,dependencyPlan);
       await expect(mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,dependencyRequest.decision_id,"action-dependencies","step-second"))
         .resolves.toMatchObject({disposition:"dependency_wait"});
+      const firstStep=await mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,dependencyRequest.decision_id,"action-dependencies","step-first");
+      expect(firstStep).toMatchObject({disposition:"executed",result:{outcome:"read",step_id:"step-first"}});
+      expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,dependencyRequest.decision_id))
+        .toMatchObject({actions:[{phase:"running"}],steps:[{step_id:"step-first",status:"succeeded"},{step_id:"step-second",status:"pending",result_json:null}]});
+      const secondStep=await mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,dependencyRequest.decision_id,"action-dependencies","step-second");
+      expect(secondStep).toMatchObject({disposition:"executed",result:{outcome:"read",step_id:"step-second"}});
       const waitingRequest={...conflictRequest,decision_id:"egypt-runtime-waiting"};
       const waitingPlan=await decide(waitingRequest,{assess:async request=>{
         const source=request.packets[0];return {response:{request_ids:[source.task.task_key],disposition:"clarification",text:"只询问真正阻断条件",evidence_refs:[]},
@@ -288,6 +303,16 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       expect((readDispatch.result as {objects:unknown[]}).objects.length).toBeGreaterThan(0);expect(await counts()).toEqual(beforeReadDispatch);
       expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),conflictPacket.packet_id,readRequest.decision_id))
         .toMatchObject({actions:[{phase:"succeeded"}],steps:[{status:"succeeded"}]});
+
+      const unknownPacket=await packet("执行结果未知时不要重提业务写入"),unknownChange=change(unknownPacket,"egypt-unknown-no-receipt",[{op:"decide_candidate",id:"candidate-aswan",value:"accept"}]);
+      const unknownPlan=await saveChangePlan(unknownPacket,"egypt-change-unknown-no-receipt",unknownChange);
+      const unknownClaim=await mounted.adapter!.claimDecisionStepCandidate(trip,new Headers({cookie}),unknownPacket.packet_id,unknownPlan.decisionRequest.decision_id,"action-change","step-change");
+      if(unknownClaim.disposition!=="claimed"||!unknownClaim.claim_token)throw new Error("Missing unknown-outcome claim");
+      await mounted.adapter!.markDecisionExecutionUnknownCandidate(trip,new Headers({cookie}),unknownPacket.packet_id,unknownPlan.decisionRequest.decision_id,"action-change","step-change",unknownClaim.claim_token);
+      const beforeUnknownLookup=await counts();
+      await expect(mounted.adapter!.dispatchDecisionStepCandidate(trip,new Headers({cookie}),unknownPacket.packet_id,unknownPlan.decisionRequest.decision_id,"action-change","step-change"))
+        .resolves.toEqual({disposition:"execution_unknown",result:null});
+      expect(await counts()).toEqual(beforeUnknownLookup);
 
       const actualPlan=await saveChangePlan(actual,"egypt-change-actual",actualChange);
       const staleNapChange=change(conflictPacket,"egypt-nap-stale",revise);await saveChangePlan(conflictPacket,"egypt-change-stale",staleNapChange);
@@ -321,6 +346,8 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       expect(pendingDispatch.disposition).toBe("executed");
       const pending=pendingDispatch.result as TripStateContracts["response"];expect(pending).toMatchObject({outcome:"pending_confirmation",revision:1,confirmation_required:true});
       expect((await readState()).revision).toBe(1);
+      expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),choice.packet_id,choicePlan.decisionRequest.decision_id))
+        .toMatchObject({actions:[{phase:"waiting_user",result_json:null}],steps:[{status:"succeeded",result_json:{outcome:"pending_confirmation"}}]});
       const confirmation:DecisionContextContracts["confirm"]={runtime_contract_version:"0.1.0",turn_id:choice.turn_id,proposal_id:pending.proposal_id!,request:{
         expected_revision:1,idempotency_key:"egypt-confirm",proposal_digest:pending.proposal_digest!,accept:true,
       }};
@@ -371,6 +398,39 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
         .resolves.toMatchObject({disposition:"stale"});
       expect(await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),recoveredPacket.packet_id,"egypt-runtime-stale"))
         .toMatchObject({actions:[{phase:"stale"}],steps:[{status:"stale"}]});
+
+      const privateText="这是一段删除后不得由 NAP 运行记录返回的用户原文",privatePacket=await packet(privateText);
+      const privateRequest=await buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-private-source",
+        trigger:{kind:"user_event",reference:privatePacket.pending_input.event.reference},packetIds:[privatePacket.packet_id]});
+      const privatePlan=await decide(privateRequest,runtimeAdapter);await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),privateRequest,privatePlan);
+      const beforeDelete=(await owner.query<{request_json:string;plan_json:string;content_available:boolean}>('SELECT request_json::text,plan_json::text,content_available FROM e04_runtime.decisions WHERE decision_id=$1',[privateRequest.decision_id])).rows[0];
+      expect(beforeDelete.content_available).toBe(true);expect(beforeDelete.request_json).toContain(privateText);
+
+      const expiryPacket=await packet("到期后不得返回这段用户原文"),expiryRequest=await buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,
+        credential:new Headers({cookie}),decisionId:"egypt-expired-source",trigger:{kind:"user_event",reference:expiryPacket.pending_input.event.reference},packetIds:[expiryPacket.packet_id]});
+      const expiryPlan=await decide(expiryRequest,runtimeAdapter);await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),expiryRequest,expiryPlan);
+      await owner.query("UPDATE e04_runtime.decisions SET expires_at=clock_timestamp()-interval '1 microsecond' WHERE decision_id=$1",[expiryRequest.decision_id]);
+      const expiredRecord=await mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),expiryPacket.packet_id,expiryRequest.decision_id);
+      expect(expiredRecord.decision).toMatchObject({content_available:false,request_json:null,plan_json:null});
+      expect((await owner.query<{request_json:string;plan_json:string}>('SELECT request_json::text,plan_json::text FROM e04_runtime.decisions WHERE decision_id=$1',[expiryRequest.decision_id])).rows[0])
+        .toEqual({request_json:'{"redacted": true}',plan_json:'{"redacted": true}'});
+
+      const expiringState=await readState(),batchExpiry=new Date(Date.now()+2_000).toISOString();
+      for(const object of expiringState.objects)if(object.type==="ExternalFact")object.expires_at=batchExpiry;
+      await owner.query('UPDATE "TripStateDocument" SET "snapshot"=$2::jsonb WHERE "tripId"=$1',[trip,JSON.stringify(expiringState)]);
+      const expiringBatch=await packetsWithTurn("同轮比较阿斯旺与卢克索");
+      expect(Date.parse(expiringBatch.packets[0].context.expires_at)).toBeLessThanOrEqual(Date.parse(batchExpiry));
+      holdExpiringBatch=true;
+      const expiringRead=buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-batch-expired-final-check",
+        trigger:{kind:"user_event",reference:expiringBatch.packets[0].pending_input.event.reference},packetIds:expiringBatch.packets.map(value=>value.packet_id)});
+      await expiringBatchEntered;await new Promise(resolve=>setTimeout(resolve,2_100));holdExpiringBatch=false;releaseExpiringBatch();
+      await expect(expiringRead).rejects.toThrow();
+
+      await mounted.adapter!.deleteEvidenceEventCandidate(trip,new Headers({cookie}),privatePacket.packet_id,privatePacket.pending_input.event.event_id);
+      const afterDelete=(await owner.query<{request_json:string;plan_json:string;content_available:boolean}>('SELECT request_json::text,plan_json::text,content_available FROM e04_runtime.decisions WHERE decision_id=$1',[privateRequest.decision_id])).rows[0];
+      expect(afterDelete).toEqual({request_json:'{"redacted": true}',plan_json:'{"redacted": true}',content_available:false});
+      await expect(mounted.adapter!.readDecisionRecordCandidate(trip,new Headers({cookie}),privatePacket.packet_id,privateRequest.decision_id)).rejects.toThrow();
+
       await owner.query(`UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval '1 second' WHERE id=$1`,[sessionId]);
       await expect(buildTrustedDecisionRequest(mounted.adapter!,{tripId:trip,credential:new Headers({cookie}),decisionId:"egypt-expired-session",
         trigger:{kind:"user_event",reference:recoveredPacket.pending_input.event.reference},packetIds:[recoveredPacket.packet_id]})).rejects.toThrow();
@@ -378,6 +438,7 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       releasePacketHandoff();
       releaseLastPageHandoff();
       releaseTrustedBatch();
+      releaseExpiringBatch();
       if(server){server.close();await once(server,"close");}
       await Promise.allSettled(resources.reverse().map(resource=>resource.close()));await owner.end();
     }

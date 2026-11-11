@@ -29,6 +29,7 @@ export function validatePlanInternalIntegrity(value: unknown): void {
   }
   const actionIds = new Set<string>();
   const steps = new Map<string, Step>();
+  const stepActions = new Map<string, string>();
   let primaryCount = 0;
   for (const action of plan.actions) {
     if (actionIds.has(action.action_id)) throw new NapPlanIntegrityError();
@@ -42,6 +43,7 @@ export function validatePlanInternalIntegrity(value: unknown): void {
       if ((step.kind === "change") !== (step.change_request !== null)) throw new NapPlanIntegrityError();
       if (["ask", "deliver"].includes(step.kind) && step.user_message === null) throw new NapPlanIntegrityError();
       steps.set(step.step_id, step);
+      stepActions.set(step.step_id, action.action_id);
     }
   }
   // Kahn's algorithm is iterative: deep valid plans cannot overflow the call stack.
@@ -50,7 +52,7 @@ export function validatePlanInternalIntegrity(value: unknown): void {
   for (const step of steps.values()) {
     remaining.set(step.step_id, step.depends_on.length);
     for (const dependency of step.depends_on) {
-      if (!steps.has(dependency)) throw new NapPlanIntegrityError();
+      if (!steps.has(dependency) || stepActions.get(dependency) !== stepActions.get(step.step_id)) throw new NapPlanIntegrityError();
       const list = dependants.get(dependency) ?? [];
       list.push(step.step_id);
       dependants.set(dependency, list);

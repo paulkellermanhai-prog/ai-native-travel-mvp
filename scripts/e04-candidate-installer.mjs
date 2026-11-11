@@ -2,9 +2,9 @@ import fs from "node:fs";
 import crypto from "node:crypto";
 import {fileURLToPath} from "node:url";
 
-export const E04_RUNTIME_INSTALL_VERSION=1;
+export const E04_RUNTIME_INSTALL_VERSION=2;
 export const E04_RUNTIME_SOURCE="../src/server/next-action-policy/runtime/sql/001-runtime.sql";
-export const E04_RUNTIME_SHA256="1ba19d526cbc9503f02ce4887b7b72155570bd1168e0eabe6590b9822e630859";
+export const E04_RUNTIME_SHA256="8e797f2c18dafdc3ea393041f5715c4e6fcf60eaadcd399cecdf0719165d35fc";
 const rolePattern=/^antu_e02_runtime_[0-9a-f]+$/;
 const quote=value=>`"${value.replaceAll('"','""')}"`;
 
@@ -20,7 +20,7 @@ export async function installE04Runtime(client,{runtimeRole}){
   const roles=await client.query("SELECT rolname FROM pg_roles WHERE rolname=$1",[runtimeRole]);
   if(roles.rowCount!==1)throw new Error("E04 runtime role is missing");
   const {source,sha256}=e04RuntimeSource();
-  await client.query("SELECT pg_advisory_xact_lock(hashtext('e04-runtime-installer-v1'))");
+  await client.query("SELECT pg_advisory_xact_lock(hashtext('e04-runtime-installer-v2'))");
   await client.query("CREATE SCHEMA IF NOT EXISTS e04_install");
   await client.query("REVOKE ALL ON SCHEMA e04_install FROM PUBLIC");
   await client.query(`CREATE TABLE IF NOT EXISTS e04_install.versions(

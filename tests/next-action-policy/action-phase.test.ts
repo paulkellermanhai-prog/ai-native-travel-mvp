@@ -9,6 +9,7 @@ describe("E04 Action phase pure transition",()=>{
     expect(nextActionPhase("proposed",evaluate)).toEqual({phase:"eligible",receiptLookupRequired:false});
     expect(nextActionPhase("eligible",start)).toEqual({phase:"running",receiptLookupRequired:false});
     expect(nextActionPhase("running",{kind:"execution_unknown"})).toEqual({phase:"running",receiptLookupRequired:true});
+    expect(nextActionPhase("running",{kind:"await_confirmation",proposalRecorded:true})).toEqual({phase:"waiting_user",receiptLookupRequired:false});
     expect(nextActionPhase("running",{kind:"complete",basisCurrent:true,outcome:"success"}).phase).toBe("succeeded");
   });
   it("supports waiting, resume, invalidation, cancellation and terminal outcomes",()=>{

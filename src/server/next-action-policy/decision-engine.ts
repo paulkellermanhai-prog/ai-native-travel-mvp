@@ -1,4 +1,6 @@
 import type { DecisionContextContracts } from "../decision-context/contracts";
+import { canonicalJson, digest } from "../trip-state/command-json";
+import { parseContract } from "../trip-state/contracts";
 import { validateNapMessage } from "./contracts";
 import { validatePlanRequestConsistency } from "./plan-packet-consistency";
 import { validatePlanInternalIntegrity } from "./plan-integrity";
@@ -32,6 +34,7 @@ function actionEligible(candidate:SemanticAction,packet:Packet,responseIds:Set<s
     packet.coverage!=="complete"||packet.support!=="decision_support"||packet.deferred_ids.length!==0||
     packet.context.status!=="active"||new Date(packet.context.expires_at).getTime()<=now.getTime()||
     candidate.request_ids.some(id=>!responseIds.has(id))||!Number.isSafeInteger(candidate.rank))return false;
+  if(candidate.preferred_attention==="prepare"&&candidate.steps.some(step=>!["read","query","calculate"].includes(step.kind)))return false;
   const objects=objectMap(packet);
   if(candidate.required_object_ids.some(id=>!objects.has(id)))return false;
   const hasChange=candidate.steps.some(step=>step.kind==="change");
@@ -42,6 +45,36 @@ function actionEligible(candidate:SemanticAction,packet:Packet,responseIds:Set<s
     if(!value||value.type!=="Candidate"||["excluded","conditionally_excluded"].includes(value.status))return false;
   }
   return true;
+}
+
+/** Deterministic G02 checks that remain enforceable after semantic-only fields are removed from the saved Plan. */
+export function validateDecisionPlanHostEligibility(request:TrustedDecisionRequest,plan:DecisionPlan,now=new Date()):void{
+  validatePlanRequestConsistency(request,plan);
+  if(request.trigger.kind!=="user_event")return fail("INVALID_REQUEST");
+  const packets=new Map(request.packets.map(packet=>[packet.packet_id,packet]));
+  for(const packet of request.packets)if(packet.pending_input.event.reference!==request.trigger.reference||packet.coverage!=="complete"||
+    packet.support!=="decision_support"||packet.deferred_ids.length!==0||packet.context.status!=="active"||
+    new Date(packet.context.expires_at).getTime()<=now.getTime())return fail("NO_CURRENT_PACKET");
+  for(const action of plan.actions){
+    const packet=packets.get(action.packet_id);
+    if(!packet||action.task_key!==packet.task.task_key||action.request_ids.some(id=>!plan.response.request_ids.includes(id)))return fail("INVALID_REQUEST");
+    if(action.attention==="prepare"&&action.steps.some(step=>!["read","query","calculate"].includes(step.kind)))return fail("INVALID_REQUEST");
+    const changes=action.steps.filter(step=>step.kind==="change");
+    if(changes.length&&(packet.task.branch==="hypothetical"||packet.objects.some(object=>object.type==="OpenIssue"&&object.status==="open"&&object.issue_kind==="conflict")))
+      return fail("INVALID_REQUEST");
+    for(const step of changes){
+      let change:ReturnType<typeof parseContract<"change-request">>;
+      try{change=parseContract("change-request",step.change_request);}catch{return fail("INVALID_REQUEST");}
+      const event=packet.pending_input.event;
+      if(change.expected_revision!==packet.context.state_revision||change.input.reference!==event.reference||change.input.text!==event.text||
+        change.input.kind!==event.entry||canonicalJson([...change.input.target_ids].sort())!==canonicalJson([...packet.task.target_ids].sort()))return fail("INVALID_REQUEST");
+    }
+  }
+}
+
+export function decisionEligibilityBinding(request:TrustedDecisionRequest,plan:DecisionPlan):string{
+  validatePlanRequestConsistency(request,plan);
+  return digest({trigger:request.trigger,basis:plan.basis,actions:plan.actions});
 }
 
 function evidenceCurrent(response:SemanticDecision["response"],packets:Packet[]):boolean{
@@ -79,14 +112,15 @@ export async function decide(requestValue:TrustedDecisionRequest,adapter:Semanti
       basis:request.packets.map(packet=>({packet_id:packet.packet_id,turn_id:packet.turn_id,task_key:packet.task.task_key,
         state_revision:packet.context.state_revision,snapshot_digest:packet.snapshot_digest,expires_at:packet.context.expires_at})),
       response:clone(semantic.response),actions};
-    validatePlanInternalIntegrity(plan);validatePlanRequestConsistency(request,plan);
+    validatePlanInternalIntegrity(plan);validateDecisionPlanHostEligibility(request,plan,now);
     return clone(plan);
   }catch(error){if(error instanceof NapDecisionError)throw error;return fail("SEMANTIC_OUTPUT");}
 }
 
 /** G05 always reruns semantics and host eligibility from a new trusted request. */
-export async function reevaluate(previous:DecisionPlan,request:TrustedDecisionRequest,adapter:SemanticAdapter,now=new Date()):Promise<DecisionPlan>{
-  try{validatePlanInternalIntegrity(previous);}catch{return fail("INVALID_REQUEST");}
-  if(previous.decision_id===request.decision_id)return fail("INVALID_REQUEST");
+export async function reevaluate(previous:DecisionPlan,previousRequest:TrustedDecisionRequest,request:TrustedDecisionRequest,adapter:SemanticAdapter,now=new Date()):Promise<DecisionPlan>{
+  try{validatePlanRequestConsistency(previousRequest,previous);}catch{return fail("INVALID_REQUEST");}
+  if(previous.decision_id===request.decision_id||previousRequest.trigger.kind!==request.trigger.kind||
+    previousRequest.trigger.reference===request.trigger.reference)return fail("INVALID_REQUEST");
   return decide(request,adapter,now);
 }

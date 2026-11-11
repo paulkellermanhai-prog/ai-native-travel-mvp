@@ -11,9 +11,9 @@ const action = (id: string, steps: ReturnType<typeof step>[], attention = "prepa
 const plan = (actions: ReturnType<typeof action>[] = []) => ({nap_contract_version: "0.1.0", decision_id: "decision", runtime_id: "runtime", basis: [basis], response: {request_ids: [], disposition: "answered", text: "Answer", evidence_refs: []}, actions});
 
 describe("candidate plan internal integrity, not authorization", () => {
-  it("accepts an empty action list and a valid multi-action DAG without mutation", () => {
+  it("accepts an empty action list and independent multi-action steps without mutation", () => {
     expect(() => validatePlanInternalIntegrity(plan())).not.toThrow();
-    const input = plan([action("first", [step("s1")], "primary"), action("second", [step("s2", ["s1"])])]);
+    const input = plan([action("first", [step("s1")], "primary"), action("second", [step("s2")])]);
     const before = structuredClone(input);
     expect(() => validatePlanInternalIntegrity(input)).not.toThrow();
     expect(input).toEqual(before);
@@ -41,7 +41,7 @@ describe("candidate plan internal integrity, not authorization", () => {
   it("allows identical repeated basis claims and distinct packets with distinct tasks", () => {
     const second = {...basis, packet_id: "packet2", task_key: "task2", turn_id: "turn2", expires_at: "2030-01-02T00:00:00Z"};
     const firstAction = action("first", [step("s1")]);
-    const secondAction = {...action("second", [step("s2", ["s1"])]), packet_id: "packet2", task_key: "task2"};
+    const secondAction = {...action("second", [step("s2")]), packet_id: "packet2", task_key: "task2"};
     const input = {...plan([firstAction, secondAction]), basis: [basis, {...basis}, second]};
     const before = structuredClone(input);
     expect(() => validatePlanInternalIntegrity(input)).not.toThrow();
@@ -58,6 +58,12 @@ describe("candidate plan internal integrity, not authorization", () => {
       [action("a", [step("s1", ["s1"])])],
       [action("a", [step("s1", ["s2"])]), action("b", [step("s2", ["s1"])])],
     ]) expect(() => validatePlanInternalIntegrity(plan(actions))).toThrow();
+  });
+  it("rejects a cross-action dependency that the current runtime cannot claim", () => {
+    expect(() => validatePlanInternalIntegrity(plan([
+      action("a", [step("s1")]),
+      action("b", [step("s2", ["s1"])]),
+    ]))).toThrow();
   });
   it("checks step-kind data use rather than trusting shape alone", () => {
     const invalid = [

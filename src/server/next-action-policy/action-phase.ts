@@ -32,6 +32,8 @@ export function nextActionPhase(current:unknown,signal:unknown):PhaseResult{
       if(current!=="running"||typeof event.basisCurrent!=="boolean"||!["success","partial","failure"].includes(event.outcome as string))throw new NapPhaseTransitionError();
       phase=!event.basisCurrent?"stale":event.outcome==="success"?"succeeded":event.outcome==="partial"?"partial":"failed";break;
     case "execution_unknown":exact("kind");if(current!=="running")throw new NapPhaseTransitionError();phase="running";receiptLookupRequired=true;break;
+    case "await_confirmation":exact("kind","proposalRecorded");if(current!=="running")throw new NapPhaseTransitionError();
+      allTrue("proposalRecorded");phase="waiting_user";break;
     default:throw new NapPhaseTransitionError();
   }
   return {phase,receiptLookupRequired};

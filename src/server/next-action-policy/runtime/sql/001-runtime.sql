@@ -9,10 +9,13 @@ CREATE TABLE IF NOT EXISTS e04_runtime.decisions (
   runtime_id TEXT NOT NULL,
   request_digest CHAR(64) NOT NULL,
   plan_digest CHAR(64) NOT NULL,
+  eligibility_digest CHAR(64) NOT NULL,
+  source_event_ref TEXT NOT NULL,
   state_revision BIGINT NOT NULL CHECK (state_revision >= 0),
   expires_at TIMESTAMPTZ(6) NOT NULL,
   request_json JSONB NOT NULL,
   plan_json JSONB NOT NULL,
+  content_available BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ(6) NOT NULL DEFAULT clock_timestamp(),
   PRIMARY KEY (owner_id, trip_id, workspace_key, decision_id)
 );

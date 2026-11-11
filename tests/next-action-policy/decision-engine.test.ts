@@ -77,11 +77,24 @@ describe("E04-02 deterministic orchestration fixtures",()=>{
   });
 
   it("G05 reruns semantics for a newly trusted event instead of carrying old actions forward",async()=>{
-    const first=await decide(request(),fixed({response:response(),candidates:[deliver()]}),now);
+    const firstRequest=request(),first=await decide(firstRequest,fixed({response:response(),candidates:[deliver()]}),now);
     const packet=structuredClone(sourcePacket);packet.pending_input.event.reference="host-interaction:new";
     const next=request(packet,"decision-next"),adapter:SemanticAdapter={assess:async()=>({response:response(packet,"新请求只需直接回答"),candidates:[]})};
-    const second=await reevaluate(first,next,adapter,now);
+    const second=await reevaluate(first,firstRequest,next,adapter,now);
     expect(second.decision_id).toBe("decision-next");expect(second.actions).toEqual([]);
+  });
+
+  it("G05 rejects a new decision id when the trusted event did not change",async()=>{
+    const firstRequest=request(),first=await decide(firstRequest,fixed({response:response(),candidates:[deliver()]}),now);
+    await expect(reevaluate(first,firstRequest,request(sourcePacket,"decision-renamed"),fixed({response:response(),candidates:[]}),now))
+      .rejects.toMatchObject({code:"INVALID_REQUEST"});
+  });
+
+  it("G02 prevents prepare attention from carrying user-facing or business side effects",async()=>{
+    const unsafe=deliver(sourcePacket,{action_id:"action-unsafe-prepare",preferred_attention:"prepare",rank:200,
+      steps:[{step_id:"step-unsafe",kind:"change",depends_on:[],capability_id:null,arguments:{},change_request:changeRequest,user_message:null}]});
+    const plan=await decide(request(),fixed({response:response(),candidates:[unsafe]}),now);
+    expect(plan.actions).toEqual([]);
   });
 
   it("returns explicit errors for stale packets and invalid semantic evidence",async()=>{
