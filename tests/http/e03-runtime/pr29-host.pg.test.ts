@@ -258,6 +258,22 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
           steps:[{step_id:"step-runtime",kind:"read",depends_on:[],capability_id:null,arguments:{},change_request:null,user_message:null}],
           required_object_ids:[evidence.id],reentry_candidate_id:null}]};
       }};
+      const forgedEvidenceIds=["egypt-forged-source-save","egypt-forged-delivery-save","egypt-wrong-object-version-save"];
+      const evidenceMutations=[
+        [{id:"host-interaction:forged",version:null,kind:"source" as const}],
+        [{id:"delivery-without-ledger",version:null,kind:"delivery" as const}],
+        [{id:"constraint-nights",version:999,kind:"object" as const}],
+      ];
+      for(let index=0;index<forgedEvidenceIds.length;index++){
+        const forgedRequest={...pair,decision_id:forgedEvidenceIds[index]},legitimate=await decide(forgedRequest,runtimeAdapter);
+        const forged=structuredClone(legitimate);forged.response.evidence_refs=evidenceMutations[index];
+        await expect(mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),forgedRequest,forged)).rejects.toThrow();
+      }
+      const forgedPersistence=await owner.query<{decisions:number;actions:number;steps:number}>(`SELECT
+        (SELECT count(*)::int FROM e04_runtime.decisions WHERE decision_id=ANY($1::text[])) decisions,
+        (SELECT count(*)::int FROM e04_runtime.actions WHERE decision_id=ANY($1::text[])) actions,
+        (SELECT count(*)::int FROM e04_runtime.steps WHERE decision_id=ANY($1::text[])) steps`,[forgedEvidenceIds]);
+      expect(forgedPersistence.rows[0]).toEqual({decisions:0,actions:0,steps:0});
       const runtimePlan=await decide(pair,runtimeAdapter);
       const stored=await mounted.adapter!.saveDecisionPlanCandidate(trip,new Headers({cookie}),pair,runtimePlan);
       expect(stored).toMatchObject({replayed:false,plan:{decision_id:pair.decision_id}});

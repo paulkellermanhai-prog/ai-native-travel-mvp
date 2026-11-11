@@ -64,6 +64,7 @@ function actionEligible(candidate:SemanticAction,packet:Packet,responseIds:Set<s
 /** Deterministic G02 checks that remain enforceable after semantic-only fields are removed from the saved Plan. */
 export function validateDecisionPlanHostEligibility(request:TrustedDecisionRequest,plan:DecisionPlan,now=new Date()):void{
   validatePlanRequestConsistency(request,plan);
+  if(!evidenceCurrent(plan.response,request.packets))return fail("INVALID_REQUEST");
   if(request.trigger.kind!=="user_event")return fail("INVALID_REQUEST");
   const packets=new Map(request.packets.map(packet=>[packet.packet_id,packet]));
   for(const packet of request.packets)if(packet.pending_input.event.reference!==request.trigger.reference||packet.coverage!=="complete"||
@@ -92,11 +93,11 @@ export function decisionEligibilityBinding(request:TrustedDecisionRequest,plan:D
   return digest({trigger:request.trigger,basis:plan.basis,actions:plan.actions});
 }
 
-function evidenceCurrent(response:SemanticDecision["response"],packets:Packet[]):boolean{
+function evidenceCurrent(response:SemanticDecision["response"],packets:Packet[],deliveryRefs:ReadonlySet<string>=new Set()):boolean{
   const objects=new Map(packets.flatMap(packet=>packet.objects).map(object=>[object.id,object]));
   const sources=new Set(packets.flatMap(packet=>[packet.pending_input.event.reference,...packet.objects.map(object=>object.source.reference)]));
   return response.evidence_refs.every(reference=>{
-    if(reference.kind==="delivery")return false;
+    if(reference.kind==="delivery")return reference.version===null&&deliveryRefs.has(reference.id);
     if(reference.kind==="source")return reference.version===null&&sources.has(reference.id);
     const object=objects.get(reference.id);
     return !!object&&reference.version===object.version;

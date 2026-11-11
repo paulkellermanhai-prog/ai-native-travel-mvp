@@ -115,6 +115,18 @@ describe("E04-02 deterministic orchestration fixtures",()=>{
       .rejects.toMatchObject({code:"SEMANTIC_OUTPUT"});
   });
 
+  it("rechecks trusted evidence when a Plan reaches the host save gate",async()=>{
+    const trustedRequest=request(),plan=await decide(trustedRequest,fixed({response:response(),candidates:[]}),now);
+    for(const evidence_refs of [
+      [{id:"host-interaction:forged",version:null,kind:"source" as const}],
+      [{id:"delivery-without-ledger",version:null,kind:"delivery" as const}],
+      [{id:"constraint-nights",version:999,kind:"object" as const}],
+    ]){
+      const forged=structuredClone(plan);forged.response.evidence_refs=evidence_refs;
+      expect(()=>validateDecisionPlanHostEligibility(trustedRequest,forged,now)).toThrow();
+    }
+  });
+
   it("derives excluded Candidate reentry from the change command instead of trusting the adapter field",async()=>{
     const packet=structuredClone(sourcePacket),candidate=packet.objects.find(object=>object.type==="Candidate");
     if(!candidate||candidate.type!=="Candidate")throw new Error("Candidate fixture missing");
