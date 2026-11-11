@@ -1,8 +1,9 @@
 {
   "format": "antu-e04-01-04-evaluation/v1",
-  "evaluated_at": "2026-11-11T12:45:54+08:00",
+  "evaluated_at": "2026-11-11T19:14:31+08:00",
   "audit_start_sha": "d8b81456fb0c91b87a3e1ca6f8304139c79b4f5f",
-  "fix_sha": "cc23dc589059db62adbe6e2788a0828a7980861f",
+  "previous_fix_sha": "cc23dc589059db62adbe6e2788a0828a7980861f",
+  "fix_sha": "f6b0c862ae200d72d8300f68433ca807ce3d7309",
   "versions": {
     "trip_state": "0.1.0",
     "decision_context": "0.1.0",
@@ -17,6 +18,48 @@
     "npm": "11.19.1",
     "relevant_pg_tests_skipped": 0
   },
+  "final_gate_blocker_remediation": [
+    {
+      "id": "E04-01-rebuilt-deadline",
+      "old_failure": "batch expiry omitted built.deadline().wallMs, so a source deadline crossing during final hook could still resolve",
+      "fix": "take the earliest PacketMemory, context and rebuilt deadline inside the same final PostgreSQL transaction",
+      "code": "src/server/decision-context/host-runtime/evidence-host.ts",
+      "test": "tests/http/e03-runtime/pr29-host.pg.test.ts",
+      "result": "PASS_REAL_POSTGRESQL"
+    },
+    {
+      "id": "E04-02-host-evidence-and-candidate-reentry",
+      "old_failure": "semantic adapter could invent source/delivery evidence or hide an excluded Candidate target by setting reentry_candidate_id to null",
+      "fix": "prove evidence from trusted Packet and derive Candidate targets from parsed change commands at decision and saved-plan host gates",
+      "code": "src/server/next-action-policy/decision-engine.ts",
+      "test": "tests/next-action-policy/decision-engine.test.ts",
+      "result": "PASS_DETERMINISTIC_HOST_GATE"
+    },
+    {
+      "id": "E04-03-running-action-stale",
+      "old_failure": "a multi-step Action could remain running after its basis became stale between steps",
+      "fix": "permit running to stale only when no receipt reconciliation or running Step exists; stale pending Steps and retain completed results",
+      "code": "src/server/next-action-policy/runtime-store.ts",
+      "test": "tests/http/e03-runtime/pr29-host.pg.test.ts",
+      "result": "PASS_REAL_POSTGRESQL"
+    },
+    {
+      "id": "E04-04-receipt-mapping-and-lifecycle",
+      "old_failure": "rejected/conflict receipts were completed as success and missing lifecycle sync could be detected after a write",
+      "fix": "map authoritative outcomes explicitly and require lifecycle sync before claiming or submitting a change Step",
+      "code": "src/server/decision-context/http-adapter/pr29-host-candidate.ts",
+      "test": "tests/http/e03-runtime/pr29-host.pg.test.ts",
+      "result": "PASS_REAL_POSTGRESQL_HTTP_HOST"
+    },
+    {
+      "id": "E04-expiry-active-redaction",
+      "old_failure": "natural expiry depended on a later Decision read to redact persisted utterance content",
+      "fix": "redact expired content_available Decisions in the existing bounded E11 maintenance pass while retaining read fallback",
+      "code": "src/server/decision-context/host-runtime/expiry-maintenance-candidate.ts",
+      "test": "tests/http/e03-runtime/pr29-host.pg.test.ts",
+      "result": "PASS_REAL_POSTGRESQL_DIRECT_DB_ASSERTION"
+    }
+  ],
   "policy_case_summary": {
     "PASS": 0,
     "FAIL": 0,
@@ -109,7 +152,18 @@
       "files": 1,
       "tests": 2,
       "skipped": 0,
-      "duration_seconds": 23.46
+      "database": "PostgreSQL 17.6",
+      "transport": "real Session/host/HTTP"
+    },
+    {
+      "test": "tests/http/http.e2e.ts",
+      "result": "PASS",
+      "files": 1,
+      "tests": 23,
+      "skipped": 0,
+      "duration_seconds": 26.47,
+      "database": "PostgreSQL 17.6",
+      "transport": "real Next process and HTTP credentials"
     }
   ],
   "deterministic_results": [
@@ -117,20 +171,22 @@
       "suite": "tests/next-action-policy",
       "result": "PASS",
       "files": 6,
-      "tests": 56,
-      "skipped": 0,
-      "duration_seconds": 6.61
+      "tests": 58,
+      "skipped": 0
     }
   ],
   "full_repository_result": {
     "result": "PASS",
-    "test_files_passed": 51,
-    "test_files_skipped": 15,
-    "tests_passed": 889,
-    "tests_skipped": 312,
+    "command": "CI=1 npm run check",
+    "test_files_passed": 65,
+    "test_files_skipped": 1,
+    "tests_passed": 1202,
+    "tests_skipped": 1,
     "relevant_pr29_pg_tests_skipped": 0,
-    "duration_seconds": 59.98,
-    "python": ".local/trip-state-oracle/bin/python"
+    "duration_seconds": 120.43,
+    "skip_reason": "tests/db.integration.test.ts requires a generic DATABASE_URL; required E02/E03/PR29 real PG tests were configured and did not skip, and db:check passed separately",
+    "python": ".local/trip-state-oracle/bin/python",
+    "fresh_postgresql_databases": true
   },
   "source_package_check": {
     "result": "PASS",
