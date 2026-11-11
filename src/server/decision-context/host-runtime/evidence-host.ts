@@ -18,7 +18,7 @@ import type { CheckpointPayload, DecisionContextContracts } from "../contracts.g
 import { classifyRecovery } from "../recovery-core";
 import { buildRestoredSceneCandidate } from "../integration/restored-scene-candidate";
 import { assembleContextSnapshot, validateContextSnapshot } from "../context-assembly";
-import { buildPacketCandidate, checkPacketTurn, type PacketCandidate } from "../packet-core/packet";
+import { buildPacketCandidate, checkPacketTurn, materializeDeliveredPacket, type PacketCandidate } from "../packet-core/packet";
 import { createShortPacketHandoffCandidate, type HandoffDeadline } from "./packet-short-handoff-candidate";
 import { parseStateReferences } from "../../trip-state/references";
 import { checkStateCounters } from "../../trip-state/numbers";
@@ -27,6 +27,9 @@ import { openTripCommandService, type CommandHost } from "../../trip-state/inter
 import { parseContract, TripStateContractError } from "../../trip-state/contracts";
 import { BridgeRuleError, checkChangeRules, checkConfirmationRules, checkGrantFields } from "../write-bridge/rules";
 import type { TransactionalBridgeHost } from "../write-bridge/orchestrator";
+import {validateDecisionPlanHostEligibility,type DecisionPlan} from "../../next-action-policy/decision-engine";
+import {claimDecisionStep,completeDecisionStep,markExecutionUnknown,readDecisionRecord,redactDecisionsForSourceEvent,saveDecisionPlan} from "../../next-action-policy/runtime-store";
+import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-packet-source";
 
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
 type TaskMemory = Omit<TaskCorePrior,"task_key"> & { sources: Map<string,string>; incomplete: boolean; fingerprint: string; eventSequence: number; retentionRevision: number };
@@ -79,8 +82,9 @@ const counter = (n: bigint | null): number => {
  * Workspaces are minted by this host, not supplied by the caller; opaque grants
  * expire with the process and are bound to the exact authenticated Session.
  */
-export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void>; beforeWriteGuard?:()=>Promise<void> }) {
+export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process.env, testHooks?: { beforeRestoreRecheck?: () => Promise<void>; afterRestoreCommit?: () => Promise<void>; afterMintCommit?: () => Promise<void>; afterCandidateBeforeRecheck?: () => Promise<void>; onCandidatePacketWarnings?: (warnings: readonly string[]) => void; onSaveQueued?: () => void; onLivePacketCandidate?: (candidate:PacketCandidate,recheck:()=>Promise<void>,bind:(invalidate:()=>void)=>()=>void)=>Promise<void>; beforePacketHandoff?:()=>Promise<void>; afterFinalPacketCheck?:()=>Promise<void>; afterPacketHandoffCommit?:()=>Promise<void>; beforeTrustedPacketBatchFinalCheck?:()=>Promise<void>; trustedPacketBatchLockTimeoutMs?:number; beforeWriteGuard?:()=>Promise<void>; beforeExecuteWrite?:()=>Promise<void> }) {
   if (testHooks && process.env.NODE_ENV !== "test") return unavailable();
+  if(testHooks?.trustedPacketBatchLockTimeoutMs!==undefined&&(!Number.isInteger(testHooks.trustedPacketBatchLockTimeoutMs)||testHooks.trustedPacketBatchLockTimeoutMs<1))return unavailable();
   const connection = databaseEnvSchema.parse(env).DATABASE_URL;
   const keySecret = env.E11_IDEMPOTENCY_SECRET;
   if (typeof keySecret !== "string" || Buffer.byteLength(keySecret, "utf8") < 32) return unavailable();
@@ -341,6 +345,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   async function executeWrite(operation:WriteOperation,request:Change["request"]|Confirm["request"],proposalId?:string) {
     const credential=Object.freeze({});writeCredentials.set(credential,operation);
     try {
+      await testHooks?.beforeExecuteWrite?.();
       const service=await writeService();
       return await (operation.kind==="change"?service.submit(operation.scope.tripId,request,credential):service.confirm(operation.scope.tripId,proposalId!,request,credential));
     } finally {writeCredentials.delete(credential);}
@@ -360,6 +365,50 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       return {operation,bridge:{packet:built.candidate.packet,turn:{turnId:memory.turnId,event:built.candidate.packet.pending_input.event,recovered:false},deliveredIds,
         principalId:userActorId(scope.ownerId),now:clock.now.toISOString(),runtimeId:scope.runtimeId,...(grant?{grant}:{})}};
     });
+  }
+  async function readTrustedPacketBatch(ticket:object,credential:Headers,packetIds:readonly string[]) {
+    const ids=[...packetIds];
+    if(ids.length<1||ids.length>32||new Set(ids).size!==ids.length||ids.some(id=>!/^[A-Za-z][A-Za-z0-9_-]{0,95}$/.test(id)))return unavailable();
+    const start=await scoped(ticket,credential),startingRuntime=start.scope.runtimeId;
+    try {
+      return await exclusive(start.scope,async()=>db.$transaction(async tx=>{
+        if(testHooks?.trustedPacketBatchLockTimeoutMs!==undefined)
+          await tx.$queryRaw`SELECT set_config('lock_timeout', ${`${testHooks.trustedPacketBatchLockTimeoutMs}ms`}, true)`;
+        const packets:DecisionContextContracts["packet"][]=[],memories:PacketMemory[]=[],leaseIds:string[]=[],deadlines:number[]=[];
+        for(const packetId of ids) {
+          const memory=start.scope.packets.get(packetId);
+          if(!memory||memory.runtimeId!==startingRuntime||memory.expiresAt<=Date.now()||memory.postflight)return unavailable();
+          const progress=memory.tracker.progress();
+          if(!progress.initial_sent||progress.pending||progress.remaining_count!==0)return unavailable();
+          const lease=turnInput(start.scope,memory.turnId);
+          const built=await packetFromCurrent(tx,start.scope,start.headers,lease.value,memory.turnId,memory.taskHash,memory.budget,memory);
+          checkTurnLease(start.scope,memory.turnId,lease.id);await built.recheck();
+          const delivery=memory.tracker.delivery(built.candidate);
+          memories.push(memory);leaseIds.push(lease.id);deadlines.push(built.deadline().wallMs);packets.push(materializeDeliveredPacket(built.candidate,delivery));
+        }
+        const first=packets[0];
+        if(!first||packets.some(packet=>packet.context.state_revision!==first.context.state_revision))return unavailable();
+        const batchExpiresAt=Math.min(...memories.map(memory=>memory.expiresAt),...packets.map(packet=>Date.parse(packet.context.expires_at)),...deadlines);
+        await testHooks?.beforeTrustedPacketBatchFinalCheck?.();
+        const final=await scoped(ticket,credential);
+        if(final.scope!==start.scope||final.scope.runtimeId!==startingRuntime)return deny();
+        try {await host.guard!(final.scope.tripId,final.headers,tx);} catch {return deny();}
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${final.scope.tripId} FOR SHARE`;
+        if(!document||document.revision!==BigInt(first.context.state_revision))return unavailable();
+        const now=document.now.getTime();
+        if(!Number.isFinite(batchExpiresAt)||batchExpiresAt<=now)return unavailable();
+        for(let index=0;index<memories.length;index++) {
+          const memory=memories[index],progress=memory.tracker.progress();
+          if(final.scope.packets.get(memory.packetId)!==memory||memory.runtimeId!==startingRuntime||memory.expiresAt<=now||memory.postflight||
+            !progress.initial_sent||progress.pending||progress.remaining_count!==0)return unavailable();
+          checkTurnLease(final.scope,memory.turnId,leaseIds[index]);
+        }
+        return {runtime_id:startingRuntime,expires_at:new Date(batchExpiresAt).toISOString(),packets};
+      }));
+    } catch(error) {
+      if(error instanceof EvidenceBoundaryError)throw error;
+      return unavailable();
+    }
   }
   return {
     async createWorkspace(tripId: string, credential: Headers): Promise<object> {
@@ -463,6 +512,8 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           if (!result || result.disposition === "denied") return deny();
           if (result.disposition === "missing") throw new EvidenceBoundaryError("EVIDENCE_MISSING");
           if (result.disposition !== "deleted" || !result.accepted_at || result.cleanup_pending === null) return unavailable();
+          const [runtime]=await tx.$queryRaw<Array<{installed:boolean}>>`SELECT to_regclass('e04_runtime.decisions') IS NOT NULL AS installed`;
+          if(runtime?.installed)await redactDecisionsForSourceEvent(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey},`host-interaction:${eventId}`);
           counter(result.deletion_revision); counter(result.event_highwater); return result;
         });
         // The first deletion's persisted cutoff is replayed unchanged. It
@@ -946,6 +997,85 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     hasLocalPacketCandidate(ticket:object,packetId:string) {
       const scope=ticket&&typeof ticket==="object"?workspaces.get(ticket):undefined;
       return !!scope&&!scope.disposed&&!closed&&scope.packets.has(packetId);
+    },
+    /**
+     * Server-only read for NAP. The caller supplies only an opaque host ticket
+     * and Packet ID; the Packet body always comes from this host's private
+     * registry and is rebuilt against the current Session, Trip State, task
+     * evidence, runtime generation and expiry before it is returned.
+     */
+    async readTrustedPacketBatchCandidate(ticket:object,credential:Headers,packetIds:readonly string[]) {
+      return readTrustedPacketBatch(ticket,credential,packetIds);
+    },
+    async readTrustedPacketCandidate(ticket:object,credential:Headers,packetId:string) {
+      const batch=await readTrustedPacketBatch(ticket,credential,[packetId]);
+      return {runtime_id:batch.runtime_id,packet:batch.packets[0]};
+    },
+    async saveDecisionPlanCandidate(ticket:object,credential:Headers,requestValue:TrustedDecisionRequest,planValue:DecisionPlan){
+      let request:TrustedDecisionRequest,plan:DecisionPlan;
+      try{request=structuredClone(requestValue);plan=structuredClone(planValue);validateDecisionPlanHostEligibility(request,plan);}catch{return unavailable();}
+      const batch=await readTrustedPacketBatch(ticket,credential,request.packets.map(packet=>packet.packet_id));
+      const trusted={...request,runtime_id:batch.runtime_id,packets:batch.packets};
+      if(canonicalJson(trusted)!==canonicalJson(request))return unavailable();
+      const {scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        if(!document||scope.runtimeId!==request.runtime_id||document.revision!==BigInt(plan.basis[0].state_revision)||
+          plan.basis.some(basis=>new Date(basis.expires_at).getTime()<=document.now.getTime()))return unavailable();
+        return saveDecisionPlan(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},request,plan,new Date(batch.expires_at));
+      }));
+    },
+    async claimDecisionStepCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string){
+      const {scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        if(!document)return unavailable();
+        return claimDecisionStep(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
+          Number(document.revision),document.now,decisionId,actionId,stepId,randomUUID());
+      }));
+    },
+    async readDecisionRecordCandidate(ticket:object,credential:Headers,decisionId:string){
+      const {scope,headers}=await scoped(ticket,credential);
+      return db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        return readDecisionRecord(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},decisionId);
+      });
+    },
+    async markDecisionExecutionUnknownCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string){
+      const {scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        return markExecutionUnknown(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
+          decisionId,actionId,stepId,claimToken);
+      }));
+    },
+    async completeDecisionStepCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string,
+      outcome:"success"|"partial"|"failure",result:unknown){
+      const {scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        if(!document)return unavailable();
+        const response=result&&typeof result==="object"&&!Array.isArray(result)?result as {outcome?:unknown;revision?:unknown}:null;
+        const authoritativeRevision=response?.outcome==="applied"&&Number.isSafeInteger(response.revision)?response.revision as number:null;
+        const completionOutcome=response?.outcome==="pending_confirmation"?"pending_confirmation" as const:outcome;
+        return completeDecisionStep(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
+          decisionId,actionId,stepId,claimToken,completionOutcome,Number(document.revision),document.now,authoritativeRevision,result);
+      }));
+    },
+    async lookupChangeReceiptCandidate(ticket:object,credential:Headers,value:unknown){
+      const request=structuredClone(parseContract("change-request",value)),{scope,headers}=await scoped(ticket,credential);
+      return db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        const rows=await tx.$queryRaw<Array<{requestDigest:string;request:string;response:string}>>`SELECT "requestDigest","request"::text AS request,"response"::text AS response
+          FROM "TripStateIdempotency" WHERE "tripId"=${scope.tripId} AND "key"=${request.idempotency_key}
+          AND (("actorId"=${userActorId(scope.ownerId)} AND "operationDomain"='user') OR ("actorId"=${modelActorId} AND "operationDomain"='model'))`;
+        const matches=rows.filter(row=>row.requestDigest===digest(request)&&canonicalJson(decodeCommandJson(row.request))===canonicalJson(request));
+        if(matches.length>1)return unavailable();
+        return matches[0]?structuredClone(parseContract("response",decodeCommandJson(matches[0].response))):null;
+      });
     },
     async authorizeTicketCandidate(ticket:object,credential:Headers) {await scoped(ticket,credential);},
     async authorizeTripCandidate(tripId:string,credential:Headers) {

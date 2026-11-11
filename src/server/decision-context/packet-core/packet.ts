@@ -136,6 +136,23 @@ export function checkConsumption(candidate: PacketCandidate, state: State, now: 
 }
 
 /**
+ * Rebuilds the same Packet identity for a trusted in-process consumer after
+ * every selected object has completed transport postflight. This is not a new
+ * authorization or proof of comprehension; the host must still revalidate the
+ * Session, state and deadline in the transaction that returns it.
+ */
+export function materializeDeliveredPacket(candidate: PacketCandidate, delivered: DeliveryLedger): Packet {
+  checkCandidate(candidate);
+  const ledger=checkedDelivered(candidate,delivered),objects=new Map(candidate.assembly.objects.map(object=>[object.id,object]));
+  const ids=candidate.assembly.context.selected_object_ids;
+  if(ids.some(id=>!ledger.has(id)||!objects.has(id)))fail("DELIVERY_SCOPE");
+  return structuredClone(parseDCContract("packet",{...candidate.packet,
+    objects:ids.map(id=>objects.get(id)!),deferred_ids:[],coverage:"complete",support:"decision_support",
+    warnings:candidate.packet.warnings.filter(warning=>warning!=="partial_hydration_no_trip_feasibility_claim"&&warning!=="manifest_not_a_model_prompt"),
+  }));
+}
+
+/**
  * Compare a candidate with its original turn snapshot. The caller must first
  * obtain that turn from the authenticated host; this comparison creates no
  * ownership proof, does not register a task and does not authorize delivery.

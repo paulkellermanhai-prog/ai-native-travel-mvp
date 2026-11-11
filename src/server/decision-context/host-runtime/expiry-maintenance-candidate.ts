@@ -23,5 +23,16 @@ export async function runEvidenceMaintenanceCandidate(client:Client,afterSequenc
       if(result.rows[0]?.ok)cleaned++;else cleanupFailed++;
     } catch { cleanupFailed++; }
   }
-  return {scanned:scanned.rows.length,expired,cleaned,cleanupFailed,nextSequence,scanComplete:scanned.rows.length<limit};
+  const runtime=await client.query<{installed:boolean}>("SELECT to_regclass('e04_runtime.decisions') IS NOT NULL AS installed");
+  let redacted=0;
+  if(runtime.rows[0]?.installed){
+    const result=await client.query(`WITH expired AS (
+      SELECT ctid FROM e04_runtime.decisions WHERE expires_at<=clock_timestamp() AND content_available=TRUE
+      ORDER BY expires_at,owner_id,trip_id,workspace_key,decision_id LIMIT $1 FOR UPDATE SKIP LOCKED
+    ) UPDATE e04_runtime.decisions AS decision
+      SET request_json='{"redacted":true}'::jsonb,plan_json='{"redacted":true}'::jsonb,content_available=FALSE
+      FROM expired WHERE decision.ctid=expired.ctid`,[limit]);
+    redacted=result.rowCount??0;
+  }
+  return {scanned:scanned.rows.length,expired,cleaned,cleanupFailed,redacted,nextSequence,scanComplete:scanned.rows.length<limit};
 }
