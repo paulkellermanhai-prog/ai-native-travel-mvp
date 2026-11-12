@@ -31,11 +31,16 @@ describe("E04 trusted E03 Packet source",()=>{
     await expect(buildTrustedDecisionRequest(sourceFor([packet]) as never,{...input,
       trigger:{kind:"user_event",reference:"host-interaction:forged"}})).rejects.toBeInstanceOf(NapTrustedPacketError);
   });
-  it("rejects unregistered trigger kinds until the host has a trusted source",async()=>{
+  it("accepts only tool triggers that the host ledger proves current",async()=>{
+    const registered={...sourceFor([packet]),readTrustedTriggerCandidate:async()=>({runtime_id:"runtime",state_revision:packet.context.state_revision})};
+    for(const kind of ["tool_result","state_change"] as const)await expect(buildTrustedDecisionRequest(registered as never,{...input,
+      trigger:{kind,reference:kind==="state_change"?"state-change:completion":"completion"}})).resolves.toMatchObject({trigger:{kind}});
     for(const kind of ["tool_result","state_change","clock_tick","ui_action"] as const) {
       await expect(buildTrustedDecisionRequest(sourceFor([packet]) as never,{...input,trigger:{kind,reference:"untrusted"}}))
         .rejects.toBeInstanceOf(NapTrustedPacketError);
     }
+    await expect(buildTrustedDecisionRequest({...registered,readTrustedTriggerCandidate:async()=>({runtime_id:"other",state_revision:packet.context.state_revision})} as never,
+      {...input,trigger:{kind:"tool_result",reference:"completion"}})).rejects.toBeInstanceOf(NapTrustedPacketError);
   });
   it("rejects mixed revisions but preserves each task Packet's own digest",async()=>{
     const second=structuredClone(packet);second.packet_id="packet-second";

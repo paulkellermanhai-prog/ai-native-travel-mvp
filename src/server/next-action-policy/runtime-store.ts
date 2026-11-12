@@ -103,10 +103,13 @@ export async function claimDecisionStep(tx:Prisma.TransactionClient,scope:NapRun
   return {disposition:"claimed",plan:structuredClone(value.plan),claim_token:claimToken};
 }
 
-export async function markExecutionUnknown(tx:Prisma.TransactionClient,scope:NapRuntimeScope,decisionId:string,actionId:string,stepId:string,claimToken:string):Promise<void>{
+export async function markExecutionUnknown(tx:Prisma.TransactionClient,scope:NapRuntimeScope,decisionId:string,actionId:string,stepId:string,claimToken:string,
+  recovery:unknown=null):Promise<void>{
   const value=await locked(tx,scope,decisionId,actionId),step=value.steps.find(row=>row.step_id===stepId);
   if(!step||step.status!=="running"||step.claim_token!==claimToken)return fail("CLAIM_CONFLICT");
   const transition=nextActionPhase(value.action.phase,{kind:"execution_unknown"});
+  await tx.$executeRaw`UPDATE e04_runtime.steps SET result_json=${JSON.stringify(recovery)}::jsonb
+    WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND decision_id=${decisionId} AND action_id=${actionId} AND step_id=${stepId}`;
   await tx.$executeRaw`UPDATE e04_runtime.actions SET receipt_lookup_required=${transition.receiptLookupRequired},updated_at=clock_timestamp()
     WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND decision_id=${decisionId} AND action_id=${actionId}`;
 }
@@ -123,7 +126,7 @@ export async function completeDecisionStep(tx:Prisma.TransactionClient,scope:Nap
     outcome==="pending_confirmation"?nextActionPhase(value.action.phase,{kind:"await_confirmation",proposalRecorded:true}):
     outcome==="success"&&!allSucceeded?{phase:"running" as const,receiptLookupRequired:false}:
     nextActionPhase(value.action.phase,{kind:"complete",basisCurrent:true,outcome});
-  const stepStatus=!basisCurrent?"stale":outcome==="success"||outcome==="pending_confirmation"?"succeeded":"failed";
+  const stepStatus=!basisCurrent?"stale":outcome==="failure"?"failed":"succeeded";
   await tx.$executeRaw`UPDATE e04_runtime.steps SET status=${stepStatus},result_json=${JSON.stringify(result)}::jsonb,completed_at=clock_timestamp()
     WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND decision_id=${decisionId} AND action_id=${actionId} AND step_id=${stepId}`;
   const actionResult=["running","waiting_user"].includes(transition.phase)?null:result;

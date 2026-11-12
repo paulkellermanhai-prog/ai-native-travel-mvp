@@ -29,6 +29,7 @@ import { BridgeRuleError, checkChangeRules, checkConfirmationRules, checkGrantFi
 import type { TransactionalBridgeHost } from "../write-bridge/orchestrator";
 import {validateDecisionPlanHostEligibility,type DecisionPlan} from "../../next-action-policy/decision-engine";
 import {claimDecisionStep,completeDecisionStep,markExecutionUnknown,readDecisionRecord,redactDecisionsForSourceEvent,saveDecisionPlan} from "../../next-action-policy/runtime-store";
+import {beginToolInvocation,readToolInvocation,readToolTrigger,recordToolCompletion,type ToolCompletion} from "../../next-action-policy/tool-runtime-store";
 import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-packet-source";
 
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
@@ -54,6 +55,8 @@ type SupersedeRow = { disposition:"denied"|"conflict"|"replayed"|"superseded"; o
 type InterpretedTask = DecisionContextContracts["open-turn"]["tasks"][number];
 type WriteOperation = {kind:"change";scope:Scope;headers:Headers;body:Change;memory:PacketMemory;role:"user"|"model";grant?:WriteGrant} |
   {kind:"confirm";scope:Scope;headers:Headers;body:Confirm;memory:PacketMemory;role:"user"};
+type ToolObservationOperation={kind:"tool";scope:Scope;headers:Headers;request:ReturnType<typeof parseContract<"change-request">>;providerRef:string;
+  invocationId:string;decisionId:string;actionId:string;stepId:string};
 export type ControlledInterpreter = (input:{event:{event_id:string;entry:RecordInput["entry"];text:string;reference:string;received_at:string};state:ReturnType<typeof parseStateReferences>;
   runtime_focus:{tasks:InterpretedTask[];focus_keys:string[];complete:boolean};mint_task_key:(ordinal:number)=>Promise<string>;
   read_task_evidence:(taskKey:string,window:{page_size:number;from:string;to:string;cursor:string|null})=>Promise<EvidencePage>})=>Promise<{tasks:unknown;focus_keys:unknown}>;
@@ -125,7 +128,7 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
   const interpreterReads=new WeakMap<object,{scope:Scope;eventId:string;token:string}>();
   const routingSecret=randomBytes(32);
   const activeScopes = new Set<Scope>();
-  const writeCredentials=new WeakMap<object,WriteOperation>();
+  const writeCredentials=new WeakMap<object,WriteOperation|ToolObservationOperation>();
   const modelActorId="model-e03-runtime";
   let writeServicePromise:ReturnType<typeof openTripCommandService>|undefined;
   let closed = false;
@@ -133,12 +136,22 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
     async authorize(tripId,credential){
       const operation=credential&&typeof credential==="object"?writeCredentials.get(credential):undefined;
       if(!operation||operation.scope.tripId!==tripId||closed||operation.scope.disposed)throw new TripStateContractError("PERMISSION","Access denied");
-      return {tripId,actor:{role:operation.role,id:operation.role==="user"?userActorId(operation.scope.ownerId):modelActorId}};
+      const actor=operation.kind==="tool"?{role:"tool" as const,id:operation.providerRef}:
+        {role:operation.role,id:operation.role==="user"?userActorId(operation.scope.ownerId):modelActorId};
+      return {tripId,actor};
     },
     async guard(tripId,credential,tx){
       const operation=credential&&typeof credential==="object"?writeCredentials.get(credential):undefined;
       if(!operation||operation.scope.tripId!==tripId)throw new TripStateContractError("PERMISSION","Access denied");
-      await guardWriteOperation(tx,operation);
+      if(operation.kind==="tool"){
+        try{await host.guard!(operation.scope.tripId,operation.headers,tx);}catch{throw new TripStateContractError("PERMISSION","Access denied");}
+        const [row]=await tx.$queryRaw<Array<{revision:bigint;ok:boolean}>>`SELECT d."revision" AS revision,EXISTS(SELECT 1 FROM e04_runtime.tool_invocations i
+          WHERE i.owner_id=${operation.scope.ownerId} AND i.trip_id=${operation.scope.tripId} AND i.workspace_key=${operation.scope.workspaceKey}
+          AND i.decision_id=${operation.decisionId} AND i.action_id=${operation.actionId} AND i.step_id=${operation.stepId}
+          AND i.invocation_id=${operation.invocationId} AND i.provider_ref=${operation.providerRef} AND i.status='running') AS ok
+          FROM "TripStateDocument" d WHERE d."tripId"=${operation.scope.tripId} FOR SHARE`;
+        if(!row?.ok||row.revision!==BigInt(operation.request.expected_revision))throw new TripStateContractError("VERSION_CONFLICT","Tool observation basis changed");
+      }else await guardWriteOperation(tx,operation);
     },
   };
   function writeService(){return writeServicePromise??=openTripCommandService(connection,writeCommandHost);}
@@ -349,6 +362,11 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
       const service=await writeService();
       return await (operation.kind==="change"?service.submit(operation.scope.tripId,request,credential):service.confirm(operation.scope.tripId,proposalId!,request,credential));
     } finally {writeCredentials.delete(credential);}
+  }
+  async function executeToolObservation(operation:ToolObservationOperation){
+    const credential=Object.freeze({});writeCredentials.set(credential,operation);
+    try{return await (await writeService()).submit(operation.scope.tripId,operation.request,credential);}
+    finally{writeCredentials.delete(credential);}
   }
   async function changeScope(scope:Scope,headers:Headers,body:Change) {
     const memory=writePacket(scope,body.packet_id),grant=memory.grants.get(body.request.idempotency_key),role=grant?"user" as const:"model" as const;
@@ -1023,8 +1041,66 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
         if(!document||scope.runtimeId!==request.runtime_id||document.revision!==BigInt(plan.basis[0].state_revision)||
           plan.basis.some(basis=>new Date(basis.expires_at).getTime()<=document.now.getTime()))return unavailable();
+        if(request.trigger.kind!=="user_event"){
+          const completionId=request.trigger.kind==="state_change"&&request.trigger.reference.startsWith("state-change:")?
+            request.trigger.reference.slice(13):request.trigger.reference;
+          const trigger=await readToolTrigger(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},completionId,document.now);
+          if(!trigger.current_usable||trigger.state_revision_after!==Number(document.revision)||
+            request.trigger.kind==="state_change"&&trigger.completion.validated_fact_ids.length===0)return unavailable();
+        }
         return saveDecisionPlan(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},request,plan,new Date(batch.expires_at));
       }));
+    },
+    async beginToolInvocationCandidate(ticket:object,credential:Headers,input:{decisionId:string;actionId:string;stepId:string;invocationId:string;
+      capabilityId:string;providerRef:string;queryDigest:string;arguments:Record<string,unknown>;basisStateRevision:number}){
+      const {scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>db.$transaction(async tx=>{
+        await host.guard!(scope.tripId,headers,tx);
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument"
+          WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        if(!document)return unavailable();
+        return beginToolInvocation(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},input,
+          Number(document.revision),document.now);
+      }));
+    },
+    async submitToolObservationCandidate(ticket:object,credential:Headers,input:{decisionId:string;actionId:string;stepId:string;invocationId:string;
+      providerRef:string;request:unknown}){
+      const request=structuredClone(parseContract("change-request",input.request)),{scope,headers}=await scoped(ticket,credential);
+      if(request.commands.length<1||request.commands.some(command=>command.op!=="ingest_fact")||request.input.kind!=="tool"||
+        request.input.reference!==`nap-tool-invocation:${input.invocationId}`)return unavailable();
+      const operation:ToolObservationOperation={kind:"tool",scope,headers,request,providerRef:input.providerRef,invocationId:input.invocationId,
+        decisionId:input.decisionId,actionId:input.actionId,stepId:input.stepId};
+      return exclusive(scope,()=>executeToolObservation(operation));
+    },
+    async recordToolCompletionCandidate(ticket:object,credential:Headers,input:{completion:ToolCompletion;rawResult:unknown;authoritativeRevision:number|null}){
+      const {scope,headers}=await scoped(ticket,credential);
+      return exclusive(scope,async()=>db.$transaction(async tx=>{
+        await host.guard!(scope.tripId,headers,tx);
+        const [document]=await tx.$queryRaw<Array<{revision:bigint;now:Date}>>`SELECT "revision",clock_timestamp() AS now FROM "TripStateDocument"
+          WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        if(!document)return unavailable();
+        return recordToolCompletion(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
+          {completion:input.completion,rawResult:input.rawResult,authoritativeRevision:input.authoritativeRevision,currentRevision:Number(document.revision),currentNow:document.now});
+      }));
+    },
+    async readToolInvocationCandidate(ticket:object,credential:Headers,input:{decisionId:string;actionId:string;stepId:string;invocationId:string}){
+      const {scope,headers}=await scoped(ticket,credential);
+      return db.$transaction(async tx=>{
+        await host.guard!(scope.tripId,headers,tx);
+        return readToolInvocation(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},input);
+      });
+    },
+    async readToolTriggerCandidate(ticket:object,credential:Headers,completionId:string){
+      const {scope,headers}=await scoped(ticket,credential);
+      return db.$transaction(async tx=>{
+        await host.guard!(scope.tripId,headers,tx);
+        const [document]=await tx.$queryRaw<Array<{revision:bigint}>>`SELECT "revision" FROM "TripStateDocument" WHERE "tripId"=${scope.tripId} FOR SHARE`;
+        if(!document)return unavailable();
+        const [clock]=await tx.$queryRaw<Array<{now:Date}>>`SELECT clock_timestamp() AS now`;
+        const result=await readToolTrigger(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},completionId,clock.now);
+        if(!result.current_usable||result.state_revision_after!==Number(document.revision))return unavailable();
+        return {runtime_id:scope.runtimeId,state_revision:result.state_revision_after,completion:result.completion};
+      });
     },
     async claimDecisionStepCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string){
       const {scope,headers}=await scoped(ticket,credential);
@@ -1043,12 +1119,12 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         return readDecisionRecord(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},decisionId);
       });
     },
-    async markDecisionExecutionUnknownCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string){
+    async markDecisionExecutionUnknownCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string,recovery:unknown=null){
       const {scope,headers}=await scoped(ticket,credential);
       return exclusive(scope,async()=>db.$transaction(async tx=>{
         try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
         return markExecutionUnknown(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
-          decisionId,actionId,stepId,claimToken);
+          decisionId,actionId,stepId,claimToken,recovery);
       }));
     },
     async completeDecisionStepCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string,
@@ -1072,6 +1148,18 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         const rows=await tx.$queryRaw<Array<{requestDigest:string;request:string;response:string}>>`SELECT "requestDigest","request"::text AS request,"response"::text AS response
           FROM "TripStateIdempotency" WHERE "tripId"=${scope.tripId} AND "key"=${request.idempotency_key}
           AND (("actorId"=${userActorId(scope.ownerId)} AND "operationDomain"='user') OR ("actorId"=${modelActorId} AND "operationDomain"='model'))`;
+        const matches=rows.filter(row=>row.requestDigest===digest(request)&&canonicalJson(decodeCommandJson(row.request))===canonicalJson(request));
+        if(matches.length>1)return unavailable();
+        return matches[0]?structuredClone(parseContract("response",decodeCommandJson(matches[0].response))):null;
+      });
+    },
+    async lookupToolObservationReceiptCandidate(ticket:object,credential:Headers,input:{invocationId:string;providerRef:string;request:unknown}){
+      const request=structuredClone(parseContract("change-request",input.request)),{scope,headers}=await scoped(ticket,credential);
+      if(request.input.kind!=="tool"||request.input.reference!==`nap-tool-invocation:${input.invocationId}`)return unavailable();
+      return db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        const rows=await tx.$queryRaw<Array<{requestDigest:string;request:string;response:string}>>`SELECT "requestDigest","request"::text AS request,"response"::text AS response
+          FROM "TripStateIdempotency" WHERE "tripId"=${scope.tripId} AND "actorId"=${input.providerRef} AND "operationDomain"='tool' AND "key"=${request.idempotency_key}`;
         const matches=rows.filter(row=>row.requestDigest===digest(request)&&canonicalJson(decodeCommandJson(row.request))===canonicalJson(request));
         if(matches.length>1)return unavailable();
         return matches[0]?structuredClone(parseContract("response",decodeCommandJson(matches[0].response))):null;

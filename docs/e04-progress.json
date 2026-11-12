@@ -3,11 +3,11 @@
   "maintenance_source": "docs/e04-progress.json",
   "generated_view": "docs/E04阶段看板.md",
   "baseline_commit": "a7dde3e0e92b1e975d5c9ef2275aa23c4fd5f9cb",
-  "branch": "feat/e04-next-action-policy-runtime",
-  "local_worktree_branch": "feat/e04-02-04-local",
-  "final_gate_code_sha": "f6b0c862ae200d72d8300f68433ca807ce3d7309",
-  "accepted_weight_percent": 8,
-  "implemented_weight_percent": 68,
+  "branch": "feat/e04-05-tool-results",
+  "local_worktree_branch": "feat/e04-05-tool-results",
+  "final_gate_code_sha": "78325702e4a007f509adac1084a88c6bb8d085fa",
+  "accepted_weight_percent": 68,
+  "implemented_weight_percent": 78,
   "scope": "E04 Next Action Policy for the first Egypt internal MVP; implementation progress is not technical acceptance and does not authorize merge, deployment, public APIs, production E11 or suppliers",
   "stages": [
     {
@@ -32,51 +32,59 @@
       "name": "合同与可信 Packet 接入",
       "weight_percent": 10,
       "implementation_percent": 100,
-      "status": "DELIVERED_PENDING_REVIEW",
+      "status": "ACCEPTED",
       "execution_location": "src/server/next-action-policy；E03 host-runtime；真实 Session/PostgreSQL/HTTP 测试",
       "responsibilities": "主工程集成人实现；技术负责人审核新增差异及阶段出口",
       "owner_participation": "当前无需",
       "subtasks": [
-        {"id": "E04-01-1", "description": "移植 NAP 合同、Plan integrity 与 Packet consistency", "status": "DELIVERED_PENDING_REVIEW"},
-        {"id": "E04-01-2", "description": "从可信 E03 宿主读取真实 Packet，并在整批最终事务复验 Session/Trip/runtime/revision 及 PacketMemory/context/rebuilt deadline 最早期限", "status": "DELIVERED_PENDING_REVIEW"},
-        {"id": "E04-01-3", "description": "验证伪造引用、错误 Session、撤权、过期、恢复换代、并发失效和不完整交付不得取得决策资格", "status": "DELIVERED_PENDING_REVIEW"}
+        {"id": "E04-01-1", "description": "移植 NAP 合同、Plan integrity 与 Packet consistency", "status": "ACCEPTED"},
+        {"id": "E04-01-2", "description": "从可信 E03 宿主读取真实 Packet，并在整批最终事务复验 Session/Trip/runtime/revision 及 PacketMemory/context/rebuilt deadline 最早期限", "status": "ACCEPTED"},
+        {"id": "E04-01-3", "description": "验证伪造引用、错误 Session、撤权、过期、恢复换代、并发失效和不完整交付不得取得决策资格", "status": "ACCEPTED"}
       ],
-      "evidence": ["docs/E04-01首批可信Packet接线.md", "docs/E04-01-04产品规则对齐与真实回归评测.md", "docs/e04-01-04-evaluation.json", "src/server/next-action-policy/trusted-packet-source.ts", "src/server/decision-context/host-runtime/evidence-host.ts", "tests/next-action-policy/trusted-packet-source.test.ts", "tests/http/e03-runtime/pr29-host.pg.test.ts", "f6b0c862ae200d72d8300f68433ca807ce3d7309", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/35"],
+      "evidence": ["docs/E04-01首批可信Packet接线.md", "docs/E04-01-04产品规则对齐与真实回归评测.md", "docs/e04-01-04-evaluation.json", "docs/e04-01-04-technical-acceptance.json", "src/server/next-action-policy/trusted-packet-source.ts", "src/server/decision-context/host-runtime/evidence-host.ts", "tests/next-action-policy/trusted-packet-source.test.ts", "tests/http/e03-runtime/pr29-host.pg.test.ts", "2301091f6a659c3dd325b50d4f54f346da0badcc", "c98dcfd8e6b49554158d9ef754dbfb265a714f17", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/36", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/37", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43030733010"],
       "blockers": []
     },
     {
-      "id": "E04-02", "name": "行动决策引擎", "weight_percent": 18, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
+      "id": "E04-02", "name": "行动决策引擎", "weight_percent": 18, "implementation_percent": 100, "status": "ACCEPTED",
       "execution_location": "src/server/next-action-policy/decision-engine.ts；规则与埃及场景测试", "responsibilities": "主工程集成人实现；语义适配器与确定性 Gate 分离", "owner_participation": "仅出现新产品取舍时",
       "subtasks": [
-        {"id":"E04-02-1","description":"按 G01→G03→G02→G03/G04 生成并选择候选行动","status":"DELIVERED_PENDING_REVIEW"},
-        {"id":"E04-02-2","description":"宿主证明 source/object evidence、delivery fail closed，并从真实 change command 阻断非法 Candidate 重入","status":"DELIVERED_PENDING_REVIEW"},
-        {"id":"E04-02-3","description":"G05 从新可信事件重评，不沿用旧 Action","status":"DELIVERED_PENDING_REVIEW"}
+        {"id":"E04-02-1","description":"按 G01→G03→G02→G03/G04 生成并选择候选行动","status":"ACCEPTED"},
+        {"id":"E04-02-2","description":"宿主证明 source/object evidence、delivery fail closed，并从真实 change command 阻断非法 Candidate 重入","status":"ACCEPTED"},
+        {"id":"E04-02-3","description":"G05 从新可信事件重评，不沿用旧 Action","status":"ACCEPTED"}
       ],
-      "evidence": ["docs/E04-02最小行动决策器.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","src/server/next-action-policy/decision-engine.ts","tests/next-action-policy/decision-engine.test.ts","f6b0c862ae200d72d8300f68433ca807ce3d7309"], "blockers": []
+      "evidence": ["docs/E04-02最小行动决策器.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","docs/e04-01-04-technical-acceptance.json","src/server/next-action-policy/decision-engine.ts","tests/next-action-policy/decision-engine.test.ts","c98dcfd8e6b49554158d9ef754dbfb265a714f17","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/37","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43030733010"], "blockers": []
     },
     {
-      "id": "E04-03", "name": "Action Runtime 与运行记录", "weight_percent": 18, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
+      "id": "E04-03", "name": "Action Runtime 与运行记录", "weight_percent": 18, "implementation_percent": 100, "status": "ACCEPTED",
       "execution_location": "src/server/next-action-policy/runtime-store.ts、runtime/sql、PostgreSQL 17 恢复测试", "responsibilities": "主工程集成人实现；技术负责人审核持久性与并发出口", "owner_participation": "无需工程细节参与",
       "subtasks": [
-        {"id":"E04-03-1","description":"不可变 Plan/Decision 幂等与 owner/Trip/workspace/runtime 绑定","status":"DELIVERED_PENDING_REVIEW"},
-        {"id":"E04-03-2","description":"ActionRecord、Step 原子认领、依赖与 waiting_user","status":"DELIVERED_PENDING_REVIEW"},
-        {"id":"E04-03-3","description":"回执未知标记、恢复可读，以及多 Step running Action 在安全条件下随旧 runtime/revision/TTL 一致失效","status":"DELIVERED_PENDING_REVIEW"}
+        {"id":"E04-03-1","description":"不可变 Plan/Decision 幂等与 owner/Trip/workspace/runtime 绑定","status":"ACCEPTED"},
+        {"id":"E04-03-2","description":"ActionRecord、Step 原子认领、依赖与 waiting_user","status":"ACCEPTED"},
+        {"id":"E04-03-3","description":"回执未知标记、恢复可读，以及多 Step running Action 在安全条件下随旧 runtime/revision/TTL 一致失效","status":"ACCEPTED"}
       ],
-      "evidence": ["docs/E04-03最小PG行动Runtime.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","src/server/next-action-policy/runtime-store.ts","src/server/next-action-policy/runtime/sql/001-runtime.sql","tests/http/e03-runtime/pr29-host.pg.test.ts","f6b0c862ae200d72d8300f68433ca807ce3d7309"], "blockers": []
+      "evidence": ["docs/E04-03最小PG行动Runtime.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","docs/e04-01-04-technical-acceptance.json","src/server/next-action-policy/runtime-store.ts","src/server/next-action-policy/runtime/sql/001-runtime.sql","tests/http/e03-runtime/pr29-host.pg.test.ts","2301091f6a659c3dd325b50d4f54f346da0badcc","c98dcfd8e6b49554158d9ef754dbfb265a714f17"], "blockers": []
     },
     {
-      "id": "E04-04", "name": "受控执行与业务写桥", "weight_percent": 14, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
+      "id": "E04-04", "name": "受控执行与业务写桥", "weight_percent": 14, "implementation_percent": 100, "status": "ACCEPTED",
       "execution_location": "E03 trusted host/http adapter、write-bridge 与 E02 权威事务的窄适配", "responsibilities": "主工程集成人接线；不改既有业务真值", "owner_participation": "仅权限边界冲突时",
       "subtasks": [
-        {"id":"E04-04-1","description":"从宿主保存 Plan 按引用 dispatch 并重验 Session/membership/runtime/Packet/revision/TTL","status":"DELIVERED_PENDING_REVIEW"},
-        {"id":"E04-04-2","description":"自主只读准备返回真实 Packet 对象，无 TS 写入","status":"DELIVERED_PENDING_REVIEW"},
-        {"id":"E04-04-3","description":"change 仅经 E03 write-bridge/E02；提交前 fail closed 检查 lifecycle；applied/pending/rejected/conflict/unknown 按权威回执映射","status":"DELIVERED_PENDING_REVIEW"}
+        {"id":"E04-04-1","description":"从宿主保存 Plan 按引用 dispatch 并重验 Session/membership/runtime/Packet/revision/TTL","status":"ACCEPTED"},
+        {"id":"E04-04-2","description":"自主只读准备返回真实 Packet 对象，无 TS 写入","status":"ACCEPTED"},
+        {"id":"E04-04-3","description":"change 仅经 E03 write-bridge/E02；提交前 fail closed 检查 lifecycle；applied/pending/rejected/conflict/unknown 按权威回执映射","status":"ACCEPTED"}
       ],
-      "evidence": ["docs/E04-04受控执行与原写桥.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","src/server/decision-context/http-adapter/pr29-host-candidate.ts","src/server/decision-context/host-runtime/expiry-maintenance-candidate.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","f6b0c862ae200d72d8300f68433ca807ce3d7309"], "blockers": []
+      "evidence": ["docs/E04-04受控执行与原写桥.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","docs/e04-01-04-technical-acceptance.json","src/server/decision-context/http-adapter/pr29-host-candidate.ts","src/server/decision-context/host-runtime/expiry-maintenance-candidate.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","2301091f6a659c3dd325b50d4f54f346da0badcc","c98dcfd8e6b49554158d9ef754dbfb265a714f17"], "blockers": []
     },
     {
-      "id": "E04-05", "name": "工具结果及外部依据处理", "weight_percent": 10, "implementation_percent": 0, "status": "NOT_STARTED",
-      "execution_location": "最小能力注册表、调用账本与合成埃及数据适配器", "responsibilities": "主工程集成人实现；真实供应商另行验证", "owner_participation": "首版数据范围变化时参与", "subtasks": [], "evidence": [], "blockers": []
+      "id": "E04-05", "name": "工具结果及外部依据处理", "weight_percent": 10, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
+      "execution_location": "src/server/next-action-policy/tool-*、E04 PG Runtime、E03 trusted host、真实本地 HTTP 合成埃及交通适配器", "responsibilities": "主工程集成人实现并提供真实 PG/Session/HTTP 证据；技术负责人审核阶段出口；真实供应商另行验证", "owner_participation": "当前无需；首版数据范围或事实权限变化时参与",
+      "subtasks": [
+        {"id":"E04-05-1","description":"可信宿主注册 query/calculate Capability；真实本地 HTTP 合成交通；费用计算仅输出已知小计、口径和未知部分，无全程覆盖证明不声明完整总价","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-05-2","description":"ToolInvocation/ToolCompletion 与 Decision/Action/Step、provider、query、revision、TTL 的 PostgreSQL 绑定；E02 已写入后 lifecycle/completion 失败通过原幂等回执对账，不重复调用或写入","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-05-3","description":"result/partial/empty/timeout/error/no_service 分级、晚到/重复/过期/跨权限隔离","status":"DELIVERED_PENDING_REVIEW"},
+        {"id":"E04-05-4","description":"可信 tool_result/state_change 触发、当前 Packet 复验和 G05 新计划重评，不复活旧 Action","status":"DELIVERED_PENDING_REVIEW"}
+      ],
+      "evidence": ["docs/E04-05工具结果与可信依据.md","src/server/next-action-policy/tool-capabilities.ts","src/server/next-action-policy/tool-runtime-store.ts","src/server/next-action-policy/tool-dispatch.ts","src/server/next-action-policy/runtime/sql/002-tool-results.sql","tests/next-action-policy/tool-capabilities.test.ts","tests/next-action-policy/completion-binding.test.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","182638217e8745730c5364f579112d10c7cd4c5f","fc22c1991031bea099c79ee6c75916766d21a8d3","78325702e4a007f509adac1084a88c6bb8d085fa","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/38","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43043895599"],
+      "blockers": ["E04-07 的 58 scenario、3 walkthrough、12 calibration 尚未真实执行；actual_policy_runs=0","真实供应商、预订、支付与生产 E11 不在本阶段范围"]
     },
     {
       "id": "E04-06", "name": "回应、反馈与多轮连续性", "weight_percent": 10, "implementation_percent": 0, "status": "NOT_STARTED",

@@ -16,7 +16,8 @@ import { buildTrustedDecisionRequest } from "../../../src/server/next-action-pol
 import { installE03Candidate } from "../../../scripts/e03-candidate-installer.mjs";
 import {installE04Runtime} from "../../../scripts/e04-candidate-installer.mjs";
 import { base } from "../../support/bcg-fixtures";
-import {decide,type SemanticAdapter} from "../../../src/server/next-action-policy/decision-engine";
+import {decide,reevaluate,type SemanticAdapter} from "../../../src/server/next-action-policy/decision-engine";
+import {createEgyptMvpCapabilityRegistry,type ToolResultStatus} from "../../../src/server/next-action-policy/tool-capabilities";
 import {runEvidenceMaintenanceCandidate} from "../../../src/server/decision-context/host-runtime/expiry-maintenance-candidate";
 
 const file=process.env.E03_PR29_WRITE_STORAGE_ENV_FILE;
@@ -668,6 +669,209 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
     } finally {
       if(child&&!child.killed){child.stdin?.end();await Promise.race([once(child,"exit"),new Promise(resolve=>setTimeout(resolve,5_000))]);if(child.exitCode===null)child.kill();}
       if(server){server.close();await once(server,"close");}
+      await Promise.allSettled(resources.reverse().map(resource=>resource.close()));await owner.end();
+    }
+  },90_000);
+
+  it("executes and binds E04-05 Egypt tool results through real HTTP, Session and PostgreSQL",async()=>{
+    const cfg=config!,owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
+    const resources:Array<{close:()=>Promise<void>}>=[];let app:http.Server|undefined,tool:http.Server|undefined;
+    let mode:ToolResultStatus="result",toolDelayMs=0,toolExpiryMs=3_600_000,onToolRequest:(()=>Promise<void>)|null=null,toolCalls=0,
+      failLifecycleOnce=false,failToolCompletionOnce=false;
+    try{
+      expect((await owner.query("SELECT to_regclass('e04_runtime.tool_invocations') IS NOT NULL AS invocations,to_regclass('e04_runtime.tool_completions') IS NOT NULL AS completions")).rows[0])
+        .toEqual({invocations:true,completions:true});
+      tool=http.createServer(async(request,response)=>{
+        const chunks:Buffer[]=[];for await(const chunk of request)chunks.push(Buffer.from(chunk as Uint8Array));
+        const args=JSON.parse(Buffer.concat(chunks).toString("utf8")) as {from_id:string;to_id:string;date:string;passengers:number};toolCalls++;
+        if(onToolRequest)await onToolRequest();if(toolDelayMs)await new Promise(resolve=>setTimeout(resolve,toolDelayMs));
+        const observed=new Date().toISOString(),expires=new Date(Date.now()+toolExpiryMs).toISOString();
+        const facts=mode==="result"||mode==="no_service"?[{id_suffix:"route",subject_ids:[args.from_id,args.to_id],
+          scope:{kind:"date",ids:[],start:args.date,end:args.date},query:{date:args.date,parameters:[{name:"passengers",value:args.passengers}]},
+          valid_for:{start:args.date,end:args.date},missing_fields:[],value:{kind:"transport",from_id:args.from_id,to_id:args.to_id,
+            departure:mode==="result"?`${args.date}T08:00:00Z`:null,arrival:mode==="result"?`${args.date}T11:00:00Z`:null,
+            duration_minutes:mode==="result"?180:null,service_exists:mode==="result"}}]:[];
+        response.writeHead(200,{"content-type":"application/json"});response.end(JSON.stringify({synthetic:true,status:mode,
+          source_ref:"synthetic-egypt-transport:v1",observed_at:observed,expires_at:facts.length?expires:null,
+          missing_fields:mode==="partial"?["lodging","food"]:[],facts}));
+      });
+      tool.listen(0,"127.0.0.1");await once(tool,"listening");const toolAddress=tool.address();if(!toolAddress||typeof toolAddress==="string")throw new Error("Missing tool socket");
+      app=http.createServer();app.listen(0,"127.0.0.1");await once(app,"listening");const appAddress=app.address();if(!appAddress||typeof appAddress==="string")throw new Error("Missing app socket");
+      const origin=`http://127.0.0.1:${appAddress.port}`,secret=randomBytes(32).toString("hex"),env={...process.env,DATABASE_URL:cfg.runtimeUrl,
+        AUTH_DATABASE_URL:cfg.authUrl,BETTER_AUTH_URL:origin,BETTER_AUTH_SECRET:randomBytes(32).toString("hex"),E11_IDEMPOTENCY_SECRET:randomBytes(32).toString("hex")};
+      const identity=await openIdentity(env);resources.push(identity);const internal=await openInternalTripService(cfg.runtimeUrl,secret);resources.push(internal);
+      const lifecycle=await openEvidenceLifecycleAdapter(cfg.lifecycleUrl,createInternalHost(secret));resources.push(lifecycle);const host=await openEvidenceHost(env);resources.push(host);
+      const toolHost={...host,async recordToolCompletionCandidate(...args:Parameters<typeof host.recordToolCompletionCandidate>){
+        if(failToolCompletionOnce){failToolCompletionOnce=false;throw new Error("Injected ToolCompletion storage failure");}
+        return host.recordToolCompletionCandidate(...args);
+      }};
+      const email=`${randomUUID()}@example.invalid`,password=randomBytes(24).toString("base64url"),created=await identity.auth.api.signUpEmail({body:{name:"E04-05 owner",email,password}});
+      const login=await identity.auth.api.signInEmail({body:{email,password},headers:new Headers({origin}),asResponse:true});expect(login.status).toBe(200);
+      const cookie=login.headers.getSetCookie().map(value=>value.split(";")[0]).join("; "),trip=`trip_e04_05_${randomBytes(8).toString("hex")}`;
+      await internal.createTrip(trip,await issueInternalCapability(secret,trip,{role:"system",id:"e04-05-bootstrap"}));
+      await lifecycle.sync(await issueInternalCapability(secret,trip,{role:"system",id:"e04-05-lifecycle"}),{trip_id:trip,source_revision:0,ended_at:null});
+      const snapshot=structuredClone(base);snapshot.trip_id=trip;const observed=new Date(Date.now()-60_000).toISOString(),expires=new Date(Date.now()+3_600_000).toISOString();
+      for(const object of snapshot.objects){object.trip_id=trip;object.updated_at=observed;object.source.at=observed;if(object.type==="ExternalFact"){object.observed_at=observed;object.expires_at=expires;}}
+      await owner.query('UPDATE "TripStateDocument" SET "snapshot"=$2::jsonb,"revision"=0 WHERE "tripId"=$1',[trip,JSON.stringify(snapshot)]);
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,created.user.id]);
+      const interpret:ControlledInterpreter=async input=>{const key=await input.mint_task_key(0);return {tasks:[{task_key:key,question:input.event.text,kind:"explore",
+        target_ids:["constraint-dates","candidate-aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",
+        evidence:[{start:0,end:Array.from(input.event.text).length,quote:input.event.text}],progress:"open",progress_evidence:null}],focus_keys:[key]};};
+      const registry=createEgyptMvpCapabilityRegistry({transportEndpoint:`http://127.0.0.1:${toolAddress.port}/synthetic/transport`,timeoutMs:200});
+      const adapter=createPr29HostHttpCandidate(toolHost,origin,interpret,async(value,revision)=>{
+        if(failLifecycleOnce){failLifecycleOnce=false;throw new Error("Injected lifecycle synchronization failure");}
+        await lifecycle.sync(await issueInternalCapability(secret,value,{role:"system",id:"e04-05-write"}),{trip_id:value,source_revision:revision,ended_at:null});
+      },registry);
+      app.removeAllListeners("request");app.on("request",(request,response)=>{void adapter.handle(request,response);});
+      const headers=new Headers({cookie}),post=(operation:string,body:unknown)=>fetch(`${origin}/runtime/trips/${trip}/${operation}`,{
+        method:"POST",headers:{origin,cookie,"content-type":"application/json"},body:JSON.stringify(body)});
+      async function packet(text:string){
+        const opened=await post("turns",{entry:"dialogue",text,idempotency_key:`turn_${randomUUID()}`});expect(opened.status,await opened.clone().text()).toBe(200);
+        const turn=await opened.json() as DecisionContextContracts["turn"],assembled=await post("assemble",{runtime_contract_version:"0.1.0",turn_id:turn.turn_id,
+          task_key:turn.tasks[0].task_key,body_budget_bytes:1_000_000});expect(assembled.status,await assembled.clone().text()).toBe(200);
+        return await assembled.json() as DecisionContextContracts["packet"];
+      }
+      async function toolPlan(packetValue:DecisionContextContracts["packet"],decisionId:string,kind:"query"|"calculate",argumentsValue:Record<string,unknown>){
+        const request=await buildTrustedDecisionRequest(adapter,{tripId:trip,credential:headers,decisionId,trigger:{kind:"user_event",reference:packetValue.pending_input.event.reference},packetIds:[packetValue.packet_id]});
+        const evidence=packetValue.objects.find(object=>object.id==="constraint-dates")??packetValue.objects[0];if(!evidence)throw new Error("Missing tool evidence");
+        const plan=await decide(request,{assess:async()=>({response:{request_ids:[packetValue.task.task_key],disposition:"answered",text:"先做受控工具准备",
+          evidence_refs:[{id:evidence.id,version:evidence.version,kind:"object"}]},candidates:[{action_id:`action-${decisionId}`,task_key:packetValue.task.task_key,
+          packet_id:packetValue.packet_id,request_ids:[packetValue.task.task_key],goal:"D2",preferred_attention:"prepare",reason:"查询当前条件",rank:100,
+          steps:[{step_id:`step-${decisionId}`,kind,depends_on:[],capability_id:kind==="query"?"egypt-transport-synthetic-v1":"egypt-cost-subtotal-v1",
+            arguments:argumentsValue,change_request:null,user_message:null}],required_object_ids:[evidence.id],reentry_candidate_id:null}]})});
+        await adapter.saveDecisionPlanCandidate(trip,headers,request,plan);return {request,plan,packet:packetValue,action:plan.actions[0],step:plan.actions[0].steps[0]};
+      }
+      async function dispatch(value:Awaited<ReturnType<typeof toolPlan>>){return adapter.dispatchDecisionStepCandidate(trip,headers,value.packet.packet_id,
+        value.plan.decision_id,value.action.action_id,value.step.step_id);}
+      const transport=(date:string)=>({from_id:"luxor",to_id:"aswan",date,passengers:1});
+
+      mode="result";const caseA=await toolPlan(await packet("阿斯旺值得加吗，我担心从卢克索过去的交通代价"),"egypt-tool-a","query",transport("2030-11-14"));
+      const resultA=await dispatch(caseA);expect(resultA).toMatchObject({disposition:"executed",result:{outcome:"applied",revision:1,synthetic:true,
+        completion:{result_status:"result",validated_fact_ids:[expect.stringMatching(/^fact-/)]}}});
+      const stateA=await internal.state(trip,await issueInternalCapability(secret,trip,{role:"tool",id:"e04-05-inspect"}));
+      expect(stateA?.objects.find(object=>object.id===(resultA.result as {completion:{validated_fact_ids:string[]}}).completion.validated_fact_ids[0]))
+        .toMatchObject({type:"ExternalFact",query_status:"result",query:{date:"2030-11-14"},provider:"synthetic-egypt-transport:v1",value:{service_exists:true}});
+
+      const currentPacket=await packet("只汇总当前已知费用，不要当作全程预算");
+      const caseB=await toolPlan(currentPacket,"egypt-tool-b","calculate",{currency:"EGP",people:1,required_categories:["transport"],
+        items:[{item_key:"rail",amount_minor:12000,category:"transport"}]});
+      expect(await dispatch(caseB)).toMatchObject({disposition:"executed",result:{completion:{result_status:"partial",validated_fact_ids:[]}}});
+      expect(await adapter.readDecisionRecordCandidate(trip,headers,currentPacket.packet_id,caseB.plan.decision_id)).toMatchObject({actions:[{phase:"partial"}],steps:[{status:"succeeded"}]});
+      const budgetRaw=(await owner.query<{raw_result_json:{payload:{is_full_trip_total:boolean;missing_categories:string[];unknown_parts:string[]}}}>(
+        'SELECT raw_result_json FROM e04_runtime.tool_completions WHERE decision_id=$1',[caseB.plan.decision_id])).rows[0].raw_result_json;
+      expect(budgetRaw.payload).toMatchObject({is_full_trip_total:false,missing_categories:["experience","food","lodging"],unknown_parts:["unlisted_trip_costs"]});
+
+      mode="empty";const emptyPlan=await toolPlan(currentPacket,"egypt-tool-empty","query",transport("2030-11-14")),emptyResult=await dispatch(emptyPlan);
+      expect(emptyResult).toMatchObject({result:{completion:{result_status:"empty",validated_fact_ids:[]}}});
+      mode="result";toolDelayMs=400;const timeoutPlan=await toolPlan(currentPacket,"egypt-tool-timeout","query",transport("2030-11-14")),timeoutResult=await dispatch(timeoutPlan);toolDelayMs=0;
+      expect(timeoutResult).toMatchObject({result:{completion:{result_status:"timeout",validated_fact_ids:[]}}});
+      expect(await adapter.readDecisionRecordCandidate(trip,headers,currentPacket.packet_id,timeoutPlan.plan.decision_id)).toMatchObject({actions:[{phase:"failed"}]});
+      const triggerRequest=await buildTrustedDecisionRequest(adapter,{tripId:trip,credential:headers,decisionId:"egypt-tool-timeout-reeval",
+        trigger:{kind:"tool_result",reference:(timeoutResult.result as {completion:{completion_id:string}}).completion.completion_id},packetIds:[currentPacket.packet_id]});
+      const replan=await reevaluate(timeoutPlan.plan,timeoutPlan.request,triggerRequest,{assess:async()=>({response:{request_ids:[currentPacket.task.task_key],disposition:"partial",
+        text:"交通查询超时，当前保持未知。",evidence_refs:[]},candidates:[]})});
+      await adapter.saveDecisionPlanCandidate(trip,headers,triggerRequest,replan);
+      mode="no_service";const noService=await toolPlan(currentPacket,"egypt-tool-no-service","query",transport("2030-11-14"));
+      expect(await dispatch(noService)).toMatchObject({result:{outcome:"applied",completion:{result_status:"no_service",validated_fact_ids:[expect.any(String)]}}});
+      const statuses=(await owner.query<{result_status:string}>(`SELECT completion_json->>'result_status' AS result_status FROM e04_runtime.tool_completions
+        WHERE decision_id=ANY($1::text[]) ORDER BY result_status`,[[emptyPlan.plan.decision_id,timeoutPlan.plan.decision_id,noService.plan.decision_id]])).rows.map(row=>row.result_status);
+      expect(statuses).toEqual(["empty","no_service","timeout"]);
+      const statePacket=await packet("根据刚才的无服务依据继续判断，不把工具结果伪造成用户事件");
+      const noServiceCompletion=(await owner.query<{completion_id:string}>('SELECT completion_id FROM e04_runtime.tool_completions WHERE decision_id=$1',
+        [noService.plan.decision_id])).rows[0].completion_id;
+      const stateRequest=await buildTrustedDecisionRequest(adapter,{tripId:trip,credential:headers,decisionId:"egypt-tool-state-reeval",
+        trigger:{kind:"state_change",reference:`state-change:${noServiceCompletion}`},packetIds:[statePacket.packet_id]});
+      const statePlan=await reevaluate(noService.plan,noService.request,stateRequest,{assess:async()=>({response:{request_ids:[statePacket.task.task_key],
+        disposition:"answered",text:"当前日期的无服务观察已进入可信状态，重新判断后不复活旧行动。",evidence_refs:[]},candidates:[]})});
+      await adapter.saveDecisionPlanCandidate(trip,headers,stateRequest,statePlan);
+      await expect(buildTrustedDecisionRequest(adapter,{tripId:trip,credential:headers,decisionId:"egypt-tool-forged-trigger",
+        trigger:{kind:"tool_result",reference:"completion-forged"},packetIds:[statePacket.packet_id]})).rejects.toThrow();
+      toolExpiryMs=100;const expiryPlan=await toolPlan(statePacket,"egypt-tool-expiring","query",transport("2030-11-14"));mode="result";
+      const expiryResult=await dispatch(expiryPlan),expiryCompletion=(expiryResult.result as {completion:{completion_id:string}}).completion.completion_id;
+      await new Promise(resolve=>setTimeout(resolve,150));toolExpiryMs=3_600_000;
+      const afterExpiry=await packet("过期工具结果只保留历史，不继续支持当前判断");
+      await expect(buildTrustedDecisionRequest(adapter,{tripId:trip,credential:headers,decisionId:"egypt-tool-expired-trigger",
+        trigger:{kind:"tool_result",reference:expiryCompletion},packetIds:[afterExpiry.packet_id]})).rejects.toThrow();
+
+      const beforeDateChange=await packet("先准备11月14日的交通，稍后可能改日期"),pendingOld=await toolPlan(beforeDateChange,"egypt-tool-old-date-pending","query",transport("2030-11-14"));
+      const dateObject=beforeDateChange.objects.find(object=>object.id==="constraint-dates");if(!dateObject||dateObject.type!=="Constraint")throw new Error("Missing date constraint");
+      const event=beforeDateChange.pending_input.event,dateChange={runtime_contract_version:"0.1.0" as const,turn_id:beforeDateChange.turn_id,packet_id:beforeDateChange.packet_id,request:{
+        expected_revision:beforeDateChange.context.state_revision,idempotency_key:"egypt-tool-date-change",reason:"日期改为11月16日",
+        input:{kind:"dialogue" as const,reference:event.reference,text:event.text,target_ids:beforeDateChange.task.target_ids},commands:[{op:"revise" as const,object_type:"Constraint" as const,
+          id:dateObject.id,changes:{value:{kind:"date_window" as const,start:"2030-11-16",end:"2030-11-16"}}}]}};
+      const dateRequest=await buildTrustedDecisionRequest(adapter,{tripId:trip,credential:headers,decisionId:"egypt-tool-date-change-plan",trigger:{kind:"user_event",reference:event.reference},packetIds:[beforeDateChange.packet_id]});
+      const datePlan=await decide(dateRequest,{assess:async()=>({response:{request_ids:[beforeDateChange.task.task_key],disposition:"answered",text:"提交日期修改",
+        evidence_refs:[{id:dateObject.id,version:dateObject.version,kind:"object"}]},candidates:[{action_id:"action-date-change",task_key:beforeDateChange.task.task_key,
+        packet_id:beforeDateChange.packet_id,request_ids:[beforeDateChange.task.task_key],goal:"D5",preferred_attention:"primary",reason:"使用原写桥",rank:100,
+        steps:[{step_id:"step-date-change",kind:"change",depends_on:[],capability_id:null,arguments:{},change_request:dateChange.request,user_message:null}],
+        required_object_ids:[dateObject.id],reentry_candidate_id:null}]})});
+      await adapter.saveDecisionPlanCandidate(trip,headers,dateRequest,datePlan);await adapter.authorizeUserChange(trip,headers,dateChange);
+      expect(await adapter.dispatchDecisionStepCandidate(trip,headers,beforeDateChange.packet_id,datePlan.decision_id,"action-date-change","step-date-change"))
+        .toMatchObject({result:{outcome:"applied"}});
+      expect(await adapter.claimDecisionStepCandidate(trip,headers,beforeDateChange.packet_id,pendingOld.plan.decision_id,pendingOld.action.action_id,pendingOld.step.step_id))
+        .toMatchObject({disposition:"stale"});
+      const newDate=await toolPlan(await packet("按11月16日重新准备卢克索到阿斯旺交通"),"egypt-tool-new-date","query",transport("2030-11-16"));mode="result";
+      expect(await dispatch(newDate)).toMatchObject({result:{completion:{result_status:"result"}}});
+      const dateDigests=(await owner.query<{decision_id:string;query_digest:string}>('SELECT decision_id,query_digest FROM e04_runtime.tool_invocations WHERE decision_id=ANY($1::text[]) ORDER BY decision_id',
+        [[caseA.plan.decision_id,newDate.plan.decision_id]])).rows;expect(new Set(dateDigests.map(row=>row.query_digest)).size).toBe(2);
+
+      const latePacket=await packet("并发变化时不要使用晚到结果"),late=await toolPlan(latePacket,"egypt-tool-late","query",transport("2030-11-16"));
+      let release!:()=>void,entered!:()=>void;const enteredPromise=new Promise<void>(resolve=>{entered=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
+      onToolRequest=async()=>{entered();await gate;};const lateDispatch=dispatch(late);await enteredPromise;
+      const current=await internal.state(trip,await issueInternalCapability(secret,trip,{role:"tool",id:"e04-05-concurrent"}));if(!current)throw new Error("Missing current state");
+      const existing=current.objects.find(object=>object.type==="ExternalFact");if(!existing||existing.type!=="ExternalFact")throw new Error("Missing fact fixture");
+      const concurrentFact={op:"ingest_fact" as const,id:`fact-concurrent-${randomBytes(4).toString("hex")}`,scope:{kind:"trip" as const,ids:[]},dependencies:[],data:{
+        subject_ids:[],query:{date:"2030-11-16",parameters:[]},provider:"synthetic-concurrent",query_status:"empty" as const,observed_at:new Date().toISOString(),
+        expires_at:new Date(Date.now()+3_600_000).toISOString(),valid_for:{start:"2030-11-16",end:"2030-11-16"},missing_fields:[],value:null}};
+      await internal.submit(trip,{expected_revision:current.revision,idempotency_key:`concurrent_${randomUUID()}`,reason:"Concurrent trusted observation",
+        input:{kind:"tool",reference:"synthetic-concurrent",text:"synthetic",target_ids:[]},commands:[concurrentFact]},await issueInternalCapability(secret,trip,{role:"tool",id:"e04-05-concurrent"}));
+      release();const lateResult=await lateDispatch;onToolRequest=null;
+      expect(lateResult).toMatchObject({result:{current_usable:false}});expect(await adapter.readDecisionRecordCandidate(trip,headers,latePacket.packet_id,late.plan.decision_id))
+        .toMatchObject({actions:[{phase:"stale"}],steps:[{status:"stale"}]});
+      const callsBefore=toolCalls;expect(await dispatch(newDate)).toMatchObject({disposition:"recorded"});expect(toolCalls).toBe(callsBefore);
+      await lifecycle.sync(await issueInternalCapability(secret,trip,{role:"system",id:"e04-05-concurrent-sync"}),{
+        trip_id:trip,source_revision:current.revision+1,ended_at:null});
+
+      for(const failure of ["lifecycle","completion"] as const){
+        const recoveryPacket=await packet(`已写入事实但${failure}失败时核对原回执`),recovery=await toolPlan(recoveryPacket,`egypt-tool-reconcile-${failure}`,"query",transport("2030-11-16"));
+        const callsBeforeFailure=toolCalls,beforeState=await internal.state(trip,await issueInternalCapability(secret,trip,{role:"tool",id:`e04-05-before-${failure}`}));
+        if(!beforeState)throw new Error("Missing pre-reconciliation state");
+        if(failure==="lifecycle")failLifecycleOnce=true;else failToolCompletionOnce=true;
+        await expect(dispatch(recovery)).rejects.toThrow(`Injected ${failure==="lifecycle"?"lifecycle synchronization":"ToolCompletion storage"} failure`);
+        const afterFailure=await internal.state(trip,await issueInternalCapability(secret,trip,{role:"tool",id:`e04-05-after-${failure}`}));
+        expect(afterFailure?.revision).toBe(beforeState.revision+1);
+        expect(await adapter.readDecisionRecordCandidate(trip,headers,recoveryPacket.packet_id,recovery.plan.decision_id))
+          .toMatchObject({actions:[{phase:"running",receipt_lookup_required:true}],steps:[{status:"running",result_json:{kind:"tool_execution_recovery"}}]});
+        expect((await owner.query('SELECT count(*)::int count FROM e04_runtime.tool_completions WHERE decision_id=$1',[recovery.plan.decision_id])).rows[0].count).toBe(0);
+        const invocation=(await owner.query<{invocation_id:string}>('SELECT invocation_id FROM e04_runtime.tool_invocations WHERE decision_id=$1',[recovery.plan.decision_id])).rows[0];
+        expect((await owner.query('SELECT count(*)::int count FROM "TripStateIdempotency" WHERE "tripId"=$1 AND "actorId"=$2 AND "operationDomain"=\'tool\' AND "key"=$3',
+          [trip,"antu-synthetic-egypt-transport",`nap_tool_${invocation.invocation_id}`])).rows[0].count).toBe(1);
+        expect(await dispatch(recovery)).toMatchObject({disposition:"receipt_recovered",result:{outcome:"applied",revision:afterFailure!.revision}});
+        expect(toolCalls).toBe(callsBeforeFailure+1);
+        expect((await owner.query('SELECT count(*)::int count FROM "TripStateIdempotency" WHERE "tripId"=$1 AND "actorId"=$2 AND "operationDomain"=\'tool\' AND "key"=$3',
+          [trip,"antu-synthetic-egypt-transport",`nap_tool_${invocation.invocation_id}`])).rows[0].count).toBe(1);
+        expect((await owner.query('SELECT count(*)::int count FROM e04_runtime.tool_completions WHERE decision_id=$1',[recovery.plan.decision_id])).rows[0].count).toBe(1);
+      }
+
+      const unresolvedPacket=await packet("无法恢复结果正文时保持未知"),unresolved=await toolPlan(unresolvedPacket,"egypt-tool-unresolved-body","query",transport("2030-11-16"));
+      const unresolvedClaim=await adapter.claimDecisionStepCandidate(trip,headers,unresolvedPacket.packet_id,unresolved.plan.decision_id,
+        unresolved.action.action_id,unresolved.step.step_id);if(unresolvedClaim.disposition!=="claimed"||!unresolvedClaim.claim_token)throw new Error("Missing unresolved claim");
+      await adapter.markDecisionExecutionUnknownCandidate(trip,headers,unresolvedPacket.packet_id,unresolved.plan.decision_id,
+        unresolved.action.action_id,unresolved.step.step_id,unresolvedClaim.claim_token);
+      const callsBeforeUnresolved=toolCalls;
+      expect(await dispatch(unresolved)).toEqual({disposition:"execution_unknown",result:null});expect(toolCalls).toBe(callsBeforeUnresolved);
+      const replacement=await toolPlan(await packet("以新的合法决策重新查询"),"egypt-tool-replacement-decision","query",transport("2030-11-16"));
+      expect(await dispatch(replacement)).toMatchObject({disposition:"executed",result:{outcome:"applied"}});expect(toolCalls).toBe(callsBeforeUnresolved+1);
+
+      const revokedPacket=await packet("撤权后不得继续旧工具行动"),revoked=await toolPlan(revokedPacket,"egypt-tool-revoked","query",transport("2030-11-16"));
+      let releaseRevoked!:()=>void,enteredRevoked!:()=>void;const revokedEntered=new Promise<void>(resolve=>{enteredRevoked=resolve;}),revokedGate=new Promise<void>(resolve=>{releaseRevoked=resolve;});
+      onToolRequest=async()=>{enteredRevoked();await revokedGate;};const revokedDispatch=dispatch(revoked);await revokedEntered;
+      await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[trip,created.user.id]);releaseRevoked();
+      await expect(revokedDispatch).rejects.toThrow();onToolRequest=null;
+      expect((await owner.query('SELECT count(*)::int count FROM e04_runtime.tool_completions WHERE decision_id=$1',[revoked.plan.decision_id])).rows[0].count).toBe(0);
+      await expect(dispatch(revoked)).rejects.toThrow();
+    }finally{
+      if(app){app.close();await once(app,"close");}if(tool){tool.closeAllConnections();tool.close();await once(tool,"close");}
       await Promise.allSettled(resources.reverse().map(resource=>resource.close()));await owner.end();
     }
   },90_000);
