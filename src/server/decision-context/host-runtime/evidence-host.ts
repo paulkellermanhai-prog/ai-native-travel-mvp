@@ -29,7 +29,7 @@ import { BridgeRuleError, checkChangeRules, checkConfirmationRules, checkGrantFi
 import type { TransactionalBridgeHost } from "../write-bridge/orchestrator";
 import {validateDecisionPlanHostEligibility,type DecisionPlan} from "../../next-action-policy/decision-engine";
 import {claimDecisionStep,completeDecisionStep,markExecutionUnknown,readDecisionRecord,redactDecisionsForSourceEvent,saveDecisionPlan} from "../../next-action-policy/runtime-store";
-import {beginToolInvocation,readToolTrigger,recordToolCompletion,type ToolCompletion} from "../../next-action-policy/tool-runtime-store";
+import {beginToolInvocation,readToolInvocation,readToolTrigger,recordToolCompletion,type ToolCompletion} from "../../next-action-policy/tool-runtime-store";
 import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-packet-source";
 
 type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
@@ -1083,6 +1083,13 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
           {completion:input.completion,rawResult:input.rawResult,authoritativeRevision:input.authoritativeRevision,currentRevision:Number(document.revision),currentNow:document.now});
       }));
     },
+    async readToolInvocationCandidate(ticket:object,credential:Headers,input:{decisionId:string;actionId:string;stepId:string;invocationId:string}){
+      const {scope,headers}=await scoped(ticket,credential);
+      return db.$transaction(async tx=>{
+        await host.guard!(scope.tripId,headers,tx);
+        return readToolInvocation(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},input);
+      });
+    },
     async readToolTriggerCandidate(ticket:object,credential:Headers,completionId:string){
       const {scope,headers}=await scoped(ticket,credential);
       return db.$transaction(async tx=>{
@@ -1112,12 +1119,12 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         return readDecisionRecord(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},decisionId);
       });
     },
-    async markDecisionExecutionUnknownCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string){
+    async markDecisionExecutionUnknownCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string,recovery:unknown=null){
       const {scope,headers}=await scoped(ticket,credential);
       return exclusive(scope,async()=>db.$transaction(async tx=>{
         try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
         return markExecutionUnknown(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
-          decisionId,actionId,stepId,claimToken);
+          decisionId,actionId,stepId,claimToken,recovery);
       }));
     },
     async completeDecisionStepCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string,
@@ -1141,6 +1148,18 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
         const rows=await tx.$queryRaw<Array<{requestDigest:string;request:string;response:string}>>`SELECT "requestDigest","request"::text AS request,"response"::text AS response
           FROM "TripStateIdempotency" WHERE "tripId"=${scope.tripId} AND "key"=${request.idempotency_key}
           AND (("actorId"=${userActorId(scope.ownerId)} AND "operationDomain"='user') OR ("actorId"=${modelActorId} AND "operationDomain"='model'))`;
+        const matches=rows.filter(row=>row.requestDigest===digest(request)&&canonicalJson(decodeCommandJson(row.request))===canonicalJson(request));
+        if(matches.length>1)return unavailable();
+        return matches[0]?structuredClone(parseContract("response",decodeCommandJson(matches[0].response))):null;
+      });
+    },
+    async lookupToolObservationReceiptCandidate(ticket:object,credential:Headers,input:{invocationId:string;providerRef:string;request:unknown}){
+      const request=structuredClone(parseContract("change-request",input.request)),{scope,headers}=await scoped(ticket,credential);
+      if(request.input.kind!=="tool"||request.input.reference!==`nap-tool-invocation:${input.invocationId}`)return unavailable();
+      return db.$transaction(async tx=>{
+        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+        const rows=await tx.$queryRaw<Array<{requestDigest:string;request:string;response:string}>>`SELECT "requestDigest","request"::text AS request,"response"::text AS response
+          FROM "TripStateIdempotency" WHERE "tripId"=${scope.tripId} AND "actorId"=${input.providerRef} AND "operationDomain"='tool' AND "key"=${request.idempotency_key}`;
         const matches=rows.filter(row=>row.requestDigest===digest(request)&&canonicalJson(decodeCommandJson(row.request))===canonicalJson(request));
         if(matches.length>1)return unavailable();
         return matches[0]?structuredClone(parseContract("response",decodeCommandJson(matches[0].response))):null;

@@ -15,7 +15,7 @@ import {validatePlanRequestConsistency} from "../../next-action-policy/plan-pack
 import {TripStateContractError} from "../../trip-state/contracts";
 import type {CapabilityRegistry} from "../../next-action-policy/tool-capabilities";
 import {NapCapabilityError} from "../../next-action-policy/tool-capabilities";
-import {executeToolStep} from "../../next-action-policy/tool-dispatch";
+import {executeToolStep,NapToolExecutionUnknown,reconcileToolStep,type ToolExecutionRecovery} from "../../next-action-policy/tool-dispatch";
 import {NapToolRuntimeError} from "../../next-action-policy/tool-runtime-store";
 
 type EvidenceHost = Awaited<ReturnType<typeof openEvidenceHost>>;
@@ -146,6 +146,11 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
       if(actionRecord.phase==="running"&&actionRecord.receipt_lookup_required&&stepRecord.status==="running"&&stepRecord.claim_token){
         claimToken=stepRecord.claim_token;
         if(step.kind==="change")receipt=await host.lookupChangeReceiptCandidate(ticket,credential,step.change_request);
+        else if(step.kind==="query"||step.kind==="calculate"){
+          const recovered=await reconcileToolStep({host,ticket,credential:new Headers({cookie:credential.get("cookie")??""}),registry:toolRegistry!,plan,
+            action,step,claimToken,recovery:stepRecord.result_json as ToolExecutionRecovery,syncLifecycle,tripId});
+          return recovered?{disposition:"receipt_recovered" as const,result:recovered.result}:{disposition:"execution_unknown" as const,result:null};
+        }
         if(receipt===null)return {disposition:"execution_unknown" as const,result:null};
       }else{
         const storedRequest=record.decision.request_json as TrustedDecisionRequest,ids=plan.basis.map(basis=>basis.packet_id);
@@ -183,7 +188,9 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string, 
         await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,outcome,result);
         return {disposition:receipt?"receipt_recovered" as const:"executed" as const,result};
       }catch(error){
-        if(error instanceof BridgeRuleError||error instanceof TripStateContractError||error instanceof DecisionContextContractError||error instanceof RuntimeHttpFault||
+        if(error instanceof NapToolExecutionUnknown){
+          try{await host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,error.recovery);}catch{}
+        }else if(error instanceof BridgeRuleError||error instanceof TripStateContractError||error instanceof DecisionContextContractError||error instanceof RuntimeHttpFault||
           error instanceof NapCapabilityError||error instanceof NapToolRuntimeError){
           try{await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,"failure",{error:{name:error.name,code:"code" in error?error.code:null,message:error.message}});}catch{}
         }else try{await host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken);}catch{}

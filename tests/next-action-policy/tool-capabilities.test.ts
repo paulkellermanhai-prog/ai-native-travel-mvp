@@ -54,7 +54,17 @@ describe("E04-05 trusted Egypt MVP capability registry",()=>{
       {item_key:"rail",amount_minor:12000,category:"transport"},{item_key:"temple",amount_minor:8000,category:"experience"},
     ]});
     expect(await registry.execute(prepared)).toMatchObject({status:"partial",synthetic:true,payload:{amount_minor:20000,currency:"EGP",
-      covered_categories:["experience","transport"],missing_categories:["food","lodging"],is_full_trip_total:false}});
+      covered_categories:["experience","transport"],missing_categories:["food","lodging"],coverage_scope:"known_items_only",
+      unknown_parts:["unlisted_trip_costs"],is_full_trip_total:false}});
+  });
+
+  it("does not treat caller-omitted lodging and food as a complete trip total",async()=>{
+    const registry=createEgyptMvpCapabilityRegistry({transportEndpoint:"http://127.0.0.1:1",timeoutMs:100});
+    const prepared=registry.prepare("calculate","egypt-cost-subtotal-v1",{currency:"EGP",people:1,required_categories:["transport"],items:[
+      {item_key:"rail",amount_minor:12000,category:"transport"},
+    ]});
+    expect(await registry.execute(prepared)).toMatchObject({status:"partial",payload:{amount_minor:12000,coverage_scope:"known_items_only",
+      covered_categories:["transport"],missing_categories:["experience","food","lodging"],unknown_parts:["unlisted_trip_costs"],is_full_trip_total:false}});
   });
 
   it("rejects model-selected capabilities, kinds and malformed parameters outside the host registry",()=>{

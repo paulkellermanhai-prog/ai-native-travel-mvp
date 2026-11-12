@@ -19,6 +19,7 @@ export class NapCapabilityError extends Error{
 }
 const fail=(code:NapCapabilityError["code"]):never=>{throw new NapCapabilityError(code);};
 const id=z.string().min(1),date=z.iso.date(),timestamp=z.iso.datetime({offset:true});
+const egyptMvpTripCostCategories=["experience","food","lodging","transport"] as const;
 const transportArguments=z.strictObject({from_id:id,to_id:id,date,passengers:z.number().int().min(1).max(20)});
 const costArguments=z.strictObject({currency:z.string().regex(/^[A-Z]{3}$/),people:z.number().int().min(1).max(20),
   required_categories:z.array(id).min(1).max(32),items:z.array(z.strictObject({item_key:id,amount_minor:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),category:id})).max(128)});
@@ -59,11 +60,11 @@ export function createEgyptMvpCapabilityRegistry(options:{transportEndpoint:stri
     const expected=definitions.find(value=>value.capability_id===call.capability_id&&value.kind===call.kind&&value.provider_ref===call.provider_ref);
     if(!expected||call.query_digest!==digest({capability_id:call.capability_id,arguments:call.arguments}))return fail("UNREGISTERED");
     if(call.kind==="calculate"){
-      const args=costArguments.parse(call.arguments),covered=[...new Set(args.items.map(item=>item.category))].sort(),missing=[...new Set(args.required_categories.filter(category=>!covered.includes(category)))].sort();
+      const args=costArguments.parse(call.arguments),covered=[...new Set(args.items.map(item=>item.category))].sort(),missing=egyptMvpTripCostCategories.filter(category=>!covered.includes(category));
       const amount=args.items.reduce((sum,item)=>sum+item.amount_minor,0);if(!Number.isSafeInteger(amount))return fail("INVALID_ARGUMENTS");
-      return {status:missing.length?"partial":"result",synthetic:true,source_ref:"deterministic-cost-subtotal:v1",observed_at:now().toISOString(),expires_at:null,
+      return {status:"partial",synthetic:true,source_ref:"deterministic-cost-subtotal:v1",observed_at:now().toISOString(),expires_at:null,
         missing_fields:missing,facts:[],payload:{amount_minor:amount,currency:args.currency,people:args.people,covered_categories:covered,missing_categories:missing,
-          is_full_trip_total:missing.length===0},error:null};
+          coverage_scope:"known_items_only",unknown_parts:["unlisted_trip_costs"],is_full_trip_total:false},error:null};
     }
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),call.timeout_ms);timer.unref();
     try{

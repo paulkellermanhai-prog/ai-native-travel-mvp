@@ -676,7 +676,8 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
   it("executes and binds E04-05 Egypt tool results through real HTTP, Session and PostgreSQL",async()=>{
     const cfg=config!,owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
     const resources:Array<{close:()=>Promise<void>}>=[];let app:http.Server|undefined,tool:http.Server|undefined;
-    let mode:ToolResultStatus="result",toolDelayMs=0,toolExpiryMs=3_600_000,onToolRequest:(()=>Promise<void>)|null=null,toolCalls=0;
+    let mode:ToolResultStatus="result",toolDelayMs=0,toolExpiryMs=3_600_000,onToolRequest:(()=>Promise<void>)|null=null,toolCalls=0,
+      failLifecycleOnce=false,failToolCompletionOnce=false;
     try{
       expect((await owner.query("SELECT to_regclass('e04_runtime.tool_invocations') IS NOT NULL AS invocations,to_regclass('e04_runtime.tool_completions') IS NOT NULL AS completions")).rows[0])
         .toEqual({invocations:true,completions:true});
@@ -700,6 +701,10 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
         AUTH_DATABASE_URL:cfg.authUrl,BETTER_AUTH_URL:origin,BETTER_AUTH_SECRET:randomBytes(32).toString("hex"),E11_IDEMPOTENCY_SECRET:randomBytes(32).toString("hex")};
       const identity=await openIdentity(env);resources.push(identity);const internal=await openInternalTripService(cfg.runtimeUrl,secret);resources.push(internal);
       const lifecycle=await openEvidenceLifecycleAdapter(cfg.lifecycleUrl,createInternalHost(secret));resources.push(lifecycle);const host=await openEvidenceHost(env);resources.push(host);
+      const toolHost={...host,async recordToolCompletionCandidate(...args:Parameters<typeof host.recordToolCompletionCandidate>){
+        if(failToolCompletionOnce){failToolCompletionOnce=false;throw new Error("Injected ToolCompletion storage failure");}
+        return host.recordToolCompletionCandidate(...args);
+      }};
       const email=`${randomUUID()}@example.invalid`,password=randomBytes(24).toString("base64url"),created=await identity.auth.api.signUpEmail({body:{name:"E04-05 owner",email,password}});
       const login=await identity.auth.api.signInEmail({body:{email,password},headers:new Headers({origin}),asResponse:true});expect(login.status).toBe(200);
       const cookie=login.headers.getSetCookie().map(value=>value.split(";")[0]).join("; "),trip=`trip_e04_05_${randomBytes(8).toString("hex")}`;
@@ -713,7 +718,8 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
         target_ids:["constraint-dates","candidate-aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",
         evidence:[{start:0,end:Array.from(input.event.text).length,quote:input.event.text}],progress:"open",progress_evidence:null}],focus_keys:[key]};};
       const registry=createEgyptMvpCapabilityRegistry({transportEndpoint:`http://127.0.0.1:${toolAddress.port}/synthetic/transport`,timeoutMs:200});
-      const adapter=createPr29HostHttpCandidate(host,origin,interpret,async(value,revision)=>{
+      const adapter=createPr29HostHttpCandidate(toolHost,origin,interpret,async(value,revision)=>{
+        if(failLifecycleOnce){failLifecycleOnce=false;throw new Error("Injected lifecycle synchronization failure");}
         await lifecycle.sync(await issueInternalCapability(secret,value,{role:"system",id:"e04-05-write"}),{trip_id:value,source_revision:revision,ended_at:null});
       },registry);
       app.removeAllListeners("request");app.on("request",(request,response)=>{void adapter.handle(request,response);});
@@ -747,13 +753,13 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
         .toMatchObject({type:"ExternalFact",query_status:"result",query:{date:"2030-11-14"},provider:"synthetic-egypt-transport:v1",value:{service_exists:true}});
 
       const currentPacket=await packet("只汇总当前已知费用，不要当作全程预算");
-      const caseB=await toolPlan(currentPacket,"egypt-tool-b","calculate",{currency:"EGP",people:1,required_categories:["transport","experience","lodging","food"],
-        items:[{item_key:"rail",amount_minor:12000,category:"transport"},{item_key:"temple",amount_minor:8000,category:"experience"}]});
+      const caseB=await toolPlan(currentPacket,"egypt-tool-b","calculate",{currency:"EGP",people:1,required_categories:["transport"],
+        items:[{item_key:"rail",amount_minor:12000,category:"transport"}]});
       expect(await dispatch(caseB)).toMatchObject({disposition:"executed",result:{completion:{result_status:"partial",validated_fact_ids:[]}}});
       expect(await adapter.readDecisionRecordCandidate(trip,headers,currentPacket.packet_id,caseB.plan.decision_id)).toMatchObject({actions:[{phase:"partial"}],steps:[{status:"succeeded"}]});
-      const budgetRaw=(await owner.query<{raw_result_json:{payload:{is_full_trip_total:boolean;missing_categories:string[]}}}>(
+      const budgetRaw=(await owner.query<{raw_result_json:{payload:{is_full_trip_total:boolean;missing_categories:string[];unknown_parts:string[]}}}>(
         'SELECT raw_result_json FROM e04_runtime.tool_completions WHERE decision_id=$1',[caseB.plan.decision_id])).rows[0].raw_result_json;
-      expect(budgetRaw.payload).toMatchObject({is_full_trip_total:false,missing_categories:["food","lodging"]});
+      expect(budgetRaw.payload).toMatchObject({is_full_trip_total:false,missing_categories:["experience","food","lodging"],unknown_parts:["unlisted_trip_costs"]});
 
       mode="empty";const emptyPlan=await toolPlan(currentPacket,"egypt-tool-empty","query",transport("2030-11-14")),emptyResult=await dispatch(emptyPlan);
       expect(emptyResult).toMatchObject({result:{completion:{result_status:"empty",validated_fact_ids:[]}}});
@@ -825,6 +831,37 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
       const callsBefore=toolCalls;expect(await dispatch(newDate)).toMatchObject({disposition:"recorded"});expect(toolCalls).toBe(callsBefore);
       await lifecycle.sync(await issueInternalCapability(secret,trip,{role:"system",id:"e04-05-concurrent-sync"}),{
         trip_id:trip,source_revision:current.revision+1,ended_at:null});
+
+      for(const failure of ["lifecycle","completion"] as const){
+        const recoveryPacket=await packet(`已写入事实但${failure}失败时核对原回执`),recovery=await toolPlan(recoveryPacket,`egypt-tool-reconcile-${failure}`,"query",transport("2030-11-16"));
+        const callsBeforeFailure=toolCalls,beforeState=await internal.state(trip,await issueInternalCapability(secret,trip,{role:"tool",id:`e04-05-before-${failure}`}));
+        if(!beforeState)throw new Error("Missing pre-reconciliation state");
+        if(failure==="lifecycle")failLifecycleOnce=true;else failToolCompletionOnce=true;
+        await expect(dispatch(recovery)).rejects.toThrow(`Injected ${failure==="lifecycle"?"lifecycle synchronization":"ToolCompletion storage"} failure`);
+        const afterFailure=await internal.state(trip,await issueInternalCapability(secret,trip,{role:"tool",id:`e04-05-after-${failure}`}));
+        expect(afterFailure?.revision).toBe(beforeState.revision+1);
+        expect(await adapter.readDecisionRecordCandidate(trip,headers,recoveryPacket.packet_id,recovery.plan.decision_id))
+          .toMatchObject({actions:[{phase:"running",receipt_lookup_required:true}],steps:[{status:"running",result_json:{kind:"tool_execution_recovery"}}]});
+        expect((await owner.query('SELECT count(*)::int count FROM e04_runtime.tool_completions WHERE decision_id=$1',[recovery.plan.decision_id])).rows[0].count).toBe(0);
+        const invocation=(await owner.query<{invocation_id:string}>('SELECT invocation_id FROM e04_runtime.tool_invocations WHERE decision_id=$1',[recovery.plan.decision_id])).rows[0];
+        expect((await owner.query('SELECT count(*)::int count FROM "TripStateIdempotency" WHERE "tripId"=$1 AND "actorId"=$2 AND "operationDomain"=\'tool\' AND "key"=$3',
+          [trip,"antu-synthetic-egypt-transport",`nap_tool_${invocation.invocation_id}`])).rows[0].count).toBe(1);
+        expect(await dispatch(recovery)).toMatchObject({disposition:"receipt_recovered",result:{outcome:"applied",revision:afterFailure!.revision}});
+        expect(toolCalls).toBe(callsBeforeFailure+1);
+        expect((await owner.query('SELECT count(*)::int count FROM "TripStateIdempotency" WHERE "tripId"=$1 AND "actorId"=$2 AND "operationDomain"=\'tool\' AND "key"=$3',
+          [trip,"antu-synthetic-egypt-transport",`nap_tool_${invocation.invocation_id}`])).rows[0].count).toBe(1);
+        expect((await owner.query('SELECT count(*)::int count FROM e04_runtime.tool_completions WHERE decision_id=$1',[recovery.plan.decision_id])).rows[0].count).toBe(1);
+      }
+
+      const unresolvedPacket=await packet("无法恢复结果正文时保持未知"),unresolved=await toolPlan(unresolvedPacket,"egypt-tool-unresolved-body","query",transport("2030-11-16"));
+      const unresolvedClaim=await adapter.claimDecisionStepCandidate(trip,headers,unresolvedPacket.packet_id,unresolved.plan.decision_id,
+        unresolved.action.action_id,unresolved.step.step_id);if(unresolvedClaim.disposition!=="claimed"||!unresolvedClaim.claim_token)throw new Error("Missing unresolved claim");
+      await adapter.markDecisionExecutionUnknownCandidate(trip,headers,unresolvedPacket.packet_id,unresolved.plan.decision_id,
+        unresolved.action.action_id,unresolved.step.step_id,unresolvedClaim.claim_token);
+      const callsBeforeUnresolved=toolCalls;
+      expect(await dispatch(unresolved)).toEqual({disposition:"execution_unknown",result:null});expect(toolCalls).toBe(callsBeforeUnresolved);
+      const replacement=await toolPlan(await packet("以新的合法决策重新查询"),"egypt-tool-replacement-decision","query",transport("2030-11-16"));
+      expect(await dispatch(replacement)).toMatchObject({disposition:"executed",result:{outcome:"applied"}});expect(toolCalls).toBe(callsBeforeUnresolved+1);
 
       const revokedPacket=await packet("撤权后不得继续旧工具行动"),revoked=await toolPlan(revokedPacket,"egypt-tool-revoked","query",transport("2030-11-16"));
       let releaseRevoked!:()=>void,enteredRevoked!:()=>void;const revokedEntered=new Promise<void>(resolve=>{enteredRevoked=resolve;}),revokedGate=new Promise<void>(resolve=>{releaseRevoked=resolve;});

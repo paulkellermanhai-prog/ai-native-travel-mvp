@@ -96,6 +96,15 @@ export async function recordToolCompletion(tx:Prisma.TransactionClient,scope:Nap
   return {replayed:false,current_usable:basisCurrent};
 }
 
+export async function readToolInvocation(tx:Prisma.TransactionClient,scope:NapRuntimeScope,input:{decisionId:string;actionId:string;stepId:string;invocationId:string}){
+  const value=await records(tx,scope,input.decisionId,input.actionId,input.stepId);
+  const [invocation]=await tx.$queryRaw<InvocationRow[]>`SELECT invocation_id,capability_id,provider_ref,query_digest,arguments_digest,arguments_json,plan_digest,
+    basis_state_revision,status,attempts,completion_id FROM e04_runtime.tool_invocations WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId}
+    AND workspace_key=${scope.workspaceKey} AND decision_id=${input.decisionId} AND action_id=${input.actionId} AND step_id=${input.stepId}`;
+  if(!invocation||invocation.invocation_id!==input.invocationId||invocation.plan_digest!==value.decision.plan_digest)return fail("NOT_FOUND");
+  return structuredClone({...invocation,basis_state_revision:Number(invocation.basis_state_revision)});
+}
+
 export async function readToolTrigger(tx:Prisma.TransactionClient,scope:NapRuntimeScope,completionId:string,currentNow:Date){
   const [row]=await tx.$queryRaw<Array<{completion_json:unknown;current_usable:boolean;state_revision_after:bigint}>>`SELECT completion_json,current_usable,state_revision_after
     FROM e04_runtime.tool_completions WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND completion_id=${completionId}`;
