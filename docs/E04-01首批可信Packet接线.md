@@ -1,6 +1,6 @@
 # E04-01｜首批合同与可信 Packet 接线
 
-状态：本阶段实现已交付，等待技术负责人验收；不自行记为 E04-01 ACCEPTED。
+状态：`ACCEPTED`。AI 技术负责人于 2026-11-12 接受 PR #36 `2301091f...` 与 PR #37 `c98dcfd...` 的内部 MVP 限定增量；见 `e04-01-04-technical-acceptance.json`。
 
 承接点：已审查提交 `384c138e80f16bf02fc7bb55cb47d6fea3f9270b`；交付位置为 Draft PR [#35](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/35)，目标仍为 E03 最终归档分支。最终验收以 PR 当前 head 绑定的 CI 为准。
 

@@ -1,6 +1,6 @@
 # E04-03｜最小 PostgreSQL Action Runtime
 
-状态：本地实现与真实 PG17 验证完成，等待技术负责人签核；不自行记为 E04-03 ACCEPTED。
+状态：`ACCEPTED`。AI 技术负责人于 2026-11-12 接受固定 PR #36/#37 的内部 MVP 限定增量；见 `e04-01-04-technical-acceptance.json`。
 
 ## 最小实现
 
