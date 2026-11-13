@@ -1,0 +1,215 @@
+{
+  "format": "antu-e04-01-04-evaluation/v1",
+  "evaluated_at": "2026-11-11T19:14:31+08:00",
+  "audit_start_sha": "d8b81456fb0c91b87a3e1ca6f8304139c79b4f5f",
+  "previous_fix_sha": "cc23dc589059db62adbe6e2788a0828a7980861f",
+  "fix_sha": "f6b0c862ae200d72d8300f68433ca807ce3d7309",
+  "technical_acceptance": {
+    "decision_id": "E04-01-04-INTERNAL-MVP-TECH-ACCEPTANCE-2026-11-12-01",
+    "status": "ACCEPTED",
+    "accepted_at": "2026-11-12",
+    "fixed_commits": ["2301091f6a659c3dd325b50d4f54f346da0badcc", "c98dcfd8e6b49554158d9ef754dbfb265a714f17"],
+    "cumulative_accepted_weight_percent": 68
+  },
+  "versions": {
+    "trip_state": "0.1.0",
+    "decision_context": "0.1.0",
+    "nap": "0.1.0",
+    "quality_dataset": "0.1.0-c3r2"
+  },
+  "environment": {
+    "postgresql": "17.6",
+    "database": "fresh disposable local database",
+    "roles": "independent migration/runtime/auth/lifecycle roles",
+    "node": "24.22.1",
+    "npm": "11.19.1",
+    "relevant_pg_tests_skipped": 0
+  },
+  "final_gate_blocker_remediation": [
+    {
+      "id": "E04-01-rebuilt-deadline",
+      "old_failure": "batch expiry omitted built.deadline().wallMs, so a source deadline crossing during final hook could still resolve",
+      "fix": "take the earliest PacketMemory, context and rebuilt deadline inside the same final PostgreSQL transaction",
+      "code": "src/server/decision-context/host-runtime/evidence-host.ts",
+      "test": "tests/http/e03-runtime/pr29-host.pg.test.ts",
+      "result": "PASS_REAL_POSTGRESQL"
+    },
+    {
+      "id": "E04-02-host-evidence-and-candidate-reentry",
+      "old_failure": "semantic adapter could invent source/delivery evidence or hide an excluded Candidate target by setting reentry_candidate_id to null",
+      "fix": "prove evidence from trusted Packet and derive Candidate targets from parsed change commands at decision and saved-plan host gates",
+      "code": "src/server/next-action-policy/decision-engine.ts",
+      "test": "tests/next-action-policy/decision-engine.test.ts",
+      "result": "PASS_DETERMINISTIC_HOST_GATE"
+    },
+    {
+      "id": "E04-03-running-action-stale",
+      "old_failure": "a multi-step Action could remain running after its basis became stale between steps",
+      "fix": "permit running to stale only when no receipt reconciliation or running Step exists; stale pending Steps and retain completed results",
+      "code": "src/server/next-action-policy/runtime-store.ts",
+      "test": "tests/http/e03-runtime/pr29-host.pg.test.ts",
+      "result": "PASS_REAL_POSTGRESQL"
+    },
+    {
+      "id": "E04-04-receipt-mapping-and-lifecycle",
+      "old_failure": "rejected/conflict receipts were completed as success and missing lifecycle sync could be detected after a write",
+      "fix": "map authoritative outcomes explicitly and require lifecycle sync before claiming or submitting a change Step",
+      "code": "src/server/decision-context/http-adapter/pr29-host-candidate.ts",
+      "test": "tests/http/e03-runtime/pr29-host.pg.test.ts",
+      "result": "PASS_REAL_POSTGRESQL_HTTP_HOST"
+    },
+    {
+      "id": "E04-expiry-active-redaction",
+      "old_failure": "natural expiry depended on a later Decision read to redact persisted utterance content",
+      "fix": "redact expired content_available Decisions in the existing bounded E11 maintenance pass while retaining read fallback",
+      "code": "src/server/decision-context/host-runtime/expiry-maintenance-candidate.ts",
+      "test": "tests/http/e03-runtime/pr29-host.pg.test.ts",
+      "result": "PASS_REAL_POSTGRESQL_DIRECT_DB_ASSERTION"
+    }
+  ],
+  "policy_case_summary": {
+    "PASS": 0,
+    "FAIL": 0,
+    "BLOCKED": 17,
+    "NOT_RUN": 56,
+    "total": 73
+  },
+  "BLOCKED": [
+    "S03",
+    "S06",
+    "F04-A",
+    "S08",
+    "F03-B",
+    "F04-B",
+    "X02",
+    "N03",
+    "X03",
+    "X05",
+    "N05",
+    "N08",
+    "W03",
+    "J06",
+    "J07",
+    "J10",
+    "J12"
+  ],
+  "NOT_RUN": [
+    "S01",
+    "S02",
+    "S04",
+    "S05",
+    "S07",
+    "S09",
+    "F01-A",
+    "F01-B",
+    "F02-A",
+    "F02-B",
+    "F03-A",
+    "F05-A",
+    "F05-B",
+    "F06-A",
+    "F06-B",
+    "F07-A",
+    "F07-B",
+    "F08-A",
+    "F08-B",
+    "M01",
+    "M02",
+    "M03",
+    "M04",
+    "M05",
+    "M06",
+    "X01",
+    "X04",
+    "X06",
+    "X07",
+    "X08",
+    "X09",
+    "X10",
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06",
+    "C07",
+    "N01",
+    "N02",
+    "N04",
+    "N06",
+    "N07",
+    "N09",
+    "N10",
+    "W01",
+    "W02",
+    "J01",
+    "J02",
+    "J03",
+    "J04",
+    "J05",
+    "J08",
+    "J09",
+    "J11"
+  ],
+  "classification_note": "BLOCKED means a related deterministic or real-runtime slice ran, but the authoritative case's full legal initial state, tools, delivery, model or UI conditions were not materialized. It is not PASS. NOT_RUN means the authoritative case was not attempted in this scope.",
+  "real_runtime_results": [
+    {
+      "test": "tests/http/e03-runtime/pr29-host.pg.test.ts",
+      "result": "PASS",
+      "files": 1,
+      "tests": 2,
+      "skipped": 0,
+      "database": "PostgreSQL 17.6",
+      "transport": "real Session/host/HTTP"
+    },
+    {
+      "test": "tests/http/http.e2e.ts",
+      "result": "PASS",
+      "files": 1,
+      "tests": 23,
+      "skipped": 0,
+      "duration_seconds": 26.47,
+      "database": "PostgreSQL 17.6",
+      "transport": "real Next process and HTTP credentials"
+    }
+  ],
+  "deterministic_results": [
+    {
+      "suite": "tests/next-action-policy",
+      "result": "PASS",
+      "files": 6,
+      "tests": 58,
+      "skipped": 0
+    }
+  ],
+  "full_repository_result": {
+    "result": "PASS",
+    "command": "CI=1 npm run check",
+    "test_files_passed": 65,
+    "test_files_skipped": 1,
+    "tests_passed": 1202,
+    "tests_skipped": 1,
+    "relevant_pr29_pg_tests_skipped": 0,
+    "duration_seconds": 120.43,
+    "skip_reason": "tests/db.integration.test.ts requires a generic DATABASE_URL; required E02/E03/PR29 real PG tests were configured and did not skip, and db:check passed separately",
+    "python": ".local/trip-state-oracle/bin/python",
+    "fresh_postgresql_databases": true
+  },
+  "source_package_check": {
+    "result": "PASS",
+    "all_pass": true,
+    "records": 73,
+    "actual_policy_runs": 0
+  },
+  "other_checks": {
+    "specs_verify": "PASS with two pre-existing source-drift notices",
+    "specs_ac8": "PASS",
+    "trip_state_contracts": "PASS",
+    "decision_context_contracts": "PASS",
+    "prisma_validate_generate": "PASS",
+    "typecheck": "PASS",
+    "lint": "PASS",
+    "database_connectivity": "PASS on PostgreSQL 17.6 runtime role",
+    "build": "PASS"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "scope": "E03-00 added source and audit files",
+  "scanner": "Gitleaks 8.30.1 default rules with redacted output",
+  "findings": [
+    {
+      "rule": "generic-api-key",
+      "file": "specs/e03-00-reference-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/artifact-manifest.json",
+      "key": "90_可运行工程包/context_runtime/api.py",
+      "classification": "VERIFIED_FILE_SHA256_FALSE_POSITIVE",
+      "proof": "Value equals sha256 of the byte-preserved context_runtime/api.py source; original artifact manifest and source index agree",
+      "source_modified": false
+    }
+  ],
+  "confirmed_credential_findings": 0,
+  "global_allowlist_added": false
+}

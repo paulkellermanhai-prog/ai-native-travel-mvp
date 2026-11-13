@@ -1,0 +1,813 @@
+{
+  "package_name": "决策上下文机制设计 V0.1",
+  "index_format_version": "1",
+  "document_revision": "R6_ac8_protocol_privacy_decided_gate_candidate",
+  "updated_on": "2026-11-06",
+  "status": "ac8_protocol_privacy_decided_host_implementation_pending_final_gate",
+  "entrypoint": "00_从这里开始.md",
+  "main_document_id": "DC-PRODUCT-01",
+  "source_baseline_id": "DC-TRACE-01",
+  "inherited_contract": {
+    "schema_version": "0.1.0",
+    "specification": "../trip-state-schema-v0.1/90_可运行工程包/SPECIFICATION.md",
+    "context_schema": "../trip-state-schema-v0.1/90_可运行工程包/schemas/DecisionContext.schema.json",
+    "authority": "../trip-state-schema-v0.1/90_可运行工程包/AUTHORITY_FINAL.md",
+    "invariants": "../trip-state-schema-v0.1/90_可运行工程包/INVARIANTS_FINAL.md"
+  },
+  "limits": [
+    "Trip State 0.1.0与Decision Context运行合同0.1.0保持原版本标识；20份DC机器Schema未改",
+    "本包包含参考运行实现与可执行验收，不是生产HTTP/鉴权/数据库服务",
+    "任务解释采用合成结构化输入，未验证任意自然语言模型正确性",
+    "O1首版P0已实现本地事务检查点/草稿/语义焦点恢复并通过故障验收；不代表真实前端或生产集成已验收",
+    "P03/P05跨轮未提交解释证据优先由受信宿主记录承载的技术方案已裁决；宿主接口与真实联测待E03，当前不得宣称完整解释证据恢复",
+    "DC-AC8-PRIVACY-01产品策略及期限已获Owner批准；宿主删除/备份/审计工程与安全合规验证未完成，不得据此启用生产原话存储",
+    "不包含完整Policy行动排序；本包供最终Gate审核，不是生产发布证明"
+  ],
+  "documents": [
+    {
+      "id": "DC-ENTRY-01",
+      "title": "决策上下文 V0.1 从这里开始",
+      "path": "00_从这里开始.md",
+      "sha256": "018b910cd18b1f554cb0dce79cb2ee790e3324fc5eaf511661a18a4481fca9cf",
+      "role": "entrypoint",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "developer"
+      ],
+      "topics": [
+        "阅读顺序",
+        "目录",
+        "审核项",
+        "完成度"
+      ]
+    },
+    {
+      "id": "DC-PRODUCT-01",
+      "title": "决策上下文机制设计 V0.1",
+      "path": "01_产品机制/01_决策上下文机制设计_V0.1.md",
+      "sha256": "bc621dd2697cfcae077fc098855deaaeecea57802b4fb926947e3a2ef818bad9",
+      "role": "primary_design_review",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect"
+      ],
+      "topics": [
+        "产品价值",
+        "职责",
+        "架构比较",
+        "任务定位前置契约",
+        "双通道输入",
+        "四维信息分工",
+        "分层降级",
+        "状态与证据双检查"
+      ],
+      "sections": {
+        "任务定位": "3.2",
+        "保留适用阻塞呈现": "5.1",
+        "待处理输入": "5.2",
+        "分层降级": "5.4",
+        "双维有效性": "5.5"
+      },
+      "conclusion_ids": [
+        "C17",
+        "C18",
+        "C19",
+        "C20",
+        "C21"
+      ]
+    },
+    {
+      "id": "DC-TAXONOMY-01",
+      "title": "旅行决策类型体系 V0.1",
+      "path": "01_产品机制/02_旅行决策类型体系_V0.1.md",
+      "sha256": "3abb7d4387154895f0b40d1ff7b981967101e4726b2b8cebb55d35bbf76d7b25",
+      "role": "business_taxonomy_review",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect"
+      ],
+      "topics": [
+        "探索性决策",
+        "候选取舍",
+        "骨架采用",
+        "条件调整",
+        "重审",
+        "P0与P1"
+      ]
+    },
+    {
+      "id": "DC-UNIT-01",
+      "title": "决策单元与上下文边界 V0.1",
+      "path": "01_产品机制/03_决策单元与上下文边界_V0.1.md",
+      "sha256": "24a6209d57fe31140e1f85a75ba0ab7469a3b277cbe6193c3f1ba2cda706a37a",
+      "role": "identity_boundary_review",
+      "audience": [
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "问题身份",
+        "E/Q/S",
+        "焦点切换",
+        "暂停恢复",
+        "少打扰",
+        "task_id"
+      ],
+      "sections": {
+        "E_Q_S": "2.1",
+        "少打扰": "5.1",
+        "恢复方案": "7"
+      },
+      "conclusion_ids": [
+        "C22",
+        "C23"
+      ]
+    },
+    {
+      "id": "DC-SCENARIOS-01",
+      "title": "旅行决策场景与验证用例 V0.1",
+      "path": "02_场景与验收/04_旅行决策场景与验证用例_V0.1.md",
+      "sha256": "30592fe1865e7c19baa3e699dc887713520a09dd4ea99e18d0e8cbc407b6dab0",
+      "role": "business_scenarios_linked_to_runtime_acceptance",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "developer",
+        "evaluator"
+      ],
+      "topics": [
+        "十五场景",
+        "十阶段流程",
+        "正常与反例",
+        "验收断言"
+      ],
+      "sections": {
+        "多轮流程": "5",
+        "分阶段断言": "5.1",
+        "用户五场景": "15"
+      },
+      "scenario_ids": [
+        "V01",
+        "V02",
+        "V03",
+        "V04",
+        "V05",
+        "V06",
+        "V07",
+        "V08",
+        "V09",
+        "V10",
+        "V11",
+        "V12",
+        "V13",
+        "V14",
+        "V15"
+      ],
+      "acceptance_ids": [
+        "DC-A01",
+        "DC-A02",
+        "DC-A03",
+        "DC-A04",
+        "DC-A05",
+        "DC-M03",
+        "DC-M04",
+        "DC-M05",
+        "DC-M06",
+        "DC-M07",
+        "DC-M08",
+        "DC-M09",
+        "DC-M10"
+      ]
+    },
+    {
+      "id": "DC-HANDOFF-01",
+      "title": "设计结论、待确认问题与下一步计划",
+      "path": "03_评审与工程衔接/05_设计结论待确认问题与工程交接.md",
+      "sha256": "58c9f621aa2ca50ef52ec6a7e9505d0c906b39514ba2feda580d2b4c87099d37",
+      "role": "review_and_engineering_handoff",
+      "audience": [
+        "product_owner",
+        "architect",
+        "developer",
+        "evaluator"
+      ],
+      "topics": [
+        "四类结论状态",
+        "O1",
+        "接口责任",
+        "异常",
+        "评测",
+        "自检",
+        "Product/Business Sense"
+      ]
+    },
+    {
+      "id": "DC-TRACE-01",
+      "title": "来源基线与设计追溯矩阵",
+      "path": "03_评审与工程衔接/06_来源基线与设计追溯矩阵.md",
+      "sha256": "46c602f370dd2efb36f38119123cd9d45f08f6664573411b5d30698818a1996a",
+      "role": "source_baseline_and_traceability",
+      "audience": [
+        "product_owner",
+        "architect",
+        "developer",
+        "reviewer"
+      ],
+      "topics": [
+        "S01-S15",
+        "U01-U06",
+        "C01-C31",
+        "I01-I22",
+        "来源与执行证据"
+      ]
+    },
+    {
+      "id": "DC-REVIEW-01",
+      "title": "本轮审核落实记录",
+      "path": "03_评审与工程衔接/07_本轮审核落实记录.md",
+      "sha256": "2509d3b2bedde723a6f32791b5c9dca7298df8f0759e035a3c4ac3e3894bad6a",
+      "role": "review_response",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "reviewer"
+      ],
+      "topics": [
+        "U03逐项映射",
+        "五处修订",
+        "意见落实与批准边界"
+      ]
+    },
+    {
+      "id": "DC-PLAN-01",
+      "title": "完整机制设计收敛与交付计划",
+      "path": "03_评审与工程衔接/08_完整机制设计收敛与交付计划.md",
+      "sha256": "32597a42eff59310ece11af11e8e68e47a2e06137e4f968796ba6c0c616a731f",
+      "role": "future_plan_not_completed_specification",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "八模块",
+        "依赖",
+        "工程包结构",
+        "收口门槛",
+        "人工审核"
+      ]
+    },
+    {
+      "id": "DC-RUNTIME-SPEC-01",
+      "title": "运行契约与任务定位",
+      "path": "04_工程规格/01_运行契约与任务定位.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "任务定位",
+        "双通道",
+        "字段归属",
+        "授权",
+        "生命周期"
+      ],
+      "sha256": "061640ad2dd818b37b84040de26a29082d30262c521975ce6111d25cec66e614"
+    },
+    {
+      "id": "DC-ASSEMBLY-SPEC-01",
+      "title": "读取组装与有效性规格",
+      "path": "04_工程规格/02_读取组装与有效性规格.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "种子",
+        "快照",
+        "Hydration",
+        "分层",
+        "时效",
+        "重建"
+      ],
+      "sha256": "3ea1acfea9528b179e9adfaca049cfa46c0a75ac84982ccb79ef08a99ef497f3"
+    },
+    {
+      "id": "DC-API-SPEC-01",
+      "title": "接口异常权限与兼容",
+      "path": "04_工程规格/03_接口异常权限与兼容.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "接口",
+        "字段拥有权",
+        "错误",
+        "并发",
+        "幂等",
+        "权限",
+        "迁移"
+      ],
+      "sha256": "cab4ad45e838fce37f9ba3251f99dad3e8f9d8a5df606f090161a052ab8cb51c"
+    },
+    {
+      "id": "DC-ACCEPTANCE-01",
+      "title": "可执行验收与交付评审",
+      "path": "04_工程规格/04_可执行验收与交付评审.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "验收映射",
+        "已测",
+        "未测",
+        "开发与发布边界"
+      ],
+      "sha256": "8587e196b3dc5b01da91680a03a5f67985b46694d888b8ccd2cb75788d32ed8c"
+    },
+    {
+      "id": "DC-CLOSURE-01",
+      "title": "工程收口结论与待审核项",
+      "path": "03_评审与工程衔接/09_工程收口结论与待审核项.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "四部分收口",
+        "审核",
+        "推荐与代价",
+        "下一步接入"
+      ],
+      "sha256": "6c58e66eaddfee785d4358da2a16aabf4b945d81b369eeb2bfaf3fa75b19a746"
+    },
+    {
+      "id": "DC-RESUME-SCOPE-01",
+      "title": "首版跨会话恢复范围决策",
+      "path": "03_评审与工程衔接/10_首版跨会话恢复范围决策.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "O1已确认",
+        "首版P0",
+        "持久检查点",
+        "草稿与语义焦点",
+        "DC-R01-R07"
+      ],
+      "sha256": "825d03aa51dcea5c88054459182c2bd90e25169f3ef8acd4cb8fedaea2b3dc7e"
+    },
+    {
+      "id": "DC-RECOVERY-SPEC-01",
+      "title": "持久检查点与跨会话恢复规格",
+      "path": "04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "持久化",
+        "保存确认",
+        "CAS",
+        "草稿",
+        "恢复重建",
+        "删除",
+        "版本兼容"
+      ],
+      "sha256": "29f5562d14dda5e47bde41350f24bb6c9ab3f72c6f6c0089f74099da2ac8ae0c"
+    },
+    {
+      "id": "DC-RECOVERY-CLOSURE-01",
+      "title": "跨会话恢复工程收口报告",
+      "path": "03_评审与工程衔接/11_跨会话恢复工程收口报告.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "U06",
+        "O1已实现",
+        "故障验收",
+        "Owner审核",
+        "生产边界"
+      ],
+      "sha256": "12ae582c0e08174a4f5b62ce575288ce87679f8b26b18bab62a3edbd0aaf3ee7"
+    },
+    {
+      "id": "DC-AC8-TRACE-01",
+      "title": "八项机制融合追踪与规格变更",
+      "path": "03_评审与工程衔接/12_DC-AC8机制融合追踪与规格变更.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "原机制地图",
+        "八项规则",
+        "真实缺口",
+        "协议审核",
+        "规格变更"
+      ],
+      "sha256": "7fdb21bb68c23572b447e26c370b9fbe4aaac88473cca6b73b834661507c6b5d"
+    },
+    {
+      "id": "DC-AC8-E03-01",
+      "title": "E03工程能力增量与实施映射",
+      "path": "03_评审与工程衔接/13_DC八项机制融合｜E03工程能力增量与实施映射.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "Existing",
+        "Enhancement",
+        "New",
+        "Test Only",
+        "Deferred",
+        "E03阶段"
+      ],
+      "sha256": "68ad1a3118e3d5c09bbd23a3ffdc381d3cdbb961c725d94449ad9a294a036c06"
+    },
+    {
+      "id": "DC-AC8-VALIDATION-01",
+      "title": "AC8验证记录与跨模块交接",
+      "path": "03_评审与工程衔接/14_DC-AC8验证记录与跨模块交接.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "测试",
+        "来源摘要",
+        "TS",
+        "NAP",
+        "PR10差异",
+        "技术负责人验收"
+      ],
+      "sha256": "dc2fa11c6670d68cb563b4b7fe9e208ae7a15fc2d1549aa38a08e858e7cd0a6f"
+    },
+    {
+      "id": "DC-AC8-PROTOCOL-01",
+      "title": "AC8协议裁决与宿主证据接口交接",
+      "path": "03_评审与工程衔接/15_DC-AC8协议裁决与宿主证据接口交接.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "技术方案已裁决",
+        "宿主能力核查",
+        "E03接口",
+        "失败保护",
+        "Gate复核"
+      ],
+      "sha256": "879c1759ba52042ca089f59f223f45872e81b1ab308adaa32812709101bc0314"
+    },
+    {
+      "id": "DC-AC8-E11-CONTRACT-01",
+      "title": "E11宿主交互证据数据契约与验收轨迹",
+      "path": "03_评审与工程衔接/16_E11宿主交互证据数据契约与验收轨迹.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "先记录后关联",
+        "受信事件",
+        "任务关联",
+        "有界读取",
+        "R1-R3",
+        "Owner隐私裁决已批准"
+      ],
+      "sha256": "ed192c56c5ea3839ffed59f83ac2679892c471f137d2319d5ef72767e9f3b946"
+    },
+    {
+      "id": "DC-AC8-PRIVACY-01",
+      "title": "Owner原话保留与删除裁决",
+      "path": "03_评审与工程衔接/17_DC-AC8-PRIVACY-01_Owner裁决与执行边界.md",
+      "role": "engineering_review_candidate",
+      "audience": [
+        "product_owner",
+        "ai_product_manager",
+        "architect",
+        "developer"
+      ],
+      "topics": [
+        "APPROVED_BY_OWNER",
+        "30天",
+        "180天",
+        "12个月",
+        "主动删除",
+        "告知",
+        "工程Gate"
+      ],
+      "sha256": "05159c3f0aa0000f53316e8017f9052facbb7c5fe16ef4fd309c1922a624e6d1"
+    }
+  ],
+  "compatibility_entries": [
+    {
+      "path": "01_决策上下文机制设计_V0.1.md",
+      "canonical_id": "DC-PRODUCT-01"
+    },
+    {
+      "path": "02_旅行决策类型体系_V0.1.md",
+      "canonical_id": "DC-TAXONOMY-01"
+    },
+    {
+      "path": "03_决策单元与上下文边界_V0.1.md",
+      "canonical_id": "DC-UNIT-01"
+    },
+    {
+      "path": "04_旅行决策场景与验证用例_V0.1.md",
+      "canonical_id": "DC-SCENARIOS-01"
+    },
+    {
+      "path": "05_设计结论待确认问题与工程交接.md",
+      "canonical_id": "DC-HANDOFF-01"
+    },
+    {
+      "path": "06_来源基线与设计追溯矩阵.md",
+      "canonical_id": "DC-TRACE-01"
+    }
+  ],
+  "runtime_contract_version": "0.1.0",
+  "validation_report": "90_可运行工程包/VALIDATION_REPORT.md",
+  "engineering_files": [
+    {
+      "path": "90_可运行工程包/FIELD_DICTIONARY.md",
+      "role": "source_or_guide",
+      "sha256": "d7cca5bd04acb717a1590ac642a7e982ba9ae853a174b6b753f6e90e4b5db879"
+    },
+    {
+      "path": "90_可运行工程包/README.md",
+      "role": "source_or_guide",
+      "sha256": "5d483e62c022ab543404529c70625a1554b5f63de81bdc6696a7bd33c4191e4a"
+    },
+    {
+      "path": "90_可运行工程包/VALIDATION_REPORT.md",
+      "role": "execution_evidence",
+      "sha256": "0ade1178adb1fc1eafd4926a31d544e3108f8a0439ac82e26c3aee91e2b38dfe"
+    },
+    {
+      "path": "90_可运行工程包/check_cross_package_refs.py",
+      "role": "source_or_guide",
+      "sha256": "85e960b7f7e837b7e7e6e7b0e4a087a80cfeace15de40a6d4dc2a47f84f77748"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/__init__.py",
+      "role": "source_or_guide",
+      "sha256": "ad829be702f5b30422cf476c0e794c70a9ffe195081ffea639ac0215c6d72d14"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/api.py",
+      "role": "source_or_guide",
+      "sha256": "7a318597eb3499c4512577ed82956b681baac8aa8396a0b1695c06bbcbd2d965"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/checkpoints.py",
+      "role": "source_or_guide",
+      "sha256": "9cbff3b580ea6285e0c35b34d13496adfa7c89ef51499ddf2739f6277c3858fa"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/contracts.py",
+      "role": "source_or_guide",
+      "sha256": "4c435a60ecdbd041974628a5c878474ac50203f59e17e22a34cdd979efbaea45"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/errors.py",
+      "role": "source_or_guide",
+      "sha256": "3c2bee262f497e77622ca9d7ca92cfd0031d4bc0342e126590c744af2197a0c8"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/recovery.py",
+      "role": "source_or_guide",
+      "sha256": "8b454c573849c5776d65e35caf5d813b40d641f1c594ce01693e79fdb76a52b7"
+    },
+    {
+      "path": "90_可运行工程包/context_runtime/runtime.py",
+      "role": "source_or_guide",
+      "sha256": "12cefe8393194b427c27f13349dfb1a84b189d326f6a25a285b33ca8452b6e01"
+    },
+    {
+      "path": "90_可运行工程包/dependency.py",
+      "role": "source_or_guide",
+      "sha256": "610bca5e6a7d166b3c0bd41695f98d5d8b5bfb7b7a42760a648302fffdba47ed"
+    },
+    {
+      "path": "90_可运行工程包/examples/exploration.json",
+      "role": "synthetic_example",
+      "sha256": "478334ef8152123c965cbc3de09710ce87078ccdc3e113cebe69f3a7d79d0989"
+    },
+    {
+      "path": "90_可运行工程包/examples/recovery.json",
+      "role": "synthetic_example",
+      "sha256": "86fb5b89991efc6eccc70794f7c4d7e19ed14fe1bf18b0dea75f871fac55ace7"
+    },
+    {
+      "path": "90_可运行工程包/export_contracts.py",
+      "role": "source_or_guide",
+      "sha256": "d6a5f0d6cf6df4d194c2c9f7e262aca9af758d0806d8ab28d9e2faf40c81f548"
+    },
+    {
+      "path": "90_可运行工程包/requirements.txt",
+      "role": "source_or_guide",
+      "sha256": "d993e8c54f162ebcb016db49b6f667fe2359b350f90b6bb561c22b54c03efabd"
+    },
+    {
+      "path": "90_可运行工程包/run_validation.py",
+      "role": "source_or_guide",
+      "sha256": "de6048f9c223f22845259a60271f224c9fc3e6f03c05064dc598fdb6ff13d1be"
+    },
+    {
+      "path": "90_可运行工程包/schemas/assemble.schema.json",
+      "role": "machine_contract",
+      "sha256": "0e85d8685cdf3469e8cfc9bdc49757667e4d0e7d5fc79d19fb76586f31cd410d"
+    },
+    {
+      "path": "90_可运行工程包/schemas/change.schema.json",
+      "role": "machine_contract",
+      "sha256": "f5195f66bb6d3fa9a551f5db17029d35c6f4d3d7325be65d026bebd62aae7374"
+    },
+    {
+      "path": "90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "role": "machine_contract",
+      "sha256": "12e910bb83585a394f0d920c43b05764bac60bcf9a5cd5ff8529ad58bd982178"
+    },
+    {
+      "path": "90_可运行工程包/schemas/confirm.schema.json",
+      "role": "machine_contract",
+      "sha256": "6deb5cc36133b88ae72fcc6b27fa6ce4f40b7f14b4d7be773a9a8b8acd1b2a6b"
+    },
+    {
+      "path": "90_可运行工程包/schemas/error.schema.json",
+      "role": "machine_contract",
+      "sha256": "9959600ce7423af7f1ddd6ab05725aa5a5c23d4382ae1b7f91fe38f7f1057638"
+    },
+    {
+      "path": "90_可运行工程包/schemas/open-turn.schema.json",
+      "role": "machine_contract",
+      "sha256": "631363f1819aa6a10f82d78bf902c3abf13688d603b7037951b2b4357e06a8b6"
+    },
+    {
+      "path": "90_可运行工程包/schemas/packet.schema.json",
+      "role": "machine_contract",
+      "sha256": "f0a0b5ef77f924f142afc6a8ec431ba082e7e7e78014609b5c7f81c189a9c60e"
+    },
+    {
+      "path": "90_可运行工程包/schemas/page-request.schema.json",
+      "role": "machine_contract",
+      "sha256": "bc84b931043dd0f5117d4231a68b72eec885bcc3b3dc2f5e2d7d8b3de05a9cd7"
+    },
+    {
+      "path": "90_可运行工程包/schemas/page.schema.json",
+      "role": "machine_contract",
+      "sha256": "74fbc7b11e76932bd862088113d5381e13eccc37f39787c3f52ebb958b94d0ea"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-ack.schema.json",
+      "role": "machine_contract",
+      "sha256": "b36ab40bd549c2e46ef403ac8c77d7a5b623c1fa4ea78d6c5ce817a91f1b6f69"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-delete.schema.json",
+      "role": "machine_contract",
+      "sha256": "6b576e3fbade034718ff561d3dc34234f4d71a6a4e6b2598f60e7c83092bdd57"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-list-result.schema.json",
+      "role": "machine_contract",
+      "sha256": "61bded692ace23bc8d7fc3757c188bb74a46b6ced2dfdd099fd04dec13d4dffb"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-list.schema.json",
+      "role": "machine_contract",
+      "sha256": "879ec80ce28aafd244a9f6278ec44b43171533d7868d350a56754460eb643b83"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-restore.schema.json",
+      "role": "machine_contract",
+      "sha256": "73dddce802a48663ae5499be22221067381fa2ac25e343c25bae6ee3290b59d7"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-restored.schema.json",
+      "role": "machine_contract",
+      "sha256": "2ea44ea46dcf15e9df47eab4a79cca36928080ec0eca3695d673706f3a6e4bfa"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-retry.schema.json",
+      "role": "machine_contract",
+      "sha256": "c5a1bde0bd3da0e4157151129e4583ad31ade4703d38fdbf2ca62e7ae116d8f0"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-save.schema.json",
+      "role": "machine_contract",
+      "sha256": "34fa983b5d5b252395a9ace6e3c5fd9cf80ac2580982c505f32ea4af51e988fb"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-status-result.schema.json",
+      "role": "machine_contract",
+      "sha256": "19cc387dae4d0193add3c01e7013df19311d2a75ea4f9ba9c46b19111bc9badf"
+    },
+    {
+      "path": "90_可运行工程包/schemas/scene-status.schema.json",
+      "role": "machine_contract",
+      "sha256": "66567c9b60f4e5b66396fb6a55a3eec5d168a310faea0aca217203d2f11b7a71"
+    },
+    {
+      "path": "90_可运行工程包/schemas/turn.schema.json",
+      "role": "machine_contract",
+      "sha256": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9"
+    },
+    {
+      "path": "90_可运行工程包/tests/test_recovery.py",
+      "role": "test",
+      "sha256": "0c0001da3e16af2f8736b0fa9d43ab555d5929854e256d9fc031510281e2928b"
+    },
+    {
+      "path": "90_可运行工程包/tests/test_runtime.py",
+      "role": "test",
+      "sha256": "7c8f39e0eeb61e90fbaaf2df1f0d388f8038d9d90b68c8b54e41e4c9c9ecc2ed"
+    },
+    {
+      "path": "90_可运行工程包/update_package_index.py",
+      "role": "source_or_guide",
+      "sha256": "2c1bb4b18681884e91e62dbefbda39729cc849c4687648cd5a2d01a4626332fb"
+    },
+    {
+      "path": "90_可运行工程包/validation-output.txt",
+      "role": "execution_evidence",
+      "sha256": "de84ac7330c5ebaa12136f5df1d757153fd2297149c70a99ed24d319207690c1"
+    },
+    {
+      "path": "90_可运行工程包/validation-results.json",
+      "role": "execution_evidence",
+      "sha256": "9744f02bdddd61042f63b42e13f8c99ab06f3dba91f3666080a03ab0a22246da"
+    }
+  ],
+  "product_decisions": {
+    "O1": {
+      "status": "approved_for_P0",
+      "source": "U05",
+      "date": "2026-10-24",
+      "requirement": "精确恢复跨会话暂停现场",
+      "engineering_status": "reference_implemented_acceptance_passed",
+      "document_id": "DC-RESUME-SCOPE-01"
+    },
+    "DC-AC8-PRIVACY-01": {
+      "status": "APPROVED_BY_OWNER",
+      "source": "Owner 2026-11-05 direct instruction and supplied screenshot",
+      "date": "2026-11-05",
+      "requirement": "完整原话在活跃规划期间保留；旅行结束30天、相关不活跃180天、单条12个月取最早截止；主动删除立即停读；备份与审计最小化并告知用户",
+      "engineering_status": "host_not_implemented_production_gate_pending",
+      "document_id": "DC-AC8-PRIVACY-01"
+    }
+  },
+  "local_export": "LOCAL_EXPORT.json"
+}

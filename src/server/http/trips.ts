@@ -18,7 +18,6 @@ export function statusFor(response: TripStateContracts["response"]) {
 }
 
 export async function handleTripHttp(request: Request, tripId: string, resource: string[]) {
-  let revision = 0;
   try {
     const runtime = await webRuntime(), { identity } = runtime;
     const authorization = request.headers.get("authorization"), cookie = request.headers.get("cookie");
@@ -27,14 +26,14 @@ export async function handleTripHttp(request: Request, tripId: string, resource:
     const credential = authorization ? authorization.slice(7) : new Headers({ cookie: cookie ?? "" });
     // Authorize before reporting whether a trip/resource exists, and before accepting any input.
     const before = await trips.state(tripId, credential);
-    if (!before) throw new TripStateContractError("NOT_FOUND", "旅行不存在"); revision = before.revision;
+    if (!before) throw new TripStateContractError("NOT_FOUND", "旅行不存在");
     const path = resource.join("/"), id = /^[A-Za-z][A-Za-z0-9_-]{0,95}$/;
     if (!id.test(tripId)) throw new TripStateContractError("NOT_FOUND", "接口不存在");
     const confirmation = resource.length === 3 && resource[0] === "changes" && resource[2] === "confirm" && id.test(resource[1]);
     const get = path === "state" || path === "changes", post = path === "changes" || path === "changes/preview" || confirmation;
     if (!get && !post) throw new TripStateContractError("NOT_FOUND", "接口不存在");
     if (request.method === "GET" && get) return json(path === "state" ? before : parseContract("history", await trips.history(tripId, credential)), 200);
-    if (request.method !== "POST" || !post) return json(errorResponse("METHOD_NOT_ALLOWED", "方法不适用于该接口", revision), 405, { Allow: path === "changes" ? "GET, POST" : get ? "GET" : "POST" });
+    if (request.method !== "POST" || !post) return json(errorResponse("METHOD_NOT_ALLOWED", "方法不适用于该接口"), 405, { Allow: path === "changes" ? "GET, POST" : get ? "GET" : "POST" });
     requireOrigin(request, identity.config.origin);
     const raw = await readJsonText(request); // Keep the original numeric tokens for the existing controlled decoder.
     const response = confirmation ? await trips.confirm(tripId, resource[1], raw, credential)
@@ -49,8 +48,8 @@ export async function handleTripHttp(request: Request, tripId: string, resource:
     else if (error instanceof TripStateContractError || error instanceof StorageError) {
       code = error.code === "STORAGE_TRIP_NOT_FOUND" ? "NOT_FOUND" : error.code.startsWith("STORAGE_") ? "INTERNAL_FAILURE" : error.code; message = code === "INTERNAL_FAILURE" ? "Request failed" : error.message;
     }
-    if (["PERMISSION", "ACTOR"].includes(code)) { code = "PERMISSION"; message = "Access denied"; revision = 0; }
-    const response = errorResponse(code, message, code === "INTERNAL_FAILURE" ? 0 : revision);
+    if (["PERMISSION", "ACTOR"].includes(code)) { code = "PERMISSION"; message = "Access denied"; }
+    const response = errorResponse(code, message);
     return json(response, statusFor(response));
   }
 }

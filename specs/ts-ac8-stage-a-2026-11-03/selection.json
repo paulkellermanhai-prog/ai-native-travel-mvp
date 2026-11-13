@@ -1,0 +1,18 @@
+{
+  "format": "antu-ts-engineering-source-selection/v1",
+  "package_revision": "2026-11-03-ac8-stage-a-candidate",
+  "schema_version": "0.1.0",
+  "approved_for": "Trip State stage B engineering input",
+  "approval_source": "2026-11-03 user reply in this task: 是，以技术负责人身份批准",
+  "original_package_index_status": "PENDING_TECH_LEAD_ACCEPTANCE",
+  "original_index_preserved": true,
+  "zip_sha256": "d2825ae51a0feb64fc4afd7d9514d0b615ae80f300fe4293bdef4f9a187340ad",
+  "package_index_sha256": "d39fc00512d44a809637e5de4506b11f1e5325674e7fefb5e2ce5755dfed7c30",
+  "source_manifest_sha256": "9e1bcbf809ff4b117881b0e28dff12506dffa9c01e7150d7187dbdfef8c53855",
+  "source_count": 14,
+  "canonical_file_count": 108,
+  "delivered_file_count": 128,
+  "machine_schema_count": 20,
+  "baseline_main_sha": "6ae8b2b66513c51ff209ce7147e8c6ff7376a39b",
+  "selection_note": "The approved input is an additional byte-preserved package. The original package index and E02 locked snapshot are not rewritten. TS behavior changes are reviewed independently from unchanged 0.1.0 machine contracts."
+}

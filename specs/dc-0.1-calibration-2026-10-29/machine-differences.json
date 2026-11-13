@@ -1,0 +1,620 @@
+{
+  "format": "antu-dc-machine-difference/v1",
+  "comparisons": [
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "before_sha256": "dbe78901fbe4e2283727fbdfde5ff54a2b8d8d01bf4dcd947e5c546288b5b661",
+      "after_sha256": "0e85d8685cdf3469e8cfc9bdc49757667e4d0e7d5fc79d19fb76586f31cd410d",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/assemble.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/assemble.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "before_sha256": "0f318890cbda2f7f7b4388a687e67c800080f10b3f1f72e5f6e52de1b2366420",
+      "after_sha256": "f5195f66bb6d3fa9a551f5db17029d35c6f4d3d7325be65d026bebd62aae7374",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/change.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/change.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "before_sha256": "9d4ae5e72f2bb1fc65005e6d00eac109b9e5507510bad50075bd300016321df3",
+      "after_sha256": "12e910bb83585a394f0d920c43b05764bac60bcf9a5cd5ff8529ad58bd982178",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/checkpoint-payload.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/checkpoint-payload.schema.json",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "before_sha256": "82f327c57503d0508b5d78a559c11a99a8ed2dfabf4fd840324197ea1872ce32",
+      "after_sha256": "6deb5cc36133b88ae72fcc6b27fa6ce4f40b7f14b4d7be773a9a8b8acd1b2a6b",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/confirm.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/confirm.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "before_sha256": "6be635c3b0f50301733fde951158ead957f9ad4458792a22f927a172fcceee7b",
+      "after_sha256": "9959600ce7423af7f1ddd6ab05725aa5a5c23d4382ae1b7f91fe38f7f1057638",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/error.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/error.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "before_sha256": "0f0d88beea772e373b86bf29ae47a473a9d33a5c0cdf2b5df0ffdca7785c53f8",
+      "after_sha256": "631363f1819aa6a10f82d78bf902c3abf13688d603b7037951b2b4357e06a8b6",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/open-turn.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/open-turn.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "before_sha256": "e3aa7bd83369d924edd06328f8e12094b174ab3a44abf0eaac2913792bfddba0",
+      "after_sha256": "f0a0b5ef77f924f142afc6a8ec431ba082e7e7e78014609b5c7f81c189a9c60e",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/packet.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/packet.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "before_sha256": "ec1066639726a8bd689c330a5f6969ef2dbece01bf717a5bd6c6b98e67c2819b",
+      "after_sha256": "bc84b931043dd0f5117d4231a68b72eec885bcc3b3dc2f5e2d7d8b3de05a9cd7",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/page-request.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/page-request.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "before_sha256": "8ae63db9fe5fe8427ea0d984baeeeb5fcde30b50e00bacb01f81f3fd5465af0c",
+      "after_sha256": "74fbc7b11e76932bd862088113d5381e13eccc37f39787c3f52ebb958b94d0ea",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/page.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/page.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "before_sha256": "fd70fc026f6f62777acd81f12436ae7565743c27da3a67e061f94a43e3a8156f",
+      "after_sha256": "b36ab40bd549c2e46ef403ac8c77d7a5b623c1fa4ea78d6c5ce817a91f1b6f69",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-ack.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-ack.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "before_sha256": "e403b88ec60bddf87b2d0748caeeaad1a0ba88dad12a372ea846ae84a7c9724a",
+      "after_sha256": "6b576e3fbade034718ff561d3dc34234f4d71a6a4e6b2598f60e7c83092bdd57",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-delete.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-delete.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "before_sha256": "c55c8508ad8df53feeb53c56f53434cd0d3793ff23d130cec453cdaf17ce814a",
+      "after_sha256": "61bded692ace23bc8d7fc3757c188bb74a46b6ced2dfdd099fd04dec13d4dffb",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-list-result.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-list-result.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "before_sha256": "88eee3457e2cddb9d864d902e394f20558b822ffab808dbef1d405613d58cd86",
+      "after_sha256": "879ec80ce28aafd244a9f6278ec44b43171533d7868d350a56754460eb643b83",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-list.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-list.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "before_sha256": "2823455f0296c66fa71a25e9b7c3aa1006dc68554f3094a119dc0b522e74196f",
+      "after_sha256": "73dddce802a48663ae5499be22221067381fa2ac25e343c25bae6ee3290b59d7",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-restore.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-restore.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "before_sha256": "0a771ac2d8cd209ab0336315ee62437c381b32e5bf46de420808c4bd8046e8d3",
+      "after_sha256": "2ea44ea46dcf15e9df47eab4a79cca36928080ec0eca3695d673706f3a6e4bfa",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-restored.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-restored.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/packets/items/$ref",
+          "before": "https://decision-context.example/runtime/0.2/packet.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/packet.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "before_sha256": "a95f2094b54e4fae87d64a22d189c4f18680f735454bb0d53f6983f492e3b202",
+      "after_sha256": "c5a1bde0bd3da0e4157151129e4583ad31ade4703d38fdbf2ca62e7ae116d8f0",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-retry.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-retry.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "before_sha256": "5529e979fe73d764df265e65e35d970c7c36cd24eee4d56c7c1889b8316f43b9",
+      "after_sha256": "34fa983b5d5b252395a9ace6e3c5fd9cf80ac2580982c505f32ea4af51e988fb",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-save.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-save.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "before_sha256": "ed0720bfec211ec40d583669f868ac6300e7377300d5eb9411cf7ffef0026197",
+      "after_sha256": "19cc387dae4d0193add3c01e7013df19311d2a75ea4f9ba9c46b19111bc9badf",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-status-result.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-status-result.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "before_sha256": "49617c2942ac52dceff0d5395dd2d3dcb7d3a75645276db2f59de3d9f5e9aaac",
+      "after_sha256": "66567c9b60f4e5b66396fb6a55a3eec5d168a310faea0aca217203d2f11b7a71",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/scene-status.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/scene-status.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "before_sha256": "c46d6f270900250e98c9cee140a32566979b9405eb30e92a27150bdd4717af81",
+      "after_sha256": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9",
+      "changes": [
+        {
+          "pointer": "/$id",
+          "before": "https://decision-context.example/runtime/0.2/turn.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/turn.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/properties/runtime_contract_version/const",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/examples/exploration.json",
+      "before_sha256": "992f5b93cdd4e3fc97f48fb8a5a3b33aa24a0b3015192326004b09459fd5f1b1",
+      "after_sha256": "478334ef8152123c965cbc3de09710ce87078ccdc3e113cebe69f3a7d79d0989",
+      "changes": [
+        {
+          "pointer": "/assemble/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/assemble/turn_id",
+          "before": "turn-bdf30a9ae3c34669854b130caef35642",
+          "after": "turn-62e64fe04d2b469daa4ebc870b0c0b8b",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/open_turn/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/packet/context/id",
+          "before": "context-cd25ed8bf0454825981843b6a5afbe09",
+          "after": "context-1ad743338ca5476cbb35e971c63da424",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/packet/packet_id",
+          "before": "packet-7c9418cc122b4389ba9cd7065735d1e3",
+          "after": "packet-6ac8e8e495064ddf85cd11e6bb6424d5",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/packet/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/packet/turn_id",
+          "before": "turn-bdf30a9ae3c34669854b130caef35642",
+          "after": "turn-62e64fe04d2b469daa4ebc870b0c0b8b",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/turn/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/turn/runtime_id",
+          "before": "runtime-2617b6e806654386b88f3bb3b880b393",
+          "after": "runtime-c0d4ae7061ef4a96a956637306f6736a",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/turn/turn_id",
+          "before": "turn-bdf30a9ae3c34669854b130caef35642",
+          "after": "turn-62e64fe04d2b469daa4ebc870b0c0b8b",
+          "kind": "generated_id_bijection"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {
+        "turn-bdf30a9ae3c34669854b130caef35642": "turn-62e64fe04d2b469daa4ebc870b0c0b8b",
+        "context-cd25ed8bf0454825981843b6a5afbe09": "context-1ad743338ca5476cbb35e971c63da424",
+        "packet-7c9418cc122b4389ba9cd7065735d1e3": "packet-6ac8e8e495064ddf85cd11e6bb6424d5",
+        "runtime-2617b6e806654386b88f3bb3b880b393": "runtime-c0d4ae7061ef4a96a956637306f6736a"
+      }
+    },
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/examples/recovery.json",
+      "before_sha256": "1fedad54a7e50bf74d15aaba3f46b5a8bdcdd53c1331ad2aa326c4691eef3b4c",
+      "after_sha256": "86fb5b89991efc6eccc70794f7c4d7e19ed14fe1bf18b0dea75f871fac55ace7",
+      "changes": [
+        {
+          "pointer": "/open_turn/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/scene_ack/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/scene_restore/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/scene_restored/packets/0/context/id",
+          "before": "context-56c75d730ab04014b8f9e615737240a8",
+          "after": "context-f19b0cddcabe45abae118761892963a1",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/scene_restored/packets/0/packet_id",
+          "before": "packet-3c02323605ef4872a571fae04f1524c3",
+          "after": "packet-9fa893885e8b48d4b7c692d97fea52a6",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/scene_restored/packets/0/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/scene_restored/packets/0/turn_id",
+          "before": "turn-0f514734a20d4026a7d886102bdb6e77",
+          "after": "turn-ce9c311c941b48d8956b30e5fcff3603",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/scene_restored/restored_turns/0/turn_id",
+          "before": "turn-0f514734a20d4026a7d886102bdb6e77",
+          "after": "turn-ce9c311c941b48d8956b30e5fcff3603",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/scene_restored/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/scene_restored/runtime_id",
+          "before": "runtime-c8ea1ff8b077491eaa77db0f3c2a531e",
+          "after": "runtime-825a317954d54d8e80c496b15e348bc1",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/scene_save/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/turn/runtime_contract_version",
+          "before": "0.2.0",
+          "after": "0.1.0",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/turn/runtime_id",
+          "before": "runtime-8e6a786690df4ca49f85454406f5e704",
+          "after": "runtime-f1866f87a6b54d4b909c381cc4754113",
+          "kind": "generated_id_bijection"
+        },
+        {
+          "pointer": "/turn/turn_id",
+          "before": "turn-4b125c961a30488ab6997e57c02e6ee2",
+          "after": "turn-0f91a0fc10ef4cd5a967016c2d19d84c",
+          "kind": "generated_id_bijection"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {
+        "context-56c75d730ab04014b8f9e615737240a8": "context-f19b0cddcabe45abae118761892963a1",
+        "packet-3c02323605ef4872a571fae04f1524c3": "packet-9fa893885e8b48d4b7c692d97fea52a6",
+        "turn-0f514734a20d4026a7d886102bdb6e77": "turn-ce9c311c941b48d8956b30e5fcff3603",
+        "runtime-c8ea1ff8b077491eaa77db0f3c2a531e": "runtime-825a317954d54d8e80c496b15e348bc1",
+        "runtime-8e6a786690df4ca49f85454406f5e704": "runtime-f1866f87a6b54d4b909c381cc4754113",
+        "turn-4b125c961a30488ab6997e57c02e6ee2": "turn-0f91a0fc10ef4cd5a967016c2d19d84c"
+      }
+    },
+    {
+      "path": "Next-Action-Policy-V0.1/engineering/contracts.schema.json",
+      "before_sha256": "eb195a3158a75a8da8f06b74f842bb848d32a3fb3df37bf7e8c63f4a3c483fc5",
+      "after_sha256": "61dd550805f163eb5f5e9f0e82fa2ca3c3592fe64a49a117b608b1fc55fcfbbc",
+      "changes": [
+        {
+          "pointer": "/$defs/DecisionRequest/properties/packets/items/$ref",
+          "before": "https://decision-context.example/runtime/0.2/packet.schema.json",
+          "after": "https://decision-context.example/runtime/0.1/packet.schema.json",
+          "kind": "version_binding"
+        },
+        {
+          "pointer": "/$defs/UIFeedback/properties/event/$ref",
+          "before": "https://decision-context.example/runtime/0.2/open-turn.schema.json#/$defs/event",
+          "after": "https://decision-context.example/runtime/0.1/open-turn.schema.json#/$defs/event",
+          "kind": "version_binding"
+        }
+      ],
+      "non_version_contract_differences": 0,
+      "generated_id_mapping": {}
+    }
+  ]
+}

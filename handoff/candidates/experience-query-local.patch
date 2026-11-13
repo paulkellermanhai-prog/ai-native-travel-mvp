@@ -1,0 +1,676 @@
+diff --git a/src/server/decision-context/host-runtime/evidence-host.ts b/src/server/decision-context/host-runtime/evidence-host.ts
+index 6dfaff6..0afc022 100644
+--- a/src/server/decision-context/host-runtime/evidence-host.ts
++++ b/src/server/decision-context/host-runtime/evidence-host.ts
+@@ -29,7 +29,7 @@ import { BridgeRuleError, checkChangeRules, checkConfirmationRules, checkGrantFi
+ import type { TransactionalBridgeHost } from "../write-bridge/orchestrator";
+ import {validateDecisionPlanHostEligibility,type DecisionPlan} from "../../next-action-policy/decision-engine";
+ import {claimDecisionStep,completeDecisionStep,markExecutionUnknown,readDecisionRecord,redactDecisionsForSourceEvent,saveDecisionPlan} from "../../next-action-policy/runtime-store";
+-import {beginToolInvocation,readToolTrigger,recordToolCompletion,type ToolCompletion} from "../../next-action-policy/tool-runtime-store";
++import {beginToolInvocation,readToolInvocation,readToolTrigger,recordToolCompletion,type ToolCompletion} from "../../next-action-policy/tool-runtime-store";
+ import type {TrustedDecisionRequest} from "../../next-action-policy/trusted-packet-source";
+ 
+ type Registration = { turn_id: string; revision: number; task_keys: string[]; focus_keys: string[] };
+@@ -1083,6 +1083,13 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
+           {completion:input.completion,rawResult:input.rawResult,authoritativeRevision:input.authoritativeRevision,currentRevision:Number(document.revision),currentNow:document.now});
+       }));
+     },
++    async readToolInvocationCandidate(ticket:object,credential:Headers,input:{decisionId:string;actionId:string;stepId:string;invocationId:string}){
++      const {scope,headers}=await scoped(ticket,credential);
++      return db.$transaction(async tx=>{
++        await host.guard!(scope.tripId,headers,tx);
++        return readToolInvocation(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},input);
++      });
++    },
+     async readToolTriggerCandidate(ticket:object,credential:Headers,completionId:string){
+       const {scope,headers}=await scoped(ticket,credential);
+       return db.$transaction(async tx=>{
+@@ -1112,12 +1119,12 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
+         return readDecisionRecord(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},decisionId);
+       });
+     },
+-    async markDecisionExecutionUnknownCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string){
++    async markDecisionExecutionUnknownCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string,recovery:unknown=null){
+       const {scope,headers}=await scoped(ticket,credential);
+       return exclusive(scope,async()=>db.$transaction(async tx=>{
+         try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
+         return markExecutionUnknown(tx,{ownerId:scope.ownerId,tripId:scope.tripId,workspaceKey:scope.workspaceKey,runtimeId:scope.runtimeId},
+-          decisionId,actionId,stepId,claimToken);
++          decisionId,actionId,stepId,claimToken,recovery);
+       }));
+     },
+     async completeDecisionStepCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string,
+@@ -1146,6 +1153,18 @@ export async function openEvidenceHost(env: Partial<NodeJS.ProcessEnv> = process
+         return matches[0]?structuredClone(parseContract("response",decodeCommandJson(matches[0].response))):null;
+       });
+     },
++    async lookupToolObservationReceiptCandidate(ticket:object,credential:Headers,input:{invocationId:string;providerRef:string;request:unknown}){
++      const request=structuredClone(parseContract("change-request",input.request)),{scope,headers}=await scoped(ticket,credential);
++      if(request.input.kind!=="tool"||request.input.reference!==`nap-tool-invocation:${input.invocationId}`)return unavailable();
++      return db.$transaction(async tx=>{
++        try{await host.guard!(scope.tripId,headers,tx);}catch{return deny();}
++        const rows=await tx.$queryRaw<Array<{requestDigest:string;request:string;response:string}>>`SELECT "requestDigest","request"::text AS request,"response"::text AS response
++          FROM "TripStateIdempotency" WHERE "tripId"=${scope.tripId} AND "actorId"=${input.providerRef} AND "operationDomain"='tool' AND "key"=${request.idempotency_key}`;
++        const matches=rows.filter(row=>row.requestDigest===digest(request)&&canonicalJson(decodeCommandJson(row.request))===canonicalJson(request));
++        if(matches.length>1)return unavailable();
++        return matches[0]?structuredClone(parseContract("response",decodeCommandJson(matches[0].response))):null;
++      });
++    },
+     async authorizeTicketCandidate(ticket:object,credential:Headers) {await scoped(ticket,credential);},
+     async authorizeTripCandidate(tripId:string,credential:Headers) {
+       const current=await authorized(tripId,credential);
+diff --git a/src/server/decision-context/http-adapter/pr29-host-candidate.ts b/src/server/decision-context/http-adapter/pr29-host-candidate.ts
+index 45712c0..b3786e1 100644
+--- a/src/server/decision-context/http-adapter/pr29-host-candidate.ts
++++ b/src/server/decision-context/http-adapter/pr29-host-candidate.ts
+@@ -15,7 +15,7 @@ import {validatePlanRequestConsistency} from "../../next-action-policy/plan-pack
+ import {TripStateContractError} from "../../trip-state/contracts";
+ import type {CapabilityRegistry} from "../../next-action-policy/tool-capabilities";
+ import {NapCapabilityError} from "../../next-action-policy/tool-capabilities";
+-import {executeToolStep} from "../../next-action-policy/tool-dispatch";
++import {executeToolStep,NapToolExecutionUnknown,reconcileToolStep,type ToolExecutionRecovery} from "../../next-action-policy/tool-dispatch";
+ import {NapToolRuntimeError} from "../../next-action-policy/tool-runtime-store";
+ 
+ type EvidenceHost = Awaited<ReturnType<typeof openEvidenceHost>>;
+@@ -146,6 +146,11 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string,
+       if(actionRecord.phase==="running"&&actionRecord.receipt_lookup_required&&stepRecord.status==="running"&&stepRecord.claim_token){
+         claimToken=stepRecord.claim_token;
+         if(step.kind==="change")receipt=await host.lookupChangeReceiptCandidate(ticket,credential,step.change_request);
++        else if(step.kind==="query"||step.kind==="calculate"){
++          const recovered=await reconcileToolStep({host,ticket,credential:new Headers({cookie:credential.get("cookie")??""}),registry:toolRegistry!,plan,
++            action,step,claimToken,recovery:stepRecord.result_json as ToolExecutionRecovery,syncLifecycle,tripId});
++          return recovered?{disposition:"receipt_recovered" as const,result:recovered.result}:{disposition:"execution_unknown" as const,result:null};
++        }
+         if(receipt===null)return {disposition:"execution_unknown" as const,result:null};
+       }else{
+         const storedRequest=record.decision.request_json as TrustedDecisionRequest,ids=plan.basis.map(basis=>basis.packet_id);
+@@ -183,7 +188,9 @@ export function createPr29HostHttpCandidate(host: EvidenceHost, origin: string,
+         await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,outcome,result);
+         return {disposition:receipt?"receipt_recovered" as const:"executed" as const,result};
+       }catch(error){
+-        if(error instanceof BridgeRuleError||error instanceof TripStateContractError||error instanceof DecisionContextContractError||error instanceof RuntimeHttpFault||
++        if(error instanceof NapToolExecutionUnknown){
++          try{await host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,error.recovery);}catch{}
++        }else if(error instanceof BridgeRuleError||error instanceof TripStateContractError||error instanceof DecisionContextContractError||error instanceof RuntimeHttpFault||
+           error instanceof NapCapabilityError||error instanceof NapToolRuntimeError){
+           try{await host.completeDecisionStepCandidate(ticket,credential,decisionId,actionId,stepId,claimToken,"failure",{error:{name:error.name,code:"code" in error?error.code:null,message:error.message}});}catch{}
+         }else try{await host.markDecisionExecutionUnknownCandidate(ticket,credential,decisionId,actionId,stepId,claimToken);}catch{}
+diff --git a/src/server/next-action-policy/runtime-store.ts b/src/server/next-action-policy/runtime-store.ts
+index 9cd7bed..5f2dcf4 100644
+--- a/src/server/next-action-policy/runtime-store.ts
++++ b/src/server/next-action-policy/runtime-store.ts
+@@ -103,10 +103,13 @@ export async function claimDecisionStep(tx:Prisma.TransactionClient,scope:NapRun
+   return {disposition:"claimed",plan:structuredClone(value.plan),claim_token:claimToken};
+ }
+ 
+-export async function markExecutionUnknown(tx:Prisma.TransactionClient,scope:NapRuntimeScope,decisionId:string,actionId:string,stepId:string,claimToken:string):Promise<void>{
++export async function markExecutionUnknown(tx:Prisma.TransactionClient,scope:NapRuntimeScope,decisionId:string,actionId:string,stepId:string,claimToken:string,
++  recovery:unknown=null):Promise<void>{
+   const value=await locked(tx,scope,decisionId,actionId),step=value.steps.find(row=>row.step_id===stepId);
+   if(!step||step.status!=="running"||step.claim_token!==claimToken)return fail("CLAIM_CONFLICT");
+   const transition=nextActionPhase(value.action.phase,{kind:"execution_unknown"});
++  await tx.$executeRaw`UPDATE e04_runtime.steps SET result_json=${JSON.stringify(recovery)}::jsonb
++    WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND decision_id=${decisionId} AND action_id=${actionId} AND step_id=${stepId}`;
+   await tx.$executeRaw`UPDATE e04_runtime.actions SET receipt_lookup_required=${transition.receiptLookupRequired},updated_at=clock_timestamp()
+     WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND decision_id=${decisionId} AND action_id=${actionId}`;
+ }
+diff --git a/src/server/next-action-policy/tool-capabilities.ts b/src/server/next-action-policy/tool-capabilities.ts
+index 127fbca..4d9fb5c 100644
+--- a/src/server/next-action-policy/tool-capabilities.ts
++++ b/src/server/next-action-policy/tool-capabilities.ts
+@@ -20,8 +20,7 @@ export class NapCapabilityError extends Error{
+ const fail=(code:NapCapabilityError["code"]):never=>{throw new NapCapabilityError(code);};
+ const id=z.string().min(1),date=z.iso.date(),timestamp=z.iso.datetime({offset:true});
+ const transportArguments=z.strictObject({from_id:id,to_id:id,date,passengers:z.number().int().min(1).max(20)});
+-const costArguments=z.strictObject({currency:z.string().regex(/^[A-Z]{3}$/),people:z.number().int().min(1).max(20),
+-  required_categories:z.array(id).min(1).max(32),items:z.array(z.strictObject({item_key:id,amount_minor:z.number().int().nonnegative().max(Number.MAX_SAFE_INTEGER),category:id})).max(128)});
++const experienceArguments=z.strictObject({experience_id:id,date});
+ const scope=z.union([z.strictObject({kind:z.enum(["trip","entity","skeleton","traveler"]),ids:z.array(id)}),
+   z.strictObject({kind:z.literal("date"),ids:z.tuple([]),start:date,end:date})]);
+ const value=z.union([z.null(),z.strictObject({kind:z.literal("transport"),from_id:id,to_id:id,departure:timestamp.nullable(),arrival:timestamp.nullable(),
+@@ -40,52 +39,68 @@ export type CapabilityRegistry={
+   execute(call:PreparedToolCall):Promise<ToolExecutionResult>;
+ };
+ 
+-export function createEgyptMvpCapabilityRegistry(options:{transportEndpoint:string;timeoutMs?:number;fetchImpl?:typeof fetch;now?:()=>Date}):CapabilityRegistry{
++export function createEgyptMvpCapabilityRegistry(options:{transportEndpoint:string;experienceEndpoint:string;timeoutMs?:number;fetchImpl?:typeof fetch;now?:()=>Date}):CapabilityRegistry{
+   const timeoutMs=options.timeoutMs??3_000,fetchImpl=options.fetchImpl??fetch,now=options.now??(()=>new Date());
+   if(!Number.isInteger(timeoutMs)||timeoutMs<1||timeoutMs>30_000)throw new Error("Invalid capability timeout");
+   const definitions=[
+-    {capability_id:"egypt-transport-synthetic-v1",kind:"query" as const,effect:"read_only" as const,provider_ref:"antu-synthetic-egypt-transport",
+-      timeout_ms:timeoutMs,fact_level:"date_specific" as const,input_schema:{type:"object",required:["from_id","to_id","date","passengers"],additionalProperties:false}},
+-    {capability_id:"egypt-cost-subtotal-v1",kind:"calculate" as const,effect:"read_only" as const,provider_ref:"antu-deterministic-calculator",
+-      timeout_ms:timeoutMs,fact_level:"deterministic_calculation" as const,input_schema:{type:"object",required:["currency","people","required_categories","items"],additionalProperties:false}},
++    {capability_id:"egypt-transport-schedule-query-v1",kind:"query" as const,effect:"read_only" as const,provider_ref:"antu-synthetic-egypt-transport",
++      timeout_ms:timeoutMs,fact_level:"date_specific" as const,input_schema:{type:"object",required:["from_id","to_id","date","passengers"],additionalProperties:false},
++      endpoint:options.transportEndpoint,sourceRef:"synthetic-egypt-transport:v1",argumentsSchema:transportArguments},
++    {capability_id:"egypt-experience-applicability-query-v1",kind:"query" as const,effect:"read_only" as const,provider_ref:"antu-synthetic-egypt-experience",
++      timeout_ms:timeoutMs,fact_level:"date_specific" as const,input_schema:{type:"object",required:["experience_id","date"],additionalProperties:false},
++      endpoint:options.experienceEndpoint,sourceRef:"synthetic-egypt-experience:v1",argumentsSchema:experienceArguments},
+   ];
+   function prepare(kind:ToolKind,capabilityId:string|null,args:Record<string,unknown>):PreparedToolCall{
+-    const definition=definitions.find(value=>value.capability_id===capabilityId&&value.kind===kind);if(!definition)return fail("UNREGISTERED");
+-    const parsed=(kind==="query"?transportArguments:costArguments).safeParse(structuredClone(args));if(!parsed.success)return fail("INVALID_ARGUMENTS");
++    const definition=definitions.find(item=>item.capability_id===capabilityId&&item.kind===kind);if(!definition)return fail("UNREGISTERED");
++    const parsed=definition.argumentsSchema.safeParse(structuredClone(args));if(!parsed.success)return fail("INVALID_ARGUMENTS");
+     const normalized=JSON.parse(canonicalJson(parsed.data)) as Record<string,unknown>;
+-    return {...definition,arguments:normalized,query_digest:digest({capability_id:definition.capability_id,arguments:normalized})};
++    return {capability_id:definition.capability_id,kind:definition.kind,effect:definition.effect,provider_ref:definition.provider_ref,
++      timeout_ms:definition.timeout_ms,fact_level:definition.fact_level,arguments:normalized,
++      query_digest:digest({capability_id:definition.capability_id,arguments:normalized})};
++  }
++  function validCommon(body:z.infer<typeof providerResult>,queryDate:string){
++    if((body.status==="result"&&!body.facts.length)||(["empty","error"].includes(body.status)&&body.facts.length)||
++      (body.facts.length>0&&body.expires_at===null)||body.expires_at!==null&&Date.parse(body.expires_at)<=Date.parse(body.observed_at))return false;
++    return body.facts.every(item=>item.query.date===queryDate&&item.scope.kind==="date"&&item.scope.start<=queryDate&&item.scope.end>=queryDate&&
++      item.valid_for.start<=queryDate&&item.valid_for.end>=queryDate);
++  }
++  function validCapabilityResult(capabilityId:string,sourceRef:string,args:Record<string,unknown>,body:z.infer<typeof providerResult>){
++    if(body.source_ref!==sourceRef)return false;
++    const queryDate=String(args.date);if(!validCommon(body,queryDate))return false;
++    if(capabilityId==="egypt-transport-schedule-query-v1"){
++      const facts=body.facts.filter(item=>item.value?.kind==="transport");
++      if(facts.length!==body.facts.length||facts.some(item=>item.value?.kind!=="transport"||item.value.from_id!==args.from_id||item.value.to_id!==args.to_id||
++        !item.subject_ids.includes(String(args.from_id))||!item.subject_ids.includes(String(args.to_id))))return false;
++      if(body.status==="result")return facts.every(item=>item.value?.kind==="transport"&&item.value.service_exists===true);
++      if(body.status==="no_service")return facts.length>0&&facts.every(item=>item.value?.kind==="transport"&&item.value.service_exists===false);
++      return true;
++    }
++    const facts=body.facts.filter(item=>item.value?.kind==="condition");
++    if(facts.length!==body.facts.length||facts.some(item=>!item.subject_ids.includes(String(args.experience_id))))return false;
++    if(body.status==="result")return facts.every(item=>item.value?.kind==="condition"&&item.value.value===true);
++    if(body.status==="no_service")return facts.length>0&&facts.every(item=>item.value?.kind==="condition"&&item.value.value===false);
++    return true;
+   }
+   async function execute(call:PreparedToolCall):Promise<ToolExecutionResult>{
+-    const expected=definitions.find(value=>value.capability_id===call.capability_id&&value.kind===call.kind&&value.provider_ref===call.provider_ref);
++    const expected=definitions.find(item=>item.capability_id===call.capability_id&&item.kind===call.kind&&item.provider_ref===call.provider_ref);
+     if(!expected||call.query_digest!==digest({capability_id:call.capability_id,arguments:call.arguments}))return fail("UNREGISTERED");
+-    if(call.kind==="calculate"){
+-      const args=costArguments.parse(call.arguments),covered=[...new Set(args.items.map(item=>item.category))].sort(),missing=[...new Set(args.required_categories.filter(category=>!covered.includes(category)))].sort();
+-      const amount=args.items.reduce((sum,item)=>sum+item.amount_minor,0);if(!Number.isSafeInteger(amount))return fail("INVALID_ARGUMENTS");
+-      return {status:missing.length?"partial":"result",synthetic:true,source_ref:"deterministic-cost-subtotal:v1",observed_at:now().toISOString(),expires_at:null,
+-        missing_fields:missing,facts:[],payload:{amount_minor:amount,currency:args.currency,people:args.people,covered_categories:covered,missing_categories:missing,
+-          is_full_trip_total:missing.length===0},error:null};
+-    }
+     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),call.timeout_ms);timer.unref();
+     try{
+-      const response=await fetchImpl(options.transportEndpoint,{method:"POST",headers:{"content-type":"application/json","accept":"application/json"},
++      const response=await fetchImpl(expected.endpoint,{method:"POST",headers:{"content-type":"application/json","accept":"application/json"},
+         body:canonicalJson(call.arguments),signal:controller.signal});
+       if(!response.ok)return {status:"error",synthetic:true,source_ref:call.provider_ref,observed_at:now().toISOString(),expires_at:null,
+-        missing_fields:[],facts:[],payload:null,error:{code:`HTTP_${response.status}`,message:"Synthetic transport provider failed"}};
+-      const parsed=providerResult.safeParse(await response.json());if(!parsed.success)return fail("PROVIDER_RESPONSE");
+-      const args=transportArguments.parse(call.arguments),body=parsed.data;
+-      if((body.status==="result"&&!body.facts.length)||(["empty","error"].includes(body.status)&&body.facts.length)||
+-        (body.facts.length>0&&body.expires_at===null)||
+-        (body.status==="no_service"&&!body.facts.some(item=>item.value?.kind==="transport"&&item.value.service_exists===false))||
+-        body.expires_at!==null&&Date.parse(body.expires_at)<=Date.parse(body.observed_at)||body.facts.some(item=>item.query.date!==args.date||
+-          item.scope.kind!=="date"||item.scope.start>args.date||item.scope.end<args.date||item.value?.kind==="transport"&&
+-          (item.value.from_id!==args.from_id||item.value.to_id!==args.to_id)))return fail("PROVIDER_RESPONSE");
++        missing_fields:[],facts:[],payload:null,error:{code:`HTTP_${response.status}`,message:"Synthetic provider failed"}};
++      const parsed=providerResult.safeParse(await response.json());if(!parsed.success||
++        !validCapabilityResult(call.capability_id,expected.sourceRef,call.arguments,parsed.data))return fail("PROVIDER_RESPONSE");
++      const body=parsed.data;
+       return {...body,payload:{fact_count:body.facts.length},error:body.status==="error"?{code:"PROVIDER_ERROR",message:"Synthetic provider returned error"}:null};
+     }catch(error){
+       if(error instanceof NapCapabilityError)throw error;
+       const timeout=error instanceof Error&&error.name==="AbortError";
+       return {status:timeout?"timeout":"error",synthetic:true,source_ref:call.provider_ref,observed_at:now().toISOString(),expires_at:null,
+-        missing_fields:[],facts:[],payload:null,error:{code:timeout?"TIMEOUT":"NETWORK_ERROR",message:timeout?"Synthetic transport query timed out":"Synthetic transport query failed"}};
++        missing_fields:[],facts:[],payload:null,error:{code:timeout?"TIMEOUT":"NETWORK_ERROR",message:timeout?"Synthetic query timed out":"Synthetic query failed"}};
+     }finally{clearTimeout(timer);}
+   }
+-  return {describe:()=>structuredClone(definitions),prepare,execute};
++  return {describe:()=>definitions.map(item=>structuredClone({capability_id:item.capability_id,kind:item.kind,effect:item.effect,
++    provider_ref:item.provider_ref,timeout_ms:item.timeout_ms,fact_level:item.fact_level,input_schema:item.input_schema})),prepare,execute};
+ }
+diff --git a/src/server/next-action-policy/tool-dispatch.ts b/src/server/next-action-policy/tool-dispatch.ts
+index ce50a97..919287b 100644
+--- a/src/server/next-action-policy/tool-dispatch.ts
++++ b/src/server/next-action-policy/tool-dispatch.ts
+@@ -9,10 +9,21 @@ type ToolHost={
+     providerRef:string;queryDigest:string;arguments:Record<string,unknown>;basisStateRevision:number}):Promise<{invocation_id:string;status:string}>;
+   submitToolObservationCandidate(ticket:object,credential:Headers,input:{decisionId:string;actionId:string;stepId:string;invocationId:string;providerRef:string;request:unknown}):Promise<TripStateContracts["response"]>;
+   recordToolCompletionCandidate(ticket:object,credential:Headers,input:{completion:ToolCompletion;rawResult:unknown;authoritativeRevision:number|null}):Promise<{replayed:boolean;current_usable:boolean}>;
++  readToolInvocationCandidate(ticket:object,credential:Headers,input:{decisionId:string;actionId:string;stepId:string;invocationId:string}):Promise<{
++    invocation_id:string;capability_id:string;provider_ref:string;query_digest:string;arguments_json:unknown;basis_state_revision:number;status:string}>;
++  lookupToolObservationReceiptCandidate(ticket:object,credential:Headers,input:{invocationId:string;providerRef:string;request:unknown}):Promise<TripStateContracts["response"]|null>;
+   completeDecisionStepCandidate(ticket:object,credential:Headers,decisionId:string,actionId:string,stepId:string,claimToken:string,
+     outcome:"success"|"partial"|"failure",result:unknown):Promise<void>;
+ };
+ 
++export type ToolExecutionRecovery={kind:"tool_execution_recovery";version:1;decision_id:string;action_id:string;step_id:string;invocation_id:string;
++  capability_id:string;provider_ref:string;query_digest:string;basis_state_revision:number;raw_result:ToolExecutionResult;observation_request:TripStateContracts["change-request"]|null};
++
++export class NapToolExecutionUnknown extends Error{
++  constructor(readonly recovery:ToolExecutionRecovery,reason:unknown){super(`NAP tool execution result requires receipt reconciliation: ${reason instanceof Error?reason.message:"unknown"}`);
++    this.name="NapToolExecutionUnknown";}
++}
++
+ function factRequest(result:ToolExecutionResult,invocationId:string,basisRevision:number):TripStateContracts["change-request"]|null{
+   if(!["result","partial","no_service"].includes(result.status)||!result.facts.length||!result.expires_at)return null;
+   const expiresAt=result.expires_at;
+@@ -24,6 +35,36 @@ function factRequest(result:ToolExecutionResult,invocationId:string,basisRevisio
+     input:{kind:"tool",reference:`nap-tool-invocation:${invocationId}`,text:`synthetic:${result.source_ref}`,target_ids:[...new Set(result.facts.flatMap(fact=>fact.subject_ids))].sort()},commands};
+ }
+ 
++function finishValues(input:{plan:DecisionPlan;action:DecisionPlan["actions"][number];step:PlanStep;invocationId:string;prepared:{query_digest:string;provider_ref:string};
++  raw:ToolExecutionResult;request:TripStateContracts["change-request"]|null;receipt:TripStateContracts["response"]|null}){
++  const basis=input.plan.basis.find(value=>value.packet_id===input.action.packet_id&&value.task_key===input.action.task_key);if(!basis)throw new Error("Tool step basis missing");
++  const authoritativeRevision=input.receipt?.outcome==="applied"?input.receipt.revision:null,applied=authoritativeRevision!==null;
++  const validatedFactIds=applied&&input.request?input.request.commands.flatMap(command=>command.op==="ingest_fact"?[command.id]:[]):[];
++  const observationError:ToolCompletion["error"]=input.request&&input.receipt?.outcome!=="applied"?
++    {code:`FACT_${(input.receipt?.outcome??"unknown").toUpperCase()}`,message:"Trusted fact observation was not applied"}:input.raw.error;
++  const completion:ToolCompletion={nap_contract_version:"0.1.0",completion_id:`completion-${input.invocationId.slice(4)}`,decision_id:input.plan.decision_id,
++    action_id:input.action.action_id,step_id:input.step.step_id,query_digest:input.prepared.query_digest,basis_state_revision:basis.state_revision,
++    result_status:input.raw.status,provider_ref:input.prepared.provider_ref,observed_at:input.raw.observed_at,expires_at:input.raw.expires_at,
++    raw_result_ref:`nap-tool-result:${input.invocationId}`,validated_fact_ids:validatedFactIds,error:observationError};
++  return {basis,completion,authoritativeRevision,observationError};
++}
++
++async function finish(input:{host:ToolHost;ticket:object;credential:Headers;plan:DecisionPlan;action:DecisionPlan["actions"][number];step:PlanStep;claimToken:string;
++  invocationId:string;prepared:{query_digest:string;provider_ref:string};raw:ToolExecutionResult;request:TripStateContracts["change-request"]|null;
++  receipt:TripStateContracts["response"]|null;syncLifecycle?:(tripId:string,revision:number)=>Promise<void>;tripId:string}){
++  const values=finishValues(input);
++  if(values.authoritativeRevision!==null&&input.syncLifecycle)await input.syncLifecycle(input.tripId,values.authoritativeRevision);
++  const recorded=await input.host.recordToolCompletionCandidate(input.ticket,input.credential,{completion:values.completion,rawResult:input.raw,
++    authoritativeRevision:values.authoritativeRevision});
++  const outcome=values.observationError?.code.startsWith("FACT_")||input.raw.status==="timeout"||input.raw.status==="error"?"failure":
++    input.raw.status==="partial"?"partial":"success";
++  const result={outcome:values.authoritativeRevision===null?"tool_completion":"applied",revision:values.authoritativeRevision??values.basis.state_revision,
++    completion:values.completion,current_usable:recorded.current_usable,synthetic:true};
++  await input.host.completeDecisionStepCandidate(input.ticket,input.credential,input.plan.decision_id,input.action.action_id,input.step.step_id,
++    input.claimToken,outcome,result);
++  return {completion:values.completion,result,raw:input.raw,replayed:recorded.replayed};
++}
++
+ export async function executeToolStep(input:{host:ToolHost;ticket:object;credential:Headers;registry:CapabilityRegistry;plan:DecisionPlan;
+   action:DecisionPlan["actions"][number];step:PlanStep;claimToken:string;syncLifecycle?:(tripId:string,revision:number)=>Promise<void>;tripId:string}){
+   if(!["query","calculate"].includes(input.step.kind)||!input.step.capability_id)throw new Error("Tool step required");
+@@ -36,24 +77,35 @@ export async function executeToolStep(input:{host:ToolHost;ticket:object;credent
+     arguments:prepared.arguments,basisStateRevision:basis.state_revision});
+   if(invocation.invocation_id!==invocationId||invocation.status!=="running")throw new Error("Tool invocation was not admitted");
+   const raw=await input.registry.execute(prepared),request=factRequest(raw,invocationId,basis.state_revision);
+-  let authoritativeRevision:number|null=null,validatedFactIds:string[]=[],observationError:ToolCompletion["error"]=raw.error;
++  let receipt:TripStateContracts["response"]|null=null;
+   if(request){
+-    const response=await input.host.submitToolObservationCandidate(input.ticket,input.credential,{decisionId:input.plan.decision_id,
++    receipt=await input.host.submitToolObservationCandidate(input.ticket,input.credential,{decisionId:input.plan.decision_id,
+       actionId:input.action.action_id,stepId:input.step.step_id,invocationId,providerRef:prepared.provider_ref,request});
+-    if(response.outcome==="applied"){
+-      authoritativeRevision=response.revision;validatedFactIds=request.commands.flatMap(command=>command.op==="ingest_fact"?[command.id]:[]);
+-      if(input.syncLifecycle)await input.syncLifecycle(input.tripId,response.revision);
+-    }else observationError={code:`FACT_${response.outcome.toUpperCase()}`,message:"Trusted fact observation was not applied"};
+   }
+-  const completion:ToolCompletion={nap_contract_version:"0.1.0",completion_id:`completion-${invocationId.slice(4)}`,decision_id:input.plan.decision_id,
+-    action_id:input.action.action_id,step_id:input.step.step_id,query_digest:prepared.query_digest,basis_state_revision:basis.state_revision,
+-    result_status:raw.status,provider_ref:prepared.provider_ref,observed_at:raw.observed_at,expires_at:raw.expires_at,
+-    raw_result_ref:`nap-tool-result:${invocationId}`,validated_fact_ids:validatedFactIds,error:observationError};
+-  const recorded=await input.host.recordToolCompletionCandidate(input.ticket,input.credential,{completion,rawResult:raw,authoritativeRevision});
+-  const outcome=observationError?.code.startsWith("FACT_")||raw.status==="timeout"||raw.status==="error"?"failure":raw.status==="partial"?"partial":"success";
+-  const result={outcome:authoritativeRevision===null?"tool_completion":"applied",revision:authoritativeRevision??basis.state_revision,
+-    completion,current_usable:recorded.current_usable,synthetic:true};
+-  await input.host.completeDecisionStepCandidate(input.ticket,input.credential,input.plan.decision_id,input.action.action_id,input.step.step_id,
+-    input.claimToken,outcome,result);
+-  return {completion,result,raw,replayed:recorded.replayed};
++  const recovery:ToolExecutionRecovery={kind:"tool_execution_recovery",version:1,decision_id:input.plan.decision_id,action_id:input.action.action_id,
++    step_id:input.step.step_id,invocation_id:invocationId,capability_id:prepared.capability_id,provider_ref:prepared.provider_ref,
++    query_digest:prepared.query_digest,basis_state_revision:basis.state_revision,raw_result:structuredClone(raw),observation_request:request};
++  try{return await finish({...input,invocationId,prepared,raw,request,receipt});}
++  catch(error){throw new NapToolExecutionUnknown(recovery,error);}
++}
++
++export async function reconcileToolStep(input:{host:ToolHost;ticket:object;credential:Headers;registry:CapabilityRegistry;plan:DecisionPlan;
++  action:DecisionPlan["actions"][number];step:PlanStep;claimToken:string;recovery:ToolExecutionRecovery;syncLifecycle?:(tripId:string,revision:number)=>Promise<void>;tripId:string}){
++  const recovery=input.recovery;
++  if(recovery.kind!=="tool_execution_recovery"||recovery.version!==1||recovery.decision_id!==input.plan.decision_id||
++    recovery.action_id!==input.action.action_id||recovery.step_id!==input.step.step_id)return null;
++  const prepared=input.registry.prepare(input.step.kind as "query"|"calculate",input.step.capability_id,input.step.arguments);
++  const invocation=await input.host.readToolInvocationCandidate(input.ticket,input.credential,{decisionId:input.plan.decision_id,actionId:input.action.action_id,
++    stepId:input.step.step_id,invocationId:recovery.invocation_id});
++  if(invocation.capability_id!==prepared.capability_id||invocation.provider_ref!==prepared.provider_ref||invocation.query_digest!==prepared.query_digest||
++    invocation.basis_state_revision!==recovery.basis_state_revision||recovery.capability_id!==prepared.capability_id||recovery.provider_ref!==prepared.provider_ref||
++    recovery.query_digest!==prepared.query_digest)return null;
++  let receipt:TripStateContracts["response"]|null=null;
++  if(recovery.observation_request){
++    receipt=await input.host.lookupToolObservationReceiptCandidate(input.ticket,input.credential,{invocationId:recovery.invocation_id,
++      providerRef:prepared.provider_ref,request:recovery.observation_request});
++    if(receipt===null)return null;
++  }
++  try{return await finish({...input,invocationId:recovery.invocation_id,prepared,raw:recovery.raw_result,request:recovery.observation_request,receipt});}
++  catch{return null;}
+ }
+diff --git a/src/server/next-action-policy/tool-runtime-store.ts b/src/server/next-action-policy/tool-runtime-store.ts
+index 66dd211..18d08f8 100644
+--- a/src/server/next-action-policy/tool-runtime-store.ts
++++ b/src/server/next-action-policy/tool-runtime-store.ts
+@@ -96,6 +96,15 @@ export async function recordToolCompletion(tx:Prisma.TransactionClient,scope:Nap
+   return {replayed:false,current_usable:basisCurrent};
+ }
+ 
++export async function readToolInvocation(tx:Prisma.TransactionClient,scope:NapRuntimeScope,input:{decisionId:string;actionId:string;stepId:string;invocationId:string}){
++  const value=await records(tx,scope,input.decisionId,input.actionId,input.stepId);
++  const [invocation]=await tx.$queryRaw<InvocationRow[]>`SELECT invocation_id,capability_id,provider_ref,query_digest,arguments_digest,arguments_json,plan_digest,
++    basis_state_revision,status,attempts,completion_id FROM e04_runtime.tool_invocations WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId}
++    AND workspace_key=${scope.workspaceKey} AND decision_id=${input.decisionId} AND action_id=${input.actionId} AND step_id=${input.stepId}`;
++  if(!invocation||invocation.invocation_id!==input.invocationId||invocation.plan_digest!==value.decision.plan_digest)return fail("NOT_FOUND");
++  return structuredClone({...invocation,basis_state_revision:Number(invocation.basis_state_revision)});
++}
++
+ export async function readToolTrigger(tx:Prisma.TransactionClient,scope:NapRuntimeScope,completionId:string,currentNow:Date){
+   const [row]=await tx.$queryRaw<Array<{completion_json:unknown;current_usable:boolean;state_revision_after:bigint}>>`SELECT completion_json,current_usable,state_revision_after
+     FROM e04_runtime.tool_completions WHERE owner_id=${scope.ownerId} AND trip_id=${scope.tripId} AND workspace_key=${scope.workspaceKey} AND completion_id=${completionId}`;
+diff --git a/tests/http/e03-runtime/pr29-host.pg.test.ts b/tests/http/e03-runtime/pr29-host.pg.test.ts
+index b5b6a9a..d0f88b6 100644
+--- a/tests/http/e03-runtime/pr29-host.pg.test.ts
++++ b/tests/http/e03-runtime/pr29-host.pg.test.ts
+@@ -676,23 +676,27 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
+   it("executes and binds E04-05 Egypt tool results through real HTTP, Session and PostgreSQL",async()=>{
+     const cfg=config!,owner=new Client({connectionString:cfg.migrationUrl});await owner.connect();
+     const resources:Array<{close:()=>Promise<void>}>=[];let app:http.Server|undefined,tool:http.Server|undefined;
+-    let mode:ToolResultStatus="result",toolDelayMs=0,toolExpiryMs=3_600_000,onToolRequest:(()=>Promise<void>)|null=null,toolCalls=0;
++    let mode:ToolResultStatus="result",toolDelayMs=0,toolExpiryMs=3_600_000,onToolRequest:(()=>Promise<void>)|null=null,toolCalls=0,
++      failLifecycleOnce=false,failToolCompletionOnce=false;
+     try{
+       expect((await owner.query("SELECT to_regclass('e04_runtime.tool_invocations') IS NOT NULL AS invocations,to_regclass('e04_runtime.tool_completions') IS NOT NULL AS completions")).rows[0])
+         .toEqual({invocations:true,completions:true});
+       tool=http.createServer(async(request,response)=>{
+         const chunks:Buffer[]=[];for await(const chunk of request)chunks.push(Buffer.from(chunk as Uint8Array));
+-        const args=JSON.parse(Buffer.concat(chunks).toString("utf8")) as {from_id:string;to_id:string;date:string;passengers:number};toolCalls++;
++        const experience=request.url?.endsWith("/experience")??false;
++        const args=JSON.parse(Buffer.concat(chunks).toString("utf8")) as {from_id?:string;to_id?:string;date:string;passengers?:number;experience_id?:string};toolCalls++;
+         if(onToolRequest)await onToolRequest();if(toolDelayMs)await new Promise(resolve=>setTimeout(resolve,toolDelayMs));
+         const observed=new Date().toISOString(),expires=new Date(Date.now()+toolExpiryMs).toISOString();
+-        const facts=mode==="result"||mode==="no_service"?[{id_suffix:"route",subject_ids:[args.from_id,args.to_id],
+-          scope:{kind:"date",ids:[],start:args.date,end:args.date},query:{date:args.date,parameters:[{name:"passengers",value:args.passengers}]},
+-          valid_for:{start:args.date,end:args.date},missing_fields:[],value:{kind:"transport",from_id:args.from_id,to_id:args.to_id,
++        const facts=mode==="result"||mode==="no_service"?(experience?[{id_suffix:"applicability",subject_ids:[args.experience_id!],
++          scope:{kind:"date",ids:[],start:args.date,end:args.date},query:{date:args.date,parameters:[]},valid_for:{start:args.date,end:args.date},missing_fields:[],
++          value:{kind:"condition",value:mode==="result",description:"Synthetic date applicability"}}]:[{id_suffix:"route",subject_ids:[args.from_id!,args.to_id!],
++          scope:{kind:"date",ids:[],start:args.date,end:args.date},query:{date:args.date,parameters:[{name:"passengers",value:args.passengers!}]},
++          valid_for:{start:args.date,end:args.date},missing_fields:[],value:{kind:"transport",from_id:args.from_id!,to_id:args.to_id!,
+             departure:mode==="result"?`${args.date}T08:00:00Z`:null,arrival:mode==="result"?`${args.date}T11:00:00Z`:null,
+-            duration_minutes:mode==="result"?180:null,service_exists:mode==="result"}}]:[];
++            duration_minutes:mode==="result"?180:null,service_exists:mode==="result"}}]):[];
+         response.writeHead(200,{"content-type":"application/json"});response.end(JSON.stringify({synthetic:true,status:mode,
+-          source_ref:"synthetic-egypt-transport:v1",observed_at:observed,expires_at:facts.length?expires:null,
+-          missing_fields:mode==="partial"?["lodging","food"]:[],facts}));
++          source_ref:experience?"synthetic-egypt-experience:v1":"synthetic-egypt-transport:v1",observed_at:observed,expires_at:facts.length?expires:null,
++          missing_fields:mode==="partial"?["required_fields"]:[],facts}));
+       });
+       tool.listen(0,"127.0.0.1");await once(tool,"listening");const toolAddress=tool.address();if(!toolAddress||typeof toolAddress==="string")throw new Error("Missing tool socket");
+       app=http.createServer();app.listen(0,"127.0.0.1");await once(app,"listening");const appAddress=app.address();if(!appAddress||typeof appAddress==="string")throw new Error("Missing app socket");
+@@ -700,20 +704,28 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
+         AUTH_DATABASE_URL:cfg.authUrl,BETTER_AUTH_URL:origin,BETTER_AUTH_SECRET:randomBytes(32).toString("hex"),E11_IDEMPOTENCY_SECRET:randomBytes(32).toString("hex")};
+       const identity=await openIdentity(env);resources.push(identity);const internal=await openInternalTripService(cfg.runtimeUrl,secret);resources.push(internal);
+       const lifecycle=await openEvidenceLifecycleAdapter(cfg.lifecycleUrl,createInternalHost(secret));resources.push(lifecycle);const host=await openEvidenceHost(env);resources.push(host);
++      const toolHost={...host,async recordToolCompletionCandidate(...args:Parameters<typeof host.recordToolCompletionCandidate>){
++        if(failToolCompletionOnce){failToolCompletionOnce=false;throw new Error("Injected ToolCompletion storage failure");}
++        return host.recordToolCompletionCandidate(...args);
++      }};
+       const email=`${randomUUID()}@example.invalid`,password=randomBytes(24).toString("base64url"),created=await identity.auth.api.signUpEmail({body:{name:"E04-05 owner",email,password}});
+       const login=await identity.auth.api.signInEmail({body:{email,password},headers:new Headers({origin}),asResponse:true});expect(login.status).toBe(200);
+       const cookie=login.headers.getSetCookie().map(value=>value.split(";")[0]).join("; "),trip=`trip_e04_05_${randomBytes(8).toString("hex")}`;
+       await internal.createTrip(trip,await issueInternalCapability(secret,trip,{role:"system",id:"e04-05-bootstrap"}));
+       await lifecycle.sync(await issueInternalCapability(secret,trip,{role:"system",id:"e04-05-lifecycle"}),{trip_id:trip,source_revision:0,ended_at:null});
+       const snapshot=structuredClone(base);snapshot.trip_id=trip;const observed=new Date(Date.now()-60_000).toISOString(),expires=new Date(Date.now()+3_600_000).toISOString();
++      const luxor=snapshot.objects.find(object=>object.id==="luxor");if(!luxor||luxor.type!=="DestinationEntity")throw new Error("Missing Luxor entity");
++      snapshot.objects.push({...structuredClone(luxor),id:"experience-karnak",entity_kind:"experience",name:"卡纳克神庙",parent_id:"luxor"});
+       for(const object of snapshot.objects){object.trip_id=trip;object.updated_at=observed;object.source.at=observed;if(object.type==="ExternalFact"){object.observed_at=observed;object.expires_at=expires;}}
+       await owner.query('UPDATE "TripStateDocument" SET "snapshot"=$2::jsonb,"revision"=0 WHERE "tripId"=$1',[trip,JSON.stringify(snapshot)]);
+       await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[trip,created.user.id]);
+       const interpret:ControlledInterpreter=async input=>{const key=await input.mint_task_key(0);return {tasks:[{task_key:key,question:input.event.text,kind:"explore",
+         target_ids:["constraint-dates","candidate-aswan"],branch:"actual",relation:"new",related_task_keys:[],certainty:"explicit",
+         evidence:[{start:0,end:Array.from(input.event.text).length,quote:input.event.text}],progress:"open",progress_evidence:null}],focus_keys:[key]};};
+-      const registry=createEgyptMvpCapabilityRegistry({transportEndpoint:`http://127.0.0.1:${toolAddress.port}/synthetic/transport`,timeoutMs:200});
+-      const adapter=createPr29HostHttpCandidate(host,origin,interpret,async(value,revision)=>{
++      const registry=createEgyptMvpCapabilityRegistry({transportEndpoint:`http://127.0.0.1:${toolAddress.port}/synthetic/transport`,
++        experienceEndpoint:`http://127.0.0.1:${toolAddress.port}/synthetic/experience`,timeoutMs:200});
++      const adapter=createPr29HostHttpCandidate(toolHost,origin,interpret,async(value,revision)=>{
++        if(failLifecycleOnce){failLifecycleOnce=false;throw new Error("Injected lifecycle synchronization failure");}
+         await lifecycle.sync(await issueInternalCapability(secret,value,{role:"system",id:"e04-05-write"}),{trip_id:value,source_revision:revision,ended_at:null});
+       },registry);
+       app.removeAllListeners("request");app.on("request",(request,response)=>{void adapter.handle(request,response);});
+@@ -725,13 +737,14 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
+           task_key:turn.tasks[0].task_key,body_budget_bytes:1_000_000});expect(assembled.status,await assembled.clone().text()).toBe(200);
+         return await assembled.json() as DecisionContextContracts["packet"];
+       }
+-      async function toolPlan(packetValue:DecisionContextContracts["packet"],decisionId:string,kind:"query"|"calculate",argumentsValue:Record<string,unknown>){
++      async function toolPlan(packetValue:DecisionContextContracts["packet"],decisionId:string,kind:"query"|"calculate",argumentsValue:Record<string,unknown>,
++        capabilityId="egypt-transport-schedule-query-v1"){
+         const request=await buildTrustedDecisionRequest(adapter,{tripId:trip,credential:headers,decisionId,trigger:{kind:"user_event",reference:packetValue.pending_input.event.reference},packetIds:[packetValue.packet_id]});
+         const evidence=packetValue.objects.find(object=>object.id==="constraint-dates")??packetValue.objects[0];if(!evidence)throw new Error("Missing tool evidence");
+         const plan=await decide(request,{assess:async()=>({response:{request_ids:[packetValue.task.task_key],disposition:"answered",text:"先做受控工具准备",
+           evidence_refs:[{id:evidence.id,version:evidence.version,kind:"object"}]},candidates:[{action_id:`action-${decisionId}`,task_key:packetValue.task.task_key,
+           packet_id:packetValue.packet_id,request_ids:[packetValue.task.task_key],goal:"D2",preferred_attention:"prepare",reason:"查询当前条件",rank:100,
+-          steps:[{step_id:`step-${decisionId}`,kind,depends_on:[],capability_id:kind==="query"?"egypt-transport-synthetic-v1":"egypt-cost-subtotal-v1",
++          steps:[{step_id:`step-${decisionId}`,kind,depends_on:[],capability_id:capabilityId,
+             arguments:argumentsValue,change_request:null,user_message:null}],required_object_ids:[evidence.id],reentry_candidate_id:null}]})});
+         await adapter.saveDecisionPlanCandidate(trip,headers,request,plan);return {request,plan,packet:packetValue,action:plan.actions[0],step:plan.actions[0].steps[0]};
+       }
+@@ -746,14 +759,17 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
+       expect(stateA?.objects.find(object=>object.id===(resultA.result as {completion:{validated_fact_ids:string[]}}).completion.validated_fact_ids[0]))
+         .toMatchObject({type:"ExternalFact",query_status:"result",query:{date:"2030-11-14"},provider:"synthetic-egypt-transport:v1",value:{service_exists:true}});
+ 
+-      const currentPacket=await packet("只汇总当前已知费用，不要当作全程预算");
+-      const caseB=await toolPlan(currentPacket,"egypt-tool-b","calculate",{currency:"EGP",people:1,required_categories:["transport","experience","lodging","food"],
+-        items:[{item_key:"rail",amount_minor:12000,category:"transport"},{item_key:"temple",amount_minor:8000,category:"experience"}]});
+-      expect(await dispatch(caseB)).toMatchObject({disposition:"executed",result:{completion:{result_status:"partial",validated_fact_ids:[]}}});
+-      expect(await adapter.readDecisionRecordCandidate(trip,headers,currentPacket.packet_id,caseB.plan.decision_id)).toMatchObject({actions:[{phase:"partial"}],steps:[{status:"succeeded"}]});
+-      const budgetRaw=(await owner.query<{raw_result_json:{payload:{is_full_trip_total:boolean;missing_categories:string[]}}}>(
+-        'SELECT raw_result_json FROM e04_runtime.tool_completions WHERE decision_id=$1',[caseB.plan.decision_id])).rows[0].raw_result_json;
+-      expect(budgetRaw.payload).toMatchObject({is_full_trip_total:false,missing_categories:["food","lodging"]});
++      const experiencePacket=await packet("卡纳克神庙在11月14日是否适用当前行程");
++      const experiencePlan=await toolPlan(experiencePacket,"egypt-tool-experience","query",{experience_id:"experience-karnak",date:"2030-11-14"},
++        "egypt-experience-applicability-query-v1");
++      const experienceResult=await dispatch(experiencePlan);expect(experienceResult).toMatchObject({disposition:"executed",result:{outcome:"applied",revision:2,
++        completion:{result_status:"result",provider_ref:"antu-synthetic-egypt-experience",validated_fact_ids:[expect.stringMatching(/^fact-/)]}}});
++      const stateExperience=await internal.state(trip,await issueInternalCapability(secret,trip,{role:"tool",id:"e04-05-experience-inspect"}));
++      expect(stateExperience?.objects.find(object=>object.id===(experienceResult.result as {completion:{validated_fact_ids:string[]}}).completion.validated_fact_ids[0]))
++        .toMatchObject({type:"ExternalFact",subject_ids:["experience-karnak"],query_status:"result",query:{date:"2030-11-14"},
++          provider:"synthetic-egypt-experience:v1",value:{kind:"condition",value:true}});
++
++      const currentPacket=await packet("继续核验交通失败、过期和条件变化");
+ 
+       mode="empty";const emptyPlan=await toolPlan(currentPacket,"egypt-tool-empty","query",transport("2030-11-14")),emptyResult=await dispatch(emptyPlan);
+       expect(emptyResult).toMatchObject({result:{completion:{result_status:"empty",validated_fact_ids:[]}}});
+@@ -826,6 +842,27 @@ describe.skipIf(!config)("E03-04 trusted write bridge with real Session, HTTP an
+       await lifecycle.sync(await issueInternalCapability(secret,trip,{role:"system",id:"e04-05-concurrent-sync"}),{
+         trip_id:trip,source_revision:current.revision+1,ended_at:null});
+ 
++      for(const failure of ["lifecycle","completion"] as const){
++        const recoveryPacket=await packet(`已写入事实但${failure}失败时核对原回执`),recovery=await toolPlan(recoveryPacket,`egypt-tool-reconcile-${failure}`,"query",transport("2030-11-16"));
++        const callsBeforeFailure=toolCalls,beforeState=await internal.state(trip,await issueInternalCapability(secret,trip,{role:"tool",id:`e04-05-before-${failure}`}));
++        if(!beforeState)throw new Error("Missing pre-reconciliation state");
++        if(failure==="lifecycle")failLifecycleOnce=true;else failToolCompletionOnce=true;
++        await expect(dispatch(recovery)).rejects.toThrow(`Injected ${failure==="lifecycle"?"lifecycle synchronization":"ToolCompletion storage"} failure`);
++        const afterFailure=await internal.state(trip,await issueInternalCapability(secret,trip,{role:"tool",id:`e04-05-after-${failure}`}));
++        expect(afterFailure?.revision).toBe(beforeState.revision+1);
++        expect(await adapter.readDecisionRecordCandidate(trip,headers,recoveryPacket.packet_id,recovery.plan.decision_id))
++          .toMatchObject({actions:[{phase:"running",receipt_lookup_required:true}],steps:[{status:"running",result_json:{kind:"tool_execution_recovery"}}]});
++        expect((await owner.query('SELECT count(*)::int count FROM e04_runtime.tool_completions WHERE decision_id=$1',[recovery.plan.decision_id])).rows[0].count).toBe(0);
++        const invocation=(await owner.query<{invocation_id:string}>('SELECT invocation_id FROM e04_runtime.tool_invocations WHERE decision_id=$1',[recovery.plan.decision_id])).rows[0];
++        expect((await owner.query('SELECT count(*)::int count FROM "TripStateIdempotency" WHERE "tripId"=$1 AND "actorId"=$2 AND "operationDomain"=\'tool\' AND "key"=$3',
++          [trip,"antu-synthetic-egypt-transport",`nap_tool_${invocation.invocation_id}`])).rows[0].count).toBe(1);
++        expect(await dispatch(recovery)).toMatchObject({disposition:"receipt_recovered",result:{outcome:"applied",revision:afterFailure!.revision}});
++        expect(toolCalls).toBe(callsBeforeFailure+1);
++        expect((await owner.query('SELECT count(*)::int count FROM "TripStateIdempotency" WHERE "tripId"=$1 AND "actorId"=$2 AND "operationDomain"=\'tool\' AND "key"=$3',
++          [trip,"antu-synthetic-egypt-transport",`nap_tool_${invocation.invocation_id}`])).rows[0].count).toBe(1);
++        expect((await owner.query('SELECT count(*)::int count FROM e04_runtime.tool_completions WHERE decision_id=$1',[recovery.plan.decision_id])).rows[0].count).toBe(1);
++      }
++
+       const revokedPacket=await packet("撤权后不得继续旧工具行动"),revoked=await toolPlan(revokedPacket,"egypt-tool-revoked","query",transport("2030-11-16"));
+       let releaseRevoked!:()=>void,enteredRevoked!:()=>void;const revokedEntered=new Promise<void>(resolve=>{enteredRevoked=resolve;}),revokedGate=new Promise<void>(resolve=>{releaseRevoked=resolve;});
+       onToolRequest=async()=>{enteredRevoked();await revokedGate;};const revokedDispatch=dispatch(revoked);await revokedEntered;
+diff --git a/tests/next-action-policy/completion-binding.test.ts b/tests/next-action-policy/completion-binding.test.ts
+index e0529c5..03fd1fc 100644
+--- a/tests/next-action-policy/completion-binding.test.ts
++++ b/tests/next-action-policy/completion-binding.test.ts
+@@ -2,7 +2,7 @@ import {describe,expect,it} from "vitest";
+ import {NapCompletionBindingError,validateCompletionBinding} from "../../src/server/next-action-policy/completion-binding";
+ 
+ const date="2030-01-01T00:00:00Z",snapshotDigest="a".repeat(64),planDigest="b".repeat(64),queryDigest="c".repeat(64);
+-const step={step_id:"step",kind:"query",depends_on:[],capability_id:"egypt-transport-synthetic-v1",arguments:{date:"2030-11-14"},change_request:null,user_message:null};
++const step={step_id:"step",kind:"query",depends_on:[],capability_id:"egypt-transport-schedule-query-v1",arguments:{date:"2030-11-14"},change_request:null,user_message:null};
+ const action={action_id:"action",task_key:"task",packet_id:"packet",request_ids:["task"],goal:"D2",attention:"prepare",reason:"reason",steps:[step]};
+ const plan={nap_contract_version:"0.1.0",decision_id:"decision",runtime_id:"runtime",basis:[{packet_id:"packet",turn_id:"turn",task_key:"task",
+   state_revision:4,snapshot_digest:snapshotDigest,expires_at:"2030-01-02T00:00:00Z"}],response:{request_ids:["task"],disposition:"answered",text:"Answer",evidence_refs:[]},actions:[action]};
+@@ -10,7 +10,7 @@ const record={nap_contract_version:"0.1.0",decision_id:"decision",action_id:"act
+   error_ref:null,related_action_ids:[],updated_at:date};
+ const completion={nap_contract_version:"0.1.0",completion_id:"completion",decision_id:"decision",action_id:"action",step_id:"step",query_digest:queryDigest,
+   basis_state_revision:4,result_status:"result",provider_ref:"provider",observed_at:date,expires_at:null,raw_result_ref:"result",validated_fact_ids:[],error:null};
+-const invocation={decision_id:"decision",runtime_id:"runtime",action_id:"action",step_id:"step",capability_id:"egypt-transport-synthetic-v1",
++const invocation={decision_id:"decision",runtime_id:"runtime",action_id:"action",step_id:"step",capability_id:"egypt-transport-schedule-query-v1",
+   provider_ref:"provider",query_digest:queryDigest,plan_digest:planDigest,basis_state_revision:4};
+ 
+ describe("E04-05 tool completion binding",()=>{
+diff --git a/tests/next-action-policy/tool-capabilities.test.ts b/tests/next-action-policy/tool-capabilities.test.ts
+index ab91283..50d3200 100644
+--- a/tests/next-action-policy/tool-capabilities.test.ts
++++ b/tests/next-action-policy/tool-capabilities.test.ts
+@@ -4,63 +4,107 @@ import {afterEach,describe,expect,it} from "vitest";
+ import {createEgyptMvpCapabilityRegistry,NapCapabilityError} from "../../src/server/next-action-policy/tool-capabilities";
+ 
+ const servers:http.Server[]=[];
+-afterEach(async()=>{await Promise.all(servers.splice(0).map(server=>new Promise<void>(resolve=>server.close(()=>resolve()))));});
++afterEach(async()=>{await Promise.all(servers.splice(0).map(server=>new Promise<void>(resolve=>{
++  server.closeAllConnections();server.close(()=>resolve());
++})));});
+ 
+-async function endpoint(body:unknown,delayMs=0){
++async function endpoint(expected:unknown,body:unknown,delayMs=0){
+   const server=http.createServer(async(request,response)=>{
+     const chunks:Buffer[]=[];for await(const chunk of request)chunks.push(Buffer.from(chunk as Uint8Array));
+-    expect(JSON.parse(Buffer.concat(chunks).toString("utf8"))).toEqual({date:"2030-11-14",from_id:"luxor",passengers:1,to_id:"aswan"});
++    expect(JSON.parse(Buffer.concat(chunks).toString("utf8"))).toEqual(expected);
+     if(delayMs)await new Promise(resolve=>setTimeout(resolve,delayMs));
++    if(response.destroyed)return;
+     response.writeHead(200,{"content-type":"application/json"});response.end(JSON.stringify(body));
+   });
+   server.listen(0,"127.0.0.1");await once(server,"listening");servers.push(server);
+   const address=server.address();if(!address||typeof address==="string")throw new Error("missing socket");
+-  return `http://127.0.0.1:${address.port}/synthetic/transport`;
++  return `http://127.0.0.1:${address.port}/synthetic`;
+ }
+ 
+-const transportArguments={from_id:"luxor",to_id:"aswan",date:"2030-11-14",passengers:1};
+-const transportFact=(service_exists:boolean)=>({id_suffix:"route",subject_ids:["luxor","aswan"],scope:{kind:"date",ids:[] as [],start:"2030-11-14",end:"2030-11-14"},
+-  query:{date:"2030-11-14",parameters:[]},valid_for:{start:"2030-11-14",end:"2030-11-14"},missing_fields:[],
+-  value:{kind:"transport",from_id:"luxor",to_id:"aswan",departure:null,arrival:null,duration_minutes:service_exists?180:null,service_exists}});
++const unreachable="http://127.0.0.1:1",date="2030-11-14";
++const transportArguments={from_id:"luxor",to_id:"aswan",date,passengers:1};
++const experienceArguments={experience_id:"experience-karnak",date};
++const transportFact=(service_exists:boolean)=>({id_suffix:"route",subject_ids:["luxor","aswan"],scope:{kind:"date",ids:[] as [],start:date,end:date},
++  query:{date,parameters:[{name:"passengers",value:1}]},valid_for:{start:date,end:date},missing_fields:[],
++  value:{kind:"transport",from_id:"luxor",to_id:"aswan",departure:service_exists?`${date}T08:00:00Z`:null,
++    arrival:service_exists?`${date}T11:00:00Z`:null,duration_minutes:service_exists?180:null,service_exists}});
++const experienceFact=(applicable:boolean|null)=>({id_suffix:"applicability",subject_ids:[experienceArguments.experience_id],
++  scope:{kind:"date",ids:[] as [],start:date,end:date},query:{date,parameters:[]},valid_for:{start:date,end:date},
++  missing_fields:applicable===null?["opening_condition"]:[],value:{kind:"condition",value:applicable,description:"Karnak date applicability"}});
++const result=(status:"result"|"partial"|"empty"|"error"|"no_service",facts:unknown[],missing_fields:string[]=[],
++  source_ref="synthetic-egypt-transport:v1")=>({synthetic:true,status,source_ref,observed_at:"2030-11-01T00:00:00Z",
++  expires_at:facts.length?"2030-11-02T00:00:00Z":null,missing_fields,facts});
++const registry=(transportEndpoint=unreachable,experienceEndpoint=unreachable,timeoutMs=1_000)=>
++  createEgyptMvpCapabilityRegistry({transportEndpoint,experienceEndpoint,timeoutMs});
+ 
+ describe("E04-05 trusted Egypt MVP capability registry",()=>{
+-  it("calls the registered synthetic transport provider over real local HTTP",async()=>{
+-    const transportEndpoint=await endpoint({synthetic:true,status:"result",source_ref:"synthetic-egypt-dataset:v1",observed_at:"2030-11-01T00:00:00Z",
+-      expires_at:"2030-11-02T00:00:00Z",missing_fields:[],facts:[{id_suffix:"route",subject_ids:["luxor","aswan"],
+-        scope:{kind:"date",ids:[],start:"2030-11-14",end:"2030-11-14"},query:{date:"2030-11-14",parameters:[]},
+-        valid_for:{start:"2030-11-14",end:"2030-11-14"},missing_fields:[],value:{kind:"transport",from_id:"luxor",to_id:"aswan",
+-          departure:"2030-11-14T08:00:00Z",arrival:"2030-11-14T11:00:00Z",duration_minutes:180,service_exists:true}}]});
+-    const registry=createEgyptMvpCapabilityRegistry({transportEndpoint,timeoutMs:1_000});
+-    const prepared=registry.prepare("query","egypt-transport-synthetic-v1",transportArguments),result=await registry.execute(prepared);
++  it("registers only two external query capabilities and executes transport over HTTP",async()=>{
++    const transportEndpoint=await endpoint(transportArguments,result("result",[transportFact(true)]));
++    const value=registry(transportEndpoint);
++    expect(value.describe().map(item=>[item.capability_id,item.kind,item.fact_level])).toEqual([
++      ["egypt-transport-schedule-query-v1","query","date_specific"],
++      ["egypt-experience-applicability-query-v1","query","date_specific"],
++    ]);
++    const prepared=value.prepare("query","egypt-transport-schedule-query-v1",transportArguments),executed=await value.execute(prepared);
+     expect(prepared).toMatchObject({effect:"read_only",provider_ref:"antu-synthetic-egypt-transport",arguments:transportArguments});
+-    expect(result).toMatchObject({status:"result",synthetic:true,source_ref:"synthetic-egypt-dataset:v1",facts:[{value:{duration_minutes:180}}]});
++    expect(executed).toMatchObject({status:"result",synthetic:true,source_ref:"synthetic-egypt-transport:v1",facts:[{value:{duration_minutes:180}}]});
+   });
+ 
+-  it("keeps result, partial, empty, timeout, error and no_service distinct",async()=>{
++  it("keeps all six transport outcomes distinct",async()=>{
+     for(const status of ["result","partial","empty","error","no_service"] as const){
+-      const registry=createEgyptMvpCapabilityRegistry({transportEndpoint:await endpoint({synthetic:true,status,source_ref:"synthetic-status",
+-        observed_at:"2030-11-01T00:00:00Z",expires_at:status==="result"||status==="no_service"?"2030-11-02T00:00:00Z":null,
+-        missing_fields:status==="partial"?["lodging","food"]:[],
+-        facts:status==="result"?[transportFact(true)]:status==="no_service"?[transportFact(false)]:[]}),timeoutMs:1_000});
+-      expect((await registry.execute(registry.prepare("query","egypt-transport-synthetic-v1",transportArguments))).status).toBe(status);
++      const facts=status==="result"?[transportFact(true)]:status==="no_service"?[transportFact(false)]:[];
++      const value=registry(await endpoint(transportArguments,result(status,facts,status==="partial"?["departure"]:[])));
++      expect((await value.execute(value.prepare("query","egypt-transport-schedule-query-v1",transportArguments))).status).toBe(status);
+     }
+-    const timeout=createEgyptMvpCapabilityRegistry({transportEndpoint:await endpoint({},100),timeoutMs:10});
+-    expect(await timeout.execute(timeout.prepare("query","egypt-transport-synthetic-v1",transportArguments))).toMatchObject({status:"timeout",facts:[]});
++    const timeout=registry(await endpoint(transportArguments,{},100),unreachable,10);
++    expect(await timeout.execute(timeout.prepare("query","egypt-transport-schedule-query-v1",transportArguments))).toMatchObject({status:"timeout",facts:[]});
+   });
+ 
+-  it("calculates only covered cost categories and reports missing budget categories",async()=>{
+-    const registry=createEgyptMvpCapabilityRegistry({transportEndpoint:"http://127.0.0.1:1",timeoutMs:100});
+-    const prepared=registry.prepare("calculate","egypt-cost-subtotal-v1",{currency:"EGP",people:1,required_categories:["transport","experience","lodging","food"],items:[
+-      {item_key:"rail",amount_minor:12000,category:"transport"},{item_key:"temple",amount_minor:8000,category:"experience"},
+-    ]});
+-    expect(await registry.execute(prepared)).toMatchObject({status:"partial",synthetic:true,payload:{amount_minor:20000,currency:"EGP",
+-      covered_categories:["experience","transport"],missing_categories:["food","lodging"],is_full_trip_total:false}});
++  it("queries date-specific experience applicability without implying inventory",async()=>{
++    for(const status of ["result","partial","empty","error","no_service"] as const){
++      const facts=status==="result"?[experienceFact(true)]:status==="no_service"?[experienceFact(false)]:status==="partial"?[experienceFact(null)]:[];
++      const value=registry(unreachable,await endpoint(experienceArguments,
++        result(status,facts,status==="partial"?["opening_condition"]:[],"synthetic-egypt-experience:v1")));
++      const executed=await value.execute(value.prepare("query","egypt-experience-applicability-query-v1",experienceArguments));
++      expect(executed.status).toBe(status);
++      if(status==="result")expect(executed).toMatchObject({facts:[{subject_ids:["experience-karnak"],value:{kind:"condition",value:true}}]});
++    }
++    const timeout=registry(unreachable,await endpoint(experienceArguments,{},100),10);
++    expect(await timeout.execute(timeout.prepare("query","egypt-experience-applicability-query-v1",experienceArguments))).toMatchObject({status:"timeout",facts:[]});
++  });
++
++  it("rejects provider facts for the wrong date, object or evidence kind",async()=>{
++    const wrongExperience={...experienceFact(true),subject_ids:["experience-valley-of-kings"]};
++    const experience=registry(unreachable,await endpoint(experienceArguments,
++      result("result",[wrongExperience],[],"synthetic-egypt-experience:v1")));
++    await expect(experience.execute(experience.prepare("query","egypt-experience-applicability-query-v1",experienceArguments)))
++      .rejects.toMatchObject({code:"PROVIDER_RESPONSE"});
++    const wrongTransport={...transportFact(true),query:{date:"2030-11-15",parameters:[]}};
++    const transport=registry(await endpoint(transportArguments,result("result",[wrongTransport])));
++    await expect(transport.execute(transport.prepare("query","egypt-transport-schedule-query-v1",transportArguments)))
++      .rejects.toMatchObject({code:"PROVIDER_RESPONSE"});
++    const invalidValidity={...experienceFact(true),valid_for:{start:"2030-11-15",end:"2030-11-15"}};
++    const invalidValidityRegistry=registry(unreachable,await endpoint(experienceArguments,
++      result("result",[invalidValidity],[],"synthetic-egypt-experience:v1")));
++    await expect(invalidValidityRegistry.execute(invalidValidityRegistry.prepare("query","egypt-experience-applicability-query-v1",experienceArguments)))
++      .rejects.toMatchObject({code:"PROVIDER_RESPONSE"});
++    const invalidSource=registry(unreachable,await endpoint(experienceArguments,
++      result("result",[experienceFact(true)],[],"untrusted-source:v1")));
++    await expect(invalidSource.execute(invalidSource.prepare("query","egypt-experience-applicability-query-v1",experienceArguments)))
++      .rejects.toMatchObject({code:"PROVIDER_RESPONSE"});
++    const wrongKind={...experienceFact(true),value:{kind:"cost",amount_minor:100,currency:"EGP",people:1,category:"experience",item_key:"karnak"}};
++    const wrongKindRegistry=registry(unreachable,await endpoint(experienceArguments,
++      result("result",[wrongKind],[],"synthetic-egypt-experience:v1")));
++    await expect(wrongKindRegistry.execute(wrongKindRegistry.prepare("query","egypt-experience-applicability-query-v1",experienceArguments)))
++      .rejects.toMatchObject({code:"PROVIDER_RESPONSE"});
+   });
+ 
+-  it("rejects model-selected capabilities, kinds and malformed parameters outside the host registry",()=>{
+-    const registry=createEgyptMvpCapabilityRegistry({transportEndpoint:"http://127.0.0.1:1",timeoutMs:100});
+-    expect(()=>registry.prepare("query","model.dynamic.tool",transportArguments)).toThrow(NapCapabilityError);
+-    expect(()=>registry.prepare("calculate","egypt-transport-synthetic-v1",transportArguments)).toThrow(NapCapabilityError);
+-    expect(()=>registry.prepare("query","egypt-transport-synthetic-v1",{...transportArguments,url:"https://unregistered.invalid"})).toThrow(NapCapabilityError);
++  it("rejects dynamic, legacy cost and itinerary tools instead of duplicating E02",()=>{
++    const value=registry();
++    expect(()=>value.prepare("query","model.dynamic.tool",transportArguments)).toThrow(NapCapabilityError);
++    expect(()=>value.prepare("calculate","egypt-cost-subtotal-v1",{currency:"EGP",people:1,required_categories:["transport"],items:[]})).toThrow(NapCapabilityError);
++    expect(()=>value.prepare("calculate","itinerary-calculate-v1",{skeleton_id:"skeleton"})).toThrow(NapCapabilityError);
++    expect(()=>value.prepare("calculate","egypt-transport-schedule-query-v1",transportArguments)).toThrow(NapCapabilityError);
++    expect(()=>value.prepare("query","egypt-transport-schedule-query-v1",{...transportArguments,url:"https://unregistered.invalid"})).toThrow(NapCapabilityError);
+   });
+ });

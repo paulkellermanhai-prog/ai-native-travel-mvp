@@ -1,0 +1,856 @@
+{
+  "schema_version": "0.1.0",
+  "trip_id": "trip-egypt-test",
+  "revision": 8,
+  "effective_skeleton_id": "skeleton-a",
+  "objects": [
+    {
+      "id": "egypt",
+      "type": "DestinationEntity",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "known",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "entity_kind": "country",
+      "name": "埃及",
+      "parent_id": null,
+      "geo_identity": null,
+      "knowledge_refs": [
+        "synthetic-catalog"
+      ],
+      "coverage": "partial"
+    },
+    {
+      "id": "cairo",
+      "type": "DestinationEntity",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "known",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "entity_kind": "city",
+      "name": "开罗",
+      "parent_id": "egypt",
+      "geo_identity": null,
+      "knowledge_refs": [
+        "synthetic-catalog"
+      ],
+      "coverage": "partial"
+    },
+    {
+      "id": "luxor",
+      "type": "DestinationEntity",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "known",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "entity_kind": "city",
+      "name": "卢克索",
+      "parent_id": "egypt",
+      "geo_identity": null,
+      "knowledge_refs": [
+        "synthetic-catalog"
+      ],
+      "coverage": "partial"
+    },
+    {
+      "id": "aswan",
+      "type": "DestinationEntity",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "known",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "entity_kind": "city",
+      "name": "阿斯旺",
+      "parent_id": "egypt",
+      "geo_identity": null,
+      "knowledge_refs": [
+        "synthetic-catalog"
+      ],
+      "coverage": "partial"
+    },
+    {
+      "id": "goal",
+      "type": "TripGoal",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "destination_ids": [
+        "egypt"
+      ],
+      "purpose": "测试多城市旅行骨架",
+      "success_definition": "理解取舍、保留核验边界",
+      "traveler_ids": [
+        "traveler-demo"
+      ],
+      "current_task": "compare"
+    },
+    {
+      "id": "pref-culture",
+      "type": "Preference",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "subject_ids": [
+        "luxor"
+      ],
+      "aspect": "文化体验",
+      "polarity": "positive",
+      "certainty": "explicit",
+      "support": "supported",
+      "priority": "important",
+      "expression": "我喜欢文化体验；不代表必须去某座城",
+      "condition": {
+        "op": "always"
+      },
+      "evidence_refs": [
+        "synthetic-dialogue-1"
+      ]
+    },
+    {
+      "id": "constraint-dates",
+      "type": "Constraint",
+      "trip_id": "trip-egypt-test",
+      "version": 2,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "修改日期导致旧交通证据不适用",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "hardness": "hard",
+      "override_policy": "user",
+      "value": {
+        "kind": "date_window",
+        "start": "2030-02-10",
+        "end": "2030-02-14"
+      }
+    },
+    {
+      "id": "constraint-nights",
+      "type": "Constraint",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "hardness": "hard",
+      "override_policy": "user",
+      "value": {
+        "kind": "duration",
+        "maximum_nights": 4
+      }
+    },
+    {
+      "id": "constraint-budget",
+      "type": "Constraint",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "hardness": "soft",
+      "override_policy": "user",
+      "value": {
+        "kind": "budget",
+        "mode": "intent",
+        "minimum_minor": null,
+        "maximum_minor": 2000000,
+        "currency": "CNY",
+        "people": 2,
+        "categories": [
+          "transport",
+          "experience",
+          "lodging",
+          "food"
+        ]
+      }
+    },
+    {
+      "id": "candidate-luxor",
+      "type": "Candidate",
+      "trip_id": "trip-egypt-test",
+      "version": 3,
+      "status": "reintroduced",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "条件性排除卢克索，保留偏好证据",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "subject_ids": [
+        "luxor"
+      ],
+      "candidate_kind": "city",
+      "inclusion_reason": "文化兴趣",
+      "exclusion_reason": "条件性排除卢克索，保留偏好证据",
+      "reconsider_when": {
+        "op": "gte",
+        "object_id": "constraint-nights",
+        "path": "/value/maximum_nights",
+        "value": 4
+      },
+      "preference_ids": [
+        "pref-culture"
+      ],
+      "issue_ids": [],
+      "review_state": "current"
+    },
+    {
+      "id": "candidate-aswan",
+      "type": "Candidate",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "retained",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "subject_ids": [
+        "aswan"
+      ],
+      "candidate_kind": "city",
+      "inclusion_reason": "文化兴趣",
+      "exclusion_reason": null,
+      "reconsider_when": {
+        "op": "gte",
+        "object_id": "constraint-nights",
+        "path": "/value/maximum_nights",
+        "value": 4
+      },
+      "preference_ids": [
+        "pref-culture"
+      ],
+      "issue_ids": [],
+      "review_state": "current"
+    },
+    {
+      "id": "fact-cairo-luxor",
+      "type": "ExternalFact",
+      "trip_id": "trip-egypt-test",
+      "version": 2,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "tool",
+        "actor_id": "test-provider",
+        "reference": "synthetic-result",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "subject_ids": [
+        "cairo",
+        "luxor"
+      ],
+      "query": {
+        "date": "2030-01-12",
+        "parameters": []
+      },
+      "provider": "TEST_ONLY_PROVIDER",
+      "query_status": "result",
+      "verification": "date_specific",
+      "freshness": "current",
+      "applicability": "not_applicable",
+      "observed_at": "2030-01-01T00:00:00Z",
+      "expires_at": "2030-01-02T00:00:00Z",
+      "valid_for": {
+        "start": "2030-01-12",
+        "end": "2030-01-12"
+      },
+      "missing_fields": [],
+      "value": {
+        "kind": "transport",
+        "from_id": "cairo",
+        "to_id": "luxor",
+        "departure": "2030-01-12T10:00:00+02:00",
+        "arrival": "2030-01-12T11:00:00+02:00",
+        "duration_minutes": 60,
+        "service_exists": true
+      }
+    },
+    {
+      "id": "cost-transport",
+      "type": "ExternalFact",
+      "trip_id": "trip-egypt-test",
+      "version": 2,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "tool",
+        "actor_id": "test-provider",
+        "reference": "synthetic-result",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "subject_ids": [
+        "cairo",
+        "luxor"
+      ],
+      "query": {
+        "date": "2030-01-12",
+        "parameters": []
+      },
+      "provider": "TEST_ONLY_PROVIDER",
+      "query_status": "result",
+      "verification": "date_specific",
+      "freshness": "current",
+      "applicability": "not_applicable",
+      "observed_at": "2030-01-01T00:00:00Z",
+      "expires_at": "2030-01-02T00:00:00Z",
+      "valid_for": {
+        "start": "2030-01-12",
+        "end": "2030-01-12"
+      },
+      "missing_fields": [],
+      "value": {
+        "kind": "cost",
+        "amount_minor": 120000,
+        "currency": "CNY",
+        "people": 2,
+        "category": "transport",
+        "item_key": "synthetic-cairo-luxor-fare"
+      }
+    },
+    {
+      "id": "skeleton-a",
+      "type": "Skeleton",
+      "trip_id": "trip-egypt-test",
+      "version": 5,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [
+        {
+          "object_id": "constraint-budget",
+          "version": 1,
+          "paths": [
+            "/status",
+            "/value"
+          ],
+          "relation": "input"
+        },
+        {
+          "object_id": "constraint-dates",
+          "version": 2,
+          "paths": [
+            "/status",
+            "/value"
+          ],
+          "relation": "input"
+        },
+        {
+          "object_id": "constraint-nights",
+          "version": 1,
+          "paths": [
+            "/status",
+            "/value"
+          ],
+          "relation": "input"
+        },
+        {
+          "object_id": "cost-transport",
+          "version": 2,
+          "paths": [
+            "/status",
+            "/value",
+            "/freshness",
+            "/applicability",
+            "/expires_at"
+          ],
+          "relation": "input"
+        },
+        {
+          "object_id": "fact-cairo-luxor",
+          "version": 2,
+          "paths": [
+            "/status",
+            "/value",
+            "/freshness",
+            "/applicability",
+            "/expires_at"
+          ],
+          "relation": "input"
+        }
+      ],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "purpose": "plan",
+      "stops": [
+        {
+          "entity_id": "cairo",
+          "nights": 2
+        },
+        {
+          "entity_id": "luxor",
+          "nights": 2
+        }
+      ],
+      "connections": [
+        {
+          "from_id": "cairo",
+          "to_id": "luxor",
+          "fact_ids": [
+            "fact-cairo-luxor"
+          ]
+        }
+      ],
+      "cost_fact_ids": [
+        "cost-transport"
+      ],
+      "parent_id": null,
+      "overrides": [],
+      "tradeoffs": {
+        "gains": [
+          "文化体验"
+        ],
+        "losses": [
+          "转场时间"
+        ]
+      },
+      "assessment": {
+        "status": "pending",
+        "total_nights": 4,
+        "connection_minutes": [
+          null
+        ],
+        "cost_groups": [],
+        "cost_coverage": "none",
+        "unknowns": [
+          "connection:0:missing_or_conflicting_evidence",
+          "cost:cost-transport",
+          "partial_budget:constraint-budget"
+        ],
+        "violations": [],
+        "checked_at": "2030-01-01T00:00:00Z"
+      }
+    },
+    {
+      "id": "issue-cost",
+      "type": "OpenIssue",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "open",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "测试材料，不代表真实用户或现实交通",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "dependencies": [],
+      "updated_at": "2030-01-01T00:00:00Z",
+      "issue_kind": "missing",
+      "question": "住宿餐饮尚未取得费用依据",
+      "affected_ids": [
+        "skeleton-a"
+      ],
+      "severity": "warning",
+      "required_inputs": [
+        "lodging_cost",
+        "food_cost"
+      ],
+      "candidate_actions": [
+        "verify"
+      ],
+      "owner": "provider",
+      "resolution": null,
+      "evidence_ids": []
+    },
+    {
+      "id": "pref-explore",
+      "type": "Preference",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "dependencies": [],
+      "source": {
+        "actor": "model",
+        "actor_id": "model-demo",
+        "reference": "synthetic-input",
+        "text": "探索中新增推断兴趣；不确认城市",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "updated_at": "2030-01-01T00:00:00Z",
+      "subject_ids": [
+        "luxor"
+      ],
+      "aspect": "文化体验",
+      "polarity": "positive",
+      "certainty": "inferred",
+      "support": "supported",
+      "priority": "important",
+      "expression": "我喜欢文化体验；不代表必须去某座城",
+      "condition": {
+        "op": "always"
+      },
+      "evidence_refs": [
+        "synthetic-dialogue-1"
+      ]
+    },
+    {
+      "id": "issue-dependency-skeleton-a",
+      "type": "OpenIssue",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "open",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "dependencies": [],
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "条件性排除卢克索，保留偏好证据",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "updated_at": "2030-01-01T00:00:00Z",
+      "issue_kind": "dependency",
+      "question": "输入变化，需要重新核验或计算",
+      "affected_ids": [
+        "skeleton-a"
+      ],
+      "severity": "warning",
+      "required_inputs": [
+        "fresh_dependencies"
+      ],
+      "candidate_actions": [
+        "verify",
+        "calculate",
+        "confirm"
+      ],
+      "owner": "system",
+      "resolution": null,
+      "evidence_ids": []
+    },
+    {
+      "id": "decision-proposal-0000000000000000000000000000000f",
+      "type": "Decision",
+      "trip_id": "trip-egypt-test",
+      "version": 2,
+      "status": "confirmed",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "dependencies": [],
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "用户明确采用；预算缺项仍然存在",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "updated_at": "2030-01-01T00:00:00Z",
+      "subject_id": "skeleton-a",
+      "subject_version": 3,
+      "decision_kind": "adopt_skeleton",
+      "value": "accept",
+      "confirmation_scope": [
+        "cities",
+        "order",
+        "stays",
+        "connections"
+      ],
+      "basis_ids": [
+        "constraint-budget",
+        "constraint-dates",
+        "constraint-nights",
+        "cost-transport",
+        "fact-cairo-luxor"
+      ],
+      "acknowledged_unknowns": [
+        "partial_budget:constraint-budget"
+      ],
+      "confirmed_by": "user-demo",
+      "confirmed_at": "2030-01-01T00:00:00Z",
+      "supersedes": null,
+      "review_state": "stale"
+    },
+    {
+      "id": "skeleton-b",
+      "type": "Skeleton",
+      "trip_id": "trip-egypt-test",
+      "version": 2,
+      "status": "active",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "dependencies": [],
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "暂定版本停留调整，不替换当前骨架",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "updated_at": "2030-01-01T00:00:00Z",
+      "purpose": "plan",
+      "stops": [
+        {
+          "entity_id": "cairo",
+          "nights": 1
+        },
+        {
+          "entity_id": "luxor",
+          "nights": 2
+        }
+      ],
+      "connections": [
+        {
+          "from_id": "cairo",
+          "to_id": "luxor",
+          "fact_ids": [
+            "fact-cairo-luxor"
+          ]
+        }
+      ],
+      "cost_fact_ids": [
+        "cost-transport"
+      ],
+      "parent_id": null,
+      "overrides": [],
+      "tradeoffs": {
+        "gains": [
+          "文化体验"
+        ],
+        "losses": [
+          "转场时间"
+        ]
+      },
+      "assessment": {
+        "status": "stale",
+        "total_nights": null,
+        "connection_minutes": [],
+        "cost_groups": [],
+        "cost_coverage": "none",
+        "unknowns": [
+          "inputs_changed"
+        ],
+        "violations": [],
+        "checked_at": null
+      }
+    },
+    {
+      "id": "issue-dependency-skeleton-b",
+      "type": "OpenIssue",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "open",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "dependencies": [],
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "连续编辑前创建独立暂定版本",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "updated_at": "2030-01-01T00:00:00Z",
+      "issue_kind": "dependency",
+      "question": "输入变化，需要重新核验或计算",
+      "affected_ids": [
+        "skeleton-b"
+      ],
+      "severity": "warning",
+      "required_inputs": [
+        "fresh_dependencies"
+      ],
+      "candidate_actions": [
+        "verify",
+        "calculate",
+        "confirm"
+      ],
+      "owner": "system",
+      "resolution": null,
+      "evidence_ids": []
+    },
+    {
+      "id": "issue-dependency-decision-proposal-0000000000000000000000000000000f",
+      "type": "OpenIssue",
+      "trip_id": "trip-egypt-test",
+      "version": 1,
+      "status": "open",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "dependencies": [],
+      "source": {
+        "actor": "user",
+        "actor_id": "user-demo",
+        "reference": "synthetic-input",
+        "text": "修改日期导致旧交通证据不适用",
+        "at": "2030-01-01T00:00:00Z"
+      },
+      "updated_at": "2030-01-01T00:00:00Z",
+      "issue_kind": "dependency",
+      "question": "输入变化，需要重新核验或计算",
+      "affected_ids": [
+        "decision-proposal-0000000000000000000000000000000f"
+      ],
+      "severity": "warning",
+      "required_inputs": [
+        "fresh_dependencies"
+      ],
+      "candidate_actions": [
+        "verify",
+        "calculate",
+        "confirm"
+      ],
+      "owner": "system",
+      "resolution": null,
+      "evidence_ids": []
+    }
+  ]
+}

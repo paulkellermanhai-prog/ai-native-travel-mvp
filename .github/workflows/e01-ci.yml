@@ -65,7 +65,35 @@ jobs:
         run: |
           npm ls --all
           npm run specs:verify
+          npm run specs:ac8
           npm run contracts:check
+          npm run dc:check
+      - name: Verify proposed DC 0.1 calibration offline
+        run: '"$TRIP_STATE_PYTHON" scripts/check-dc-calibration.py'
+      - name: Verify separate DC-AC8 R6 source snapshot
+        run: '"$TRIP_STATE_PYTHON" scripts/check-dc-ac8-r6.py'
+      - name: Pinned accepted R6 and corresponding AC8 TS reference regression
+        env:
+          E03_01_REFERENCE_EVIDENCE_PATH: ${{ runner.temp }}/e03-01-reference.json
+        run: '"$TRIP_STATE_PYTHON" scripts/e03-01-reference.py'
+      - name: Preserve E03-01 pinned reference evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e03-01-reference
+          path: ${{ runner.temp }}/e03-01-reference.json
+          if-no-files-found: error
+          retention-days: 14
+      - name: Audit E03-00 baseline and original reference availability
+        env:
+          E03_00_EVIDENCE_PATH: ${{ runner.temp }}/e03-00-reference-audit.json
+        run: '"$TRIP_STATE_PYTHON" scripts/audit-e03-00.py --run-reference'
+      - name: Preserve E03-00 original reference audit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e03-00-reference-audit
+          path: ${{ runner.temp }}/e03-00-reference-audit.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Validate Prisma schema
         run: npm run db:validate
       - name: Generate Prisma client
@@ -73,7 +101,10 @@ jobs:
       - name: Empty database migration and least-privilege storage test identity
         run: |
           E02_TEST_PROVISION=1 MIGRATION_DATABASE_URL="$DATABASE_URL" node scripts/prepare-storage-tests.mjs "$RUNNER_TEMP/e02-storage.json"
-          node --input-type=module -e 'import fs from "node:fs"; const p=process.env.RUNNER_TEMP+"/e02-storage.json"; const e=JSON.parse(fs.readFileSync(p)); fs.appendFileSync(process.env.GITHUB_ENV,"E02_STORAGE_ENV_FILE="+p+"\nDATABASE_URL="+e.runtimeUrl+"\n");'
+          E02_TEST_PROVISION=1 MIGRATION_DATABASE_URL="$DATABASE_URL" node scripts/prepare-storage-tests.mjs "$RUNNER_TEMP/e03-04-write-storage.json"
+          node --input-type=module -e 'import fs from "node:fs"; const p=process.env.RUNNER_TEMP+"/e02-storage.json", w=process.env.RUNNER_TEMP+"/e03-04-write-storage.json"; const e=JSON.parse(fs.readFileSync(p)); fs.appendFileSync(process.env.GITHUB_ENV,"E02_STORAGE_ENV_FILE="+p+"\nE03_PR29_WRITE_STORAGE_ENV_FILE="+w+"\nDATABASE_URL="+e.runtimeUrl+"\n");'
+      - name: Rehearse E03 candidate SQL installer and rollback
+        run: node scripts/e03-evidence-migration-rehearsal.mjs
       - name: Check TypeScript
         run: npm run typecheck
       - name: Lint
@@ -88,7 +119,15 @@ jobs:
           E02_FACT_STORAGE_EVIDENCE_PATH: ${{ runner.temp }}/e02-04c-postgres.jsonl
           E02_DEF_EVIDENCE_PATH: ${{ runner.temp }}/e02-04d-def.json
           E02_FINAL_STORAGE_EVIDENCE_PATH: ${{ runner.temp }}/e02-04d-postgres.jsonl
+          E03_C12_REFERENCE_EVIDENCE_PATH: ${{ runner.temp }}/e03-02-c12-comparison.json
         run: npm test
+      - name: Preserve synthetic R6 and C12 candidate comparison
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e03-02-c12-reference-comparison
+          path: ${{ runner.temp }}/e03-02-c12-comparison.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Preserve actual TypeScript Scenario A execution evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -135,6 +174,11 @@ jobs:
         env:
           PYTHONDONTWRITEBYTECODE: "1"
         run: '"$TRIP_STATE_PYTHON" -m unittest tests.test_tripstate tests.test_global_consistency tests.test_reservation_profile'
+      - name: Approved stage A package Python reference regression
+        run: |
+          cp -R specs/ts-ac8-stage-a-2026-11-03/trip-state-schema-v0.1 "$RUNNER_TEMP/ts-ac8"
+          cd "$RUNNER_TEMP/ts-ac8/90_可运行工程包"
+          "$TRIP_STATE_PYTHON" run_validation.py
       - name: Check database connectivity
         run: npm run db:check
       - name: Production build

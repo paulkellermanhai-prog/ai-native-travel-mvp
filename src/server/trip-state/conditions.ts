@@ -1,20 +1,50 @@
-import { instantMicros, rule } from "./semantics";
+import { instantMicros, rule, timestampParts } from "./semantics";
 import type { Condition, State, ExternalFact, Constraint, Skeleton } from "./contracts.generated";
 
 type Objects = ReadonlyMap<string, State["objects"][number]>;
+type EvidenceClock = Date | bigint;
+/** Exact probe ticks for Context validation; Date callers retain existing R6 millisecond behavior. */
+export function instantAttoseconds(value: string): bigint {
+  const { milliseconds, fraction } = timestampParts(value);
+  return BigInt(milliseconds) * 1_000_000_000_000_000n + BigInt((fraction + "000000000000000000").slice(0, 18));
+}
 export function conditionReferences(c: Condition): string[] {
   return "object_id" in c ? [c.object_id] : "args" in c ? c.args.flatMap(conditionReferences) : "arg" in c ? conditionReferences(c.arg) : [];
 }
 
 // Read existing observation metadata only. No provider calls, verification upgrade or freshness writes.
-export function factUsable(fact: ExternalFact, now: Date, window: { start: string; end: string } | null = null): boolean {
-  const at = BigInt(now.getTime()) * 1000n;
+export function factUsable(fact: ExternalFact, now: EvidenceClock, window: { start: string; end: string } | null = null): boolean {
+  const at = typeof now === "bigint" ? now : BigInt(now.getTime()) * 1000n;
+  const instant = typeof now === "bigint" ? instantAttoseconds : instantMicros;
   return fact.status === "active" && fact.freshness === "current" && fact.applicability === "applicable"
-    && instantMicros(fact.expires_at) > at && instantMicros(fact.observed_at) <= at && fact.missing_fields.length === 0
+    && instant(fact.expires_at) > at && instant(fact.observed_at) <= at && fact.missing_fields.length === 0
     && ["result", "no_service"].includes(fact.query_status) && fact.query.date !== null
     && fact.valid_for.start <= fact.query.date && fact.query.date <= fact.valid_for.end
     && (!window || window.start <= fact.query.date && fact.query.date <= window.end)
     && ["date_specific", "purchasable"].includes(fact.verification);
+}
+export function conflictingFactIds(objects: Objects, now: EvidenceClock, window: { start: string; end: string } | null = null): Set<string> {
+  const usable = [...objects.values()].filter((o): o is ExternalFact => o.type === "ExternalFact" && factUsable(o, now, window));
+  const groups = new Map<string, { yes: string[]; no: string[] }>();
+  for (const fact of usable) {
+    const value = fact.value;
+    if (value?.kind !== "transport" || value.service_exists === null) continue;
+    const scope = fact.scope;
+    const key = JSON.stringify([fact.query.date, value.from_id, value.to_id,
+      fact.query.parameters.map((p) => JSON.stringify([p.name, p.value])).sort(), scope.kind, [...scope.ids].sort(),
+      scope.kind === "date" ? scope.start : null, scope.kind === "date" ? scope.end : null]);
+    const group = groups.get(key) ?? { yes: [], no: [] };
+    (value.service_exists ? group.yes : group.no).push(fact.id); groups.set(key, group);
+  }
+  const contested = new Set<string>();
+  for (const group of groups.values()) if (group.yes.length && group.no.length)
+    for (const id of [...group.yes, ...group.no]) contested.add(id);
+  const usableIds = new Set(usable.map((f) => f.id));
+  for (const issue of objects.values()) if (issue.type === "OpenIssue" && issue.issue_kind === "conflict" && issue.status !== "resolved") {
+    const related = issue.affected_ids.filter((id) => usableIds.has(id));
+    if (related.length > 1) for (const id of related) contested.add(id);
+  }
+  return contested;
 }
 function pointer(value: unknown, path: string): unknown {
   for (const part of path.replace(/^\/+|\/+$/g, "").split("/")) {
@@ -37,17 +67,17 @@ function pointer(value: unknown, path: string): unknown {
 }
 
 /** Original three-valued rules.condition_value: never coerce unknown, booleans or text to numeric truth. */
-export function conditionValue(condition: Condition, objects: Objects, now: Date): boolean | null {
+export function conditionValue(condition: Condition, objects: Objects, now: EvidenceClock, contested?: ReadonlySet<string>): boolean | null {
   if (condition.op === "always") return true;
-  if (condition.op === "not") { const value = conditionValue(condition.arg, objects, now); return value === null ? null : !value; }
+  if (condition.op === "not") { const value = conditionValue(condition.arg, objects, now, contested); return value === null ? null : !value; }
   if ("args" in condition) {
-    const values = condition.args.map((c) => conditionValue(c, objects, now));
+    const values = condition.args.map((c) => conditionValue(c, objects, now, contested));
     const decisive = condition.op === "any";
     return values.includes(decisive) ? decisive : values.includes(null) ? null : !decisive;
   }
   const object = objects.get(condition.object_id);
   if (!object || ["superseded", "withdrawn", "invalidated", "relaxed", "contradicted"].includes(object.status)
-    || object.type === "ExternalFact" && !factUsable(object, now)) return null;
+    || object.type === "ExternalFact" && (!factUsable(object, now) || (contested ?? conflictingFactIds(objects, now)).has(object.id))) return null;
   const left = pointer(object, condition.path), right = condition.value;
   if (left === null || right === null || typeof left === "object" || typeof left !== typeof right) return null;
   if (typeof left === "number" && typeof right === "number") {

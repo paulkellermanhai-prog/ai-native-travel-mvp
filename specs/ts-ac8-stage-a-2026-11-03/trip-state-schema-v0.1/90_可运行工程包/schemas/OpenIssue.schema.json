@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://trip-state.example/spec/0.1/OpenIssue.schema.json",
+  "title": "OpenIssue",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "trip_id": {
+      "type": "string",
+      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+    },
+    "type": {
+      "const": "OpenIssue"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "open",
+        "actionable",
+        "waiting",
+        "resolved",
+        "dismissed"
+      ]
+    },
+    "scope": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "trip",
+                "entity",
+                "skeleton",
+                "traveler"
+              ]
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true
+            }
+          },
+          "required": [
+            "kind",
+            "ids"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "kind": {
+              "type": "string",
+              "enum": [
+                "date"
+              ]
+            },
+            "ids": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+              },
+              "minItems": 0,
+              "uniqueItems": true,
+              "maxItems": 0
+            },
+            "start": {
+              "type": "string",
+              "format": "date"
+            },
+            "end": {
+              "type": "string",
+              "format": "date"
+            }
+          },
+          "required": [
+            "kind",
+            "ids",
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "enum": [
+            "user",
+            "model",
+            "system",
+            "tool"
+          ]
+        },
+        "actor_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+        },
+        "reference": {
+          "type": "string",
+          "minLength": 1,
+          "description": "输入或适配器证据标识"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "description": "原始表达或结果摘要"
+        },
+        "at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "actor",
+        "actor_id",
+        "reference",
+        "text",
+        "at"
+      ],
+      "additionalProperties": false
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "object_id": {
+            "type": "string",
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^/[A-Za-z_][A-Za-z0-9_/]*$"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+          },
+          "relation": {
+            "type": "string",
+            "enum": [
+              "input",
+              "evidence",
+              "association"
+            ]
+          }
+        },
+        "required": [
+          "object_id",
+          "version",
+          "paths",
+          "relation"
+        ],
+        "additionalProperties": false
+      },
+      "minItems": 0
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "issue_kind": {
+      "type": "string",
+      "enum": [
+        "missing",
+        "conflict",
+        "verification",
+        "dependency",
+        "unsupported"
+      ]
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "description": "非空文本"
+    },
+    "affected_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "blocking"
+      ]
+    },
+    "required_inputs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "description": "非空文本"
+      },
+      "minItems": 0
+    },
+    "candidate_actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "clarify",
+          "verify",
+          "calculate",
+          "compare",
+          "confirm"
+        ]
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    },
+    "owner": {
+      "type": "string",
+      "enum": [
+        "user",
+        "system",
+        "provider"
+      ]
+    },
+    "resolution": {
+      "anyOf": [
+        {
+          "type": "string",
+          "minLength": 1,
+          "description": "非空文本"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "evidence_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,95}$"
+      },
+      "minItems": 0,
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "id",
+    "trip_id",
+    "type",
+    "version",
+    "status",
+    "scope",
+    "source",
+    "dependencies",
+    "updated_at",
+    "issue_kind",
+    "question",
+    "affected_ids",
+    "severity",
+    "required_inputs",
+    "candidate_actions",
+    "owner",
+    "resolution",
+    "evidence_ids"
+  ],
+  "additionalProperties": false
+}

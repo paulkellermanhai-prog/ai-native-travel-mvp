@@ -1,0 +1,63 @@
+{
+  "id": "change-00000000000000000000000000000003",
+  "type": "ChangeRecord",
+  "trip_id": "trip-egypt-test",
+  "proposal_id": "proposal-00000000000000000000000000000001",
+  "intent_id": "intent-00000000000000000000000000000002",
+  "outcome": "applied",
+  "actions": [
+    "create"
+  ],
+  "reason": "探索中新增推断兴趣；不确认城市",
+  "base_revision": 0,
+  "result_revision": 1,
+  "created_at": "2030-01-01T00:00:00Z",
+  "confirmation_actor": null,
+  "request_digest": "69dd4f4cb83ffab96a59e7325a65de2325eb790a3e9b50c483522f51cecbdc72",
+  "affected_ids": [
+    "pref-explore"
+  ],
+  "effective_before": null,
+  "effective_after": null,
+  "diff": [
+    {
+      "id": "pref-explore",
+      "before": null,
+      "after": {
+        "id": "pref-explore",
+        "type": "Preference",
+        "trip_id": "trip-egypt-test",
+        "version": 1,
+        "status": "active",
+        "scope": {
+          "kind": "trip",
+          "ids": []
+        },
+        "dependencies": [],
+        "source": {
+          "actor": "model",
+          "actor_id": "model-demo",
+          "reference": "synthetic-input",
+          "text": "探索中新增推断兴趣；不确认城市",
+          "at": "2030-01-01T00:00:00Z"
+        },
+        "updated_at": "2030-01-01T00:00:00Z",
+        "subject_ids": [
+          "luxor"
+        ],
+        "aspect": "文化体验",
+        "polarity": "positive",
+        "certainty": "inferred",
+        "support": "supported",
+        "priority": "important",
+        "expression": "我喜欢文化体验；不代表必须去某座城",
+        "condition": {
+          "op": "always"
+        },
+        "evidence_refs": [
+          "synthetic-dialogue-1"
+        ]
+      }
+    }
+  ]
+}

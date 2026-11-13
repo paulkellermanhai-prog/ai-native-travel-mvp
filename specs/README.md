@@ -2,7 +2,7 @@
 
 版本化快照：[`baseline-2026-10-27/`](baseline-2026-10-27/)。这里是从已授权的本地产品工作区逐字节复制的权威正文、机器契约与必要样例；原规格未被修改。应用不从这里直接导入 Python 参考实现，Trip State 实现进度见本轮验收记录；不实现 Decision Context 或 NAP。
 
-**Owner 已于 2026-10-27 明确确认 Trip State 0.1.0 为 E02 正式开发基线。** 确认原话、适用范围和快照哈希绑定见 [开发基线记录](trip-state-development-baseline.json)。原始快照里的待确认状态保留为交接当时的历史记录，不改写来源元数据。E02-01 至 E02-04D 已获技术负责人 PASS 且 PR #2–#8 已合并；当前仅授权 E02-05A/B/C 身份、五条 HTTP 与实际端到端验收，完成后停止等待 E02 最终 Gate Review，不启动 E03/DC/NAP/UI。DC R4 和 NAP 的原审核状态保留。
+**Owner 已于 2026-10-27 明确确认 Trip State 0.1.0 为 E02 正式开发基线。** 确认原话、适用范围和快照哈希绑定见 [开发基线记录](trip-state-development-baseline.json)。原始快照里的待确认状态保留为交接当时的历史记录，不改写来源元数据。E02 Final Engineering Gate 已获 PASS，PR #9 按获批 head 合并，main push CI 成功后正式关闭，见 [E02 关闭记录](../docs/E02-final-gate.json)。当前仅授权 E03 规格校准准备；[DC 0.1.0 校准报告](../docs/E03-DC-0.1.0校准报告.md)及 [候选机器契约选择](dc-0.1-calibration-2026-10-29/selection.json)等待技术负责人确认，不实现 DC/NAP 运行时或 UI。DC R4 和 NAP 的原审核状态保留。
 
 | 阅读顺序 | 入口 | 用途 |
 | --- | --- | --- |
@@ -10,7 +10,7 @@
 | 2 | [TS SPECIFICATION](baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/SPECIFICATION.md) | E02 唯一业务状态契约；正文第 2–8、10 节与相邻 Final 文件共同约束实现 |
 | 3 | [TS schemas](baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/) / [rules](baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/rules/) | 原始 Draft 2020-12 `$id`、字段、枚举与状态转换，不改名、不补字段 |
 | 4 | [七场景](baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/SCENARIO_VALIDATION.md) / [机器轨迹](baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/examples/scenario-traces.json) | A 为首条闭环；B/C/G 和反例约束偏好、淘汰、纠错与决定历史 |
-| 5 | [DC 工程契约](baseline-2026-10-27/decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md) | R4 / Runtime 0.2.0 的依赖边界；本轮不实现其运行模块 |
+| 5 | [DC 工程契约](baseline-2026-10-27/decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md) | 历史 R4 / Runtime 0.2.0 来源；当前拟采用完整 0.1.0 见独立校准候选，不实现运行模块 |
 | 6 | [NAP README](baseline-2026-10-27/Next-Action-Policy-V0.1/README.md) / [DECISIONS](baseline-2026-10-27/Next-Action-Policy-V0.1/DECISIONS.md) | 0.1.0 行为/权限约束与未批准事项；本轮不实现 Policy |
 | 7 | [E02 编码任务](../docs/E02最小编码任务.md) | 对上述来源的实现范围、数据库基础设施设计及通过标准 |
 
@@ -29,9 +29,13 @@ TS `tripstate/` 和四份语义测试文件仅作原有参考运行逻辑与移�
 ## 必须保留的未决事项
 
 1. **审核范围：** TS 0.1.0 开发基线已获 Owner 明确确认；E02 后续切片按技术负责人审核逐步实施。DC 仍为最终审核候选；NAP `owner_approval=NOT_RECORDED`、C3-R2 有条件通过。
-2. **DC 版本：** 运行索引、代码和机器 Schema 为 `0.2.0`，原工程正文第 3 节表格仍写 `0.1.0`。正文照原样复制，未偷偷修正；正式 DC/NAP 接入前需规格负责人处理。E02 不实现该模块。
+2. **DC 版本：** 运行索引、代码和机器 Schema 为 `0.2.0`，原工程正文第 3 节表格仍写 `0.1.0`。正文照原样复制，未偷偷修正；此为不可变历史快照状态；Owner 已裁决恢复归入 0.1.0，现以独立候选和逐字段/NAP 对照供技术负责人确认，旧快照不覆盖。E02 不实现该模块。
 3. **NAP 路径：** 原文指向同级 `../nap-c3-validation`，实际来源在 NAP 内部的 [nap-c3-validation](baseline-2026-10-27/Next-Action-Policy-V0.1/nap-c3-validation/)。10 份来源均已复制且哈希与原索引匹配；没有修改原链接或宣称原包检查器可直接运行。
 4. **未复制的个人路径元数据：** V2 总纲原文和 C3 `source-manifest.json` 含本机个人路径，未作为正文上传。保留原摘要和源关联于本次 manifest 的 `related_sources_not_copied`；E02 以已完整交接的 PRD 和 TS 契约实施，不凭摘要补写 V2 内容。
 5. 原交付 `package-index.json` 保留作来源指纹；其中指向被排除的阅读镜像或打包内容的路径不作为本交接包完整性断言。本页是云端阅读入口，实际交接集以本次 manifest 为准。
 
 任何原始规格的字段或规则变更都需原模块按版本流程另行处理，不在本 PR 中编辑这些来源文件。
+
+## E03-00 Gate A 审核入口
+
+[E03-00 基线审核](../docs/E03-00基线审核与工程准备.md)、[模块责任窗口](../docs/E03-00模块边界与修改窗口.md)、[固定八阶段看板](../docs/E03阶段看板.md)。原 39 来源仍为局部候选；[原参考补充清单](e03-00-reference-2026-10-29/availability.json)新增18份字节保真资料，使原Runtime目录42文件可在云端重建。参考代码不从应用导入，不代表新工程Runtime已实现；当前仅提交8%权重的E03-00，等待技术负责人Gate A，不涉及任何正在进行的产品机制迭代。

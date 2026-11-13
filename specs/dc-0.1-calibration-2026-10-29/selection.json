@@ -1,0 +1,1663 @@
+{
+  "format": "antu-dc-engineering-candidate/v1",
+  "status": "PROPOSED_PENDING_TECH_LEAD_CONFIRMATION",
+  "version": "0.1.0",
+  "runtime_implementation_authorized": false,
+  "owner_scope_decision": "跨会话恢复接口属于 Decision Context 0.1.0",
+  "source_capture_date": "2026-10-29",
+  "source_kind": "authorized existing local workspace; byte-preserved selection, not edited or approved by this calibration",
+  "historical_manifest_sha256": "4c7eab1c14dbb78d27df4df977255f1847be9111313274054a3807f7a5807127",
+  "trip_state_schema_directory": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas",
+  "checkpoint_payload_format_version": 1,
+  "reference_sqlite_user_version": 1,
+  "files": [
+    {
+      "path": "sources/Next-Action-Policy-V0.1/DECISIONS.md",
+      "source_path": "Next-Action-Policy-V0.1/DECISIONS.md",
+      "sha256": "71396bd20c511b431f582df255ab8231011ce82552164e0890502bedecdcf47f",
+      "bytes": 7504
+    },
+    {
+      "path": "sources/Next-Action-Policy-V0.1/README.md",
+      "source_path": "Next-Action-Policy-V0.1/README.md",
+      "sha256": "2d1c2aedef4b514da2249f2b00d0eb787fbf8f58deb3385926048a109c3c77e2",
+      "bytes": 7104
+    },
+    {
+      "path": "sources/Next-Action-Policy-V0.1/engineering/contracts.md",
+      "source_path": "Next-Action-Policy-V0.1/engineering/contracts.md",
+      "sha256": "234dcf2ebd73f944159831deb66c7b5910fa36dc7cf7b65b0b839a428ab4af7e",
+      "bytes": 16775
+    },
+    {
+      "path": "sources/Next-Action-Policy-V0.1/engineering/contracts.schema.json",
+      "source_path": "Next-Action-Policy-V0.1/engineering/contracts.schema.json",
+      "sha256": "61dd550805f163eb5f5e9f0e82fa2ca3c3592fe64a49a117b608b1fc55fcfbbc",
+      "bytes": 18529
+    },
+    {
+      "path": "sources/Next-Action-Policy-V0.1/package-index.json",
+      "source_path": "Next-Action-Policy-V0.1/package-index.json",
+      "sha256": "5aa16a62b7cd40d3ba2aee079b8cb16e10a1851674d59f33aea84283041e75e7",
+      "bytes": 82870
+    },
+    {
+      "path": "sources/decision-context-v0.1/00_从这里开始.md",
+      "source_path": "decision-context-v0.1/00_从这里开始.md",
+      "sha256": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026",
+      "bytes": 5457
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/10_首版跨会话恢复范围决策.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/10_首版跨会话恢复范围决策.md",
+      "sha256": "825d03aa51dcea5c88054459182c2bd90e25169f3ef8acd4cb8fedaea2b3dc7e",
+      "bytes": 4874
+    },
+    {
+      "path": "sources/decision-context-v0.1/03_评审与工程衔接/11_跨会话恢复工程收口报告.md",
+      "source_path": "decision-context-v0.1/03_评审与工程衔接/11_跨会话恢复工程收口报告.md",
+      "sha256": "12ae582c0e08174a4f5b62ce575288ce87679f8b26b18bab62a3edbd0aaf3ee7",
+      "bytes": 4213
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "source_path": "decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "sha256": "a3a41431e1b1027474326198912d60434f7d79758aa6d0f32359cb4a33791d2f",
+      "bytes": 9532
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "source_path": "decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "sha256": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a",
+      "bytes": 8952
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "source_path": "decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "sha256": "e58d328e0b5bde8c37069f5d196c2cdfc91ed79e80372efd79b58a3f41957522",
+      "bytes": 8692
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
+      "source_path": "decision-context-v0.1/04_工程规格/04_可执行验收与交付评审.md",
+      "sha256": "78792ffdc71bf9fc338a625be9a6a59687ed0260d2ca43e35e02ea56c957134a",
+      "bytes": 5840
+    },
+    {
+      "path": "sources/decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "source_path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
+      "bytes": 13836
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
+      "source_path": "decision-context-v0.1/90_可运行工程包/FIELD_DICTIONARY.md",
+      "sha256": "d7cca5bd04acb717a1590ac642a7e982ba9ae853a174b6b753f6e90e4b5db879",
+      "bytes": 180626
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/README.md",
+      "source_path": "decision-context-v0.1/90_可运行工程包/README.md",
+      "sha256": "065c7ac1a4b918453a876751da64919821524bde54e41ba908504d0307399d90",
+      "bytes": 5221
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py",
+      "source_path": "decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py",
+      "sha256": "4c435a60ecdbd041974628a5c878474ac50203f59e17e22a34cdd979efbaea45",
+      "bytes": 8790
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/examples/exploration.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/examples/exploration.json",
+      "sha256": "478334ef8152123c965cbc3de09710ce87078ccdc3e113cebe69f3a7d79d0989",
+      "bytes": 12606
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/examples/recovery.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/examples/recovery.json",
+      "sha256": "86fb5b89991efc6eccc70794f7c4d7e19ed14fe1bf18b0dea75f871fac55ace7",
+      "bytes": 17109
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "sha256": "0e85d8685cdf3469e8cfc9bdc49757667e4d0e7d5fc79d19fb76586f31cd410d",
+      "bytes": 15629
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "sha256": "f5195f66bb6d3fa9a551f5db17029d35c6f4d3d7325be65d026bebd62aae7374",
+      "bytes": 15615
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "sha256": "12e910bb83585a394f0d920c43b05764bac60bcf9a5cd5ff8529ad58bd982178",
+      "bytes": 15134
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "sha256": "6deb5cc36133b88ae72fcc6b27fa6ce4f40b7f14b4d7be773a9a8b8acd1b2a6b",
+      "bytes": 15622
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "sha256": "9959600ce7423af7f1ddd6ab05725aa5a5c23d4382ae1b7f91fe38f7f1057638",
+      "bytes": 15548
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "sha256": "631363f1819aa6a10f82d78bf902c3abf13688d603b7037951b2b4357e06a8b6",
+      "bytes": 15936
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "sha256": "f0a0b5ef77f924f142afc6a8ec431ba082e7e7e78014609b5c7f81c189a9c60e",
+      "bytes": 18014
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "sha256": "bc84b931043dd0f5117d4231a68b72eec885bcc3b3dc2f5e2d7d8b3de05a9cd7",
+      "bytes": 15615
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "sha256": "74fbc7b11e76932bd862088113d5381e13eccc37f39787c3f52ebb958b94d0ea",
+      "bytes": 16940
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "sha256": "b36ab40bd549c2e46ef403ac8c77d7a5b623c1fa4ea78d6c5ce817a91f1b6f69",
+      "bytes": 15334
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "sha256": "6b576e3fbade034718ff561d3dc34234f4d71a6a4e6b2598f60e7c83092bdd57",
+      "bytes": 15658
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "sha256": "61bded692ace23bc8d7fc3757c188bb74a46b6ced2dfdd099fd04dec13d4dffb",
+      "bytes": 16338
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "sha256": "879ec80ce28aafd244a9f6278ec44b43171533d7868d350a56754460eb643b83",
+      "bytes": 15277
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "sha256": "73dddce802a48663ae5499be22221067381fa2ac25e343c25bae6ee3290b59d7",
+      "bytes": 15537
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "sha256": "2ea44ea46dcf15e9df47eab4a79cca36928080ec0eca3695d673706f3a6e4bfa",
+      "bytes": 18677
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "sha256": "c5a1bde0bd3da0e4157151129e4583ad31ade4703d38fdbf2ca62e7ae116d8f0",
+      "bytes": 15279
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "sha256": "34fa983b5d5b252395a9ace6e3c5fd9cf80ac2580982c505f32ea4af51e988fb",
+      "bytes": 16122
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "sha256": "19cc387dae4d0193add3c01e7013df19311d2a75ea4f9ba9c46b19111bc9badf",
+      "bytes": 15916
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "sha256": "66567c9b60f4e5b66396fb6a55a3eec5d168a310faea0aca217203d2f11b7a71",
+      "bytes": 15281
+    },
+    {
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "source_path": "decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "sha256": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9",
+      "bytes": 16137
+    },
+    {
+      "path": "sources/decision-context-v0.1/package-index.json",
+      "source_path": "decision-context-v0.1/package-index.json",
+      "sha256": "c1b784f07d12e72493fe1cf7bab51d0b1802acac1bb7f6339419a363b2665f94",
+      "bytes": 21296
+    }
+  ],
+  "dc_machine_contracts": [
+    {
+      "name": "assemble",
+      "schema_id": "https://decision-context.example/runtime/0.1/assemble.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "sha256": "0e85d8685cdf3469e8cfc9bdc49757667e4d0e7d5fc79d19fb76586f31cd410d",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json"
+    },
+    {
+      "name": "change",
+      "schema_id": "https://decision-context.example/runtime/0.1/change.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "sha256": "f5195f66bb6d3fa9a551f5db17029d35c6f4d3d7325be65d026bebd62aae7374",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/change.schema.json"
+    },
+    {
+      "name": "checkpoint-payload",
+      "schema_id": "https://decision-context.example/runtime/0.1/checkpoint-payload.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "sha256": "12e910bb83585a394f0d920c43b05764bac60bcf9a5cd5ff8529ad58bd982178",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json"
+    },
+    {
+      "name": "confirm",
+      "schema_id": "https://decision-context.example/runtime/0.1/confirm.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "sha256": "6deb5cc36133b88ae72fcc6b27fa6ce4f40b7f14b4d7be773a9a8b8acd1b2a6b",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json"
+    },
+    {
+      "name": "error",
+      "schema_id": "https://decision-context.example/runtime/0.1/error.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "sha256": "9959600ce7423af7f1ddd6ab05725aa5a5c23d4382ae1b7f91fe38f7f1057638",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/error.schema.json"
+    },
+    {
+      "name": "open-turn",
+      "schema_id": "https://decision-context.example/runtime/0.1/open-turn.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "sha256": "631363f1819aa6a10f82d78bf902c3abf13688d603b7037951b2b4357e06a8b6",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json"
+    },
+    {
+      "name": "packet",
+      "schema_id": "https://decision-context.example/runtime/0.1/packet.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "sha256": "f0a0b5ef77f924f142afc6a8ec431ba082e7e7e78014609b5c7f81c189a9c60e",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json"
+    },
+    {
+      "name": "page-request",
+      "schema_id": "https://decision-context.example/runtime/0.1/page-request.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "sha256": "bc84b931043dd0f5117d4231a68b72eec885bcc3b3dc2f5e2d7d8b3de05a9cd7",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json"
+    },
+    {
+      "name": "page",
+      "schema_id": "https://decision-context.example/runtime/0.1/page.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "sha256": "74fbc7b11e76932bd862088113d5381e13eccc37f39787c3f52ebb958b94d0ea",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/page.schema.json"
+    },
+    {
+      "name": "scene-ack",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-ack.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "sha256": "b36ab40bd549c2e46ef403ac8c77d7a5b623c1fa4ea78d6c5ce817a91f1b6f69",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json"
+    },
+    {
+      "name": "scene-delete",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-delete.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "sha256": "6b576e3fbade034718ff561d3dc34234f4d71a6a4e6b2598f60e7c83092bdd57",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json"
+    },
+    {
+      "name": "scene-list-result",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-list-result.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "sha256": "61bded692ace23bc8d7fc3757c188bb74a46b6ced2dfdd099fd04dec13d4dffb",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json"
+    },
+    {
+      "name": "scene-list",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-list.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "sha256": "879ec80ce28aafd244a9f6278ec44b43171533d7868d350a56754460eb643b83",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json"
+    },
+    {
+      "name": "scene-restore",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-restore.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "sha256": "73dddce802a48663ae5499be22221067381fa2ac25e343c25bae6ee3290b59d7",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json"
+    },
+    {
+      "name": "scene-restored",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-restored.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "sha256": "2ea44ea46dcf15e9df47eab4a79cca36928080ec0eca3695d673706f3a6e4bfa",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json"
+    },
+    {
+      "name": "scene-retry",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-retry.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "sha256": "c5a1bde0bd3da0e4157151129e4583ad31ade4703d38fdbf2ca62e7ae116d8f0",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json"
+    },
+    {
+      "name": "scene-save",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-save.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "sha256": "34fa983b5d5b252395a9ace6e3c5fd9cf80ac2580982c505f32ea4af51e988fb",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json"
+    },
+    {
+      "name": "scene-status-result",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-status-result.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "sha256": "19cc387dae4d0193add3c01e7013df19311d2a75ea4f9ba9c46b19111bc9badf",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json"
+    },
+    {
+      "name": "scene-status",
+      "schema_id": "https://decision-context.example/runtime/0.1/scene-status.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "sha256": "66567c9b60f4e5b66396fb6a55a3eec5d168a310faea0aca217203d2f11b7a71",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json"
+    },
+    {
+      "name": "turn",
+      "schema_id": "https://decision-context.example/runtime/0.1/turn.schema.json",
+      "path": "sources/decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "sha256": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9",
+      "historical_path": "specs/baseline-2026-10-27/decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json"
+    }
+  ],
+  "source_index_checks": [
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "00_从这里开始.md",
+      "sha256": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "01_产品机制/01_决策上下文机制设计_V0.1.md",
+      "sha256": "2c5a8258536a5c054874236ffc3f2cce429670ae2bf8d1b40189e4f5d6997709",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "01_产品机制/02_旅行决策类型体系_V0.1.md",
+      "sha256": "3abb7d4387154895f0b40d1ff7b981967101e4726b2b8cebb55d35bbf76d7b25",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "01_产品机制/03_决策单元与上下文边界_V0.1.md",
+      "sha256": "24a6209d57fe31140e1f85a75ba0ab7469a3b277cbe6193c3f1ba2cda706a37a",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "02_场景与验收/04_旅行决策场景与验证用例_V0.1.md",
+      "sha256": "8f67a85474aed35174ab86daac8f49b316c832ecb9369cfbb9af6bd3a1389f23",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "03_评审与工程衔接/05_设计结论待确认问题与工程交接.md",
+      "sha256": "58c9f621aa2ca50ef52ec6a7e9505d0c906b39514ba2feda580d2b4c87099d37",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "03_评审与工程衔接/06_来源基线与设计追溯矩阵.md",
+      "sha256": "46c602f370dd2efb36f38119123cd9d45f08f6664573411b5d30698818a1996a",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "03_评审与工程衔接/07_本轮审核落实记录.md",
+      "sha256": "2509d3b2bedde723a6f32791b5c9dca7298df8f0759e035a3c4ac3e3894bad6a",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "03_评审与工程衔接/08_完整机制设计收敛与交付计划.md",
+      "sha256": "32597a42eff59310ece11af11e8e68e47a2e06137e4f968796ba6c0c616a731f",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "04_工程规格/01_运行契约与任务定位.md",
+      "sha256": "a3a41431e1b1027474326198912d60434f7d79758aa6d0f32359cb4a33791d2f",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "04_工程规格/02_读取组装与有效性规格.md",
+      "sha256": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "04_工程规格/03_接口异常权限与兼容.md",
+      "sha256": "e58d328e0b5bde8c37069f5d196c2cdfc91ed79e80372efd79b58a3f41957522",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "04_工程规格/04_可执行验收与交付评审.md",
+      "sha256": "78792ffdc71bf9fc338a625be9a6a59687ed0260d2ca43e35e02ea56c957134a",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "03_评审与工程衔接/09_工程收口结论与待审核项.md",
+      "sha256": "6c58e66eaddfee785d4358da2a16aabf4b945d81b369eeb2bfaf3fa75b19a746",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "03_评审与工程衔接/10_首版跨会话恢复范围决策.md",
+      "sha256": "825d03aa51dcea5c88054459182c2bd90e25169f3ef8acd4cb8fedaea2b3dc7e",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "documents",
+      "path": "03_评审与工程衔接/11_跨会话恢复工程收口报告.md",
+      "sha256": "12ae582c0e08174a4f5b62ce575288ce87679f8b26b18bab62a3edbd0aaf3ee7",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/FIELD_DICTIONARY.md",
+      "sha256": "d7cca5bd04acb717a1590ac642a7e982ba9ae853a174b6b753f6e90e4b5db879",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/README.md",
+      "sha256": "065c7ac1a4b918453a876751da64919821524bde54e41ba908504d0307399d90",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/VALIDATION_REPORT.md",
+      "sha256": "0137fe0662413dd9f0216359df9e2ebec841543668b9aec6122f384ebdbf9e60",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/context_runtime/__init__.py",
+      "sha256": "ad829be702f5b30422cf476c0e794c70a9ffe195081ffea639ac0215c6d72d14",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/context_runtime/api.py",
+      "sha256": "7a318597eb3499c4512577ed82956b681baac8aa8396a0b1695c06bbcbd2d965",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/context_runtime/checkpoints.py",
+      "sha256": "9cbff3b580ea6285e0c35b34d13496adfa7c89ef51499ddf2739f6277c3858fa",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/context_runtime/contracts.py",
+      "sha256": "4c435a60ecdbd041974628a5c878474ac50203f59e17e22a34cdd979efbaea45",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/context_runtime/errors.py",
+      "sha256": "3c2bee262f497e77622ca9d7ca92cfd0031d4bc0342e126590c744af2197a0c8",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/context_runtime/recovery.py",
+      "sha256": "8b454c573849c5776d65e35caf5d813b40d641f1c594ce01693e79fdb76a52b7",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/context_runtime/runtime.py",
+      "sha256": "029a0156dbd132d5c42e4912f59ff05390433eccc0b8906b86241df64f2f09b2",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/dependency.py",
+      "sha256": "610bca5e6a7d166b3c0bd41695f98d5d8b5bfb7b7a42760a648302fffdba47ed",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/examples/exploration.json",
+      "sha256": "478334ef8152123c965cbc3de09710ce87078ccdc3e113cebe69f3a7d79d0989",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/examples/recovery.json",
+      "sha256": "86fb5b89991efc6eccc70794f7c4d7e19ed14fe1bf18b0dea75f871fac55ace7",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/export_contracts.py",
+      "sha256": "d6a5f0d6cf6df4d194c2c9f7e262aca9af758d0806d8ab28d9e2faf40c81f548",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/requirements.txt",
+      "sha256": "d993e8c54f162ebcb016db49b6f667fe2359b350f90b6bb561c22b54c03efabd",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/run_validation.py",
+      "sha256": "a1d478dc8baed3602a58282f4550c63794b29e6b60a1085aad8631ad54f79c17",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/assemble.schema.json",
+      "sha256": "0e85d8685cdf3469e8cfc9bdc49757667e4d0e7d5fc79d19fb76586f31cd410d",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/change.schema.json",
+      "sha256": "f5195f66bb6d3fa9a551f5db17029d35c6f4d3d7325be65d026bebd62aae7374",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "sha256": "12e910bb83585a394f0d920c43b05764bac60bcf9a5cd5ff8529ad58bd982178",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/confirm.schema.json",
+      "sha256": "6deb5cc36133b88ae72fcc6b27fa6ce4f40b7f14b4d7be773a9a8b8acd1b2a6b",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/error.schema.json",
+      "sha256": "9959600ce7423af7f1ddd6ab05725aa5a5c23d4382ae1b7f91fe38f7f1057638",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/open-turn.schema.json",
+      "sha256": "631363f1819aa6a10f82d78bf902c3abf13688d603b7037951b2b4357e06a8b6",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/packet.schema.json",
+      "sha256": "f0a0b5ef77f924f142afc6a8ec431ba082e7e7e78014609b5c7f81c189a9c60e",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/page-request.schema.json",
+      "sha256": "bc84b931043dd0f5117d4231a68b72eec885bcc3b3dc2f5e2d7d8b3de05a9cd7",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/page.schema.json",
+      "sha256": "74fbc7b11e76932bd862088113d5381e13eccc37f39787c3f52ebb958b94d0ea",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-ack.schema.json",
+      "sha256": "b36ab40bd549c2e46ef403ac8c77d7a5b623c1fa4ea78d6c5ce817a91f1b6f69",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-delete.schema.json",
+      "sha256": "6b576e3fbade034718ff561d3dc34234f4d71a6a4e6b2598f60e7c83092bdd57",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-list-result.schema.json",
+      "sha256": "61bded692ace23bc8d7fc3757c188bb74a46b6ced2dfdd099fd04dec13d4dffb",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-list.schema.json",
+      "sha256": "879ec80ce28aafd244a9f6278ec44b43171533d7868d350a56754460eb643b83",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-restore.schema.json",
+      "sha256": "73dddce802a48663ae5499be22221067381fa2ac25e343c25bae6ee3290b59d7",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-restored.schema.json",
+      "sha256": "2ea44ea46dcf15e9df47eab4a79cca36928080ec0eca3695d673706f3a6e4bfa",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-retry.schema.json",
+      "sha256": "c5a1bde0bd3da0e4157151129e4583ad31ade4703d38fdbf2ca62e7ae116d8f0",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-save.schema.json",
+      "sha256": "34fa983b5d5b252395a9ace6e3c5fd9cf80ac2580982c505f32ea4af51e988fb",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-status-result.schema.json",
+      "sha256": "19cc387dae4d0193add3c01e7013df19311d2a75ea4f9ba9c46b19111bc9badf",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/scene-status.schema.json",
+      "sha256": "66567c9b60f4e5b66396fb6a55a3eec5d168a310faea0aca217203d2f11b7a71",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/schemas/turn.schema.json",
+      "sha256": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/tests/test_recovery.py",
+      "sha256": "1f20894cb10bb2ba719febd5a5e0fc6867e4f5ba01e8d4a3ceba6d9d1ea6441a",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/tests/test_runtime.py",
+      "sha256": "000c827b958fe927ea5a26c720a2e8dc908be94c3197e3fb56ae928c75e000b8",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/update_package_index.py",
+      "sha256": "0d7cfbaca06e8eb9a1cd6fe05ee61d9cfcfd46bac8ac52b6a95a4cd8d5f97166",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/validation-output.txt",
+      "sha256": "9ff75b318898380188f9dc6a484a0483a167301277252d22a536a824c5971efe",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "decision-context-v0.1/package-index.json",
+      "section": "engineering_files",
+      "path": "90_可运行工程包/validation-results.json",
+      "sha256": "7bcc027ac749c4f2993edc627a7b17e839de5f7f7d386c3ea397c65a0aaf226e",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../AI Native旅行产品｜PRD V0.1.md",
+      "sha256": "3cb1ed7e3f4522ac4ef0e46960ab801d5a7f5c93e5528c83c2e72933767ed62d",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../AI Native旅行产品｜项目思考总纲 V2.md",
+      "sha256": "a9c777103f6b146f3473187755dac355c04b0368e04d78489b32535b15af7995",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../handoff/Handoff_NAP.md",
+      "sha256": "8d4ba59b94e2042b6ccfb1ebce4e4da3acdf65c84ded140d3317b81325e96e99",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../handoff/Handoff 产品机制设计.md",
+      "sha256": "333b48bc3204a2a48de119c5087e63db8f7b8f490fe4d02ad24759396461773c",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/00_从这里开始.md",
+      "sha256": "5fa8c71f26bd1723b7ebeb2fc254586eb8080c80750c068d6b72bfcdf3b101c7",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/01_资料基线与场景夹具.md",
+      "sha256": "afb891325591dd49f3757dd3b355f91ce0b5df320ab3be6c0a563ee93bd50acb",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/02_正式场景矩阵.md",
+      "sha256": "16eba0ae2c43dbcefc35efe5696f839dd526fc86225d3b664c7edc26e0366e89",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/03_完整测试案例.md",
+      "sha256": "f814bad65eef253f50246ed1a474c82dcb0839f08f0fd72a9ed928ddf6e1d265",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/04_多轮推演与竞争裁决.md",
+      "sha256": "4d89abffcf9a42f327e24c9bc1fe478f8adb4a105d3f2914f4207d9b732e8a65",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/05_评测与判定规格.md",
+      "sha256": "2f4db3eb19421b328da45803ee568996e4c42ce492ac02a7afba899b21c3bd76",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/06_一致性审查与全量追踪.md",
+      "sha256": "dc945c97aea5787bfb373cbcf5fe89f86880a401f259ad3c4a4c962d1068a368",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/07_C3验收报告.md",
+      "sha256": "0ae7b79f5a6d3beb97171b064b9c6ddb5662c0b6357c025807dd9dd995f715d5",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/references/C3-R1_场景种子与任务.md",
+      "sha256": "38ce4ff645bd449295980d8d427ffbd76b6fd85cc6ca7570ce3fd326d839f271",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "nap-c3-validation/references/C3_完整补充资料.md",
+      "sha256": "5ba2791f034b694caeec384081bfbed97117d09070e2c0241111d0e65f78ffcc",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/SPECIFICATION.md",
+      "sha256": "9516ecd29b93e56b3aa2458c62a8228da98f7374233c20f4c1a6009abd00f152",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/AUTHORITY_FINAL.md",
+      "sha256": "84ffda0b03e5055c0a39a3683dae68fe93ec60feebbb06a5011349917366283d",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/LIFECYCLE_FINAL.md",
+      "sha256": "7b03ad92cd5521683977bfb85d2f2cab2380b9b0da2a41fa27be73bf9a2b84e7",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/STATE_TRANSITIONS_FINAL.md",
+      "sha256": "f5292d4c251e08937e0692ea79641c4bb0f5f7d27dff4888a44a3d29714a702b",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/PROPAGATION_FINAL.md",
+      "sha256": "0dd69fe4e0094de1c7b3e48a9d6d24709e05e830caf530e76445d572019eb11a",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/02_业务状态规则/INVARIANTS_FINAL.md",
+      "sha256": "f1f12447f06bef094a07a68d6af8c6111c8ac61d9646034cb7f987ff0f0e0c90",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/00_从这里开始.md",
+      "sha256": "084be43ad1712aa2e5a3faedbfd835de16aa99cfc63749c688c2306749868026",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "sha256": "a3a41431e1b1027474326198912d60434f7d79758aa6d0f32359cb4a33791d2f",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/04_工程规格/02_读取组装与有效性规格.md",
+      "sha256": "3c57cfe7f5e4270a529e50ee0cbd4cedc4fe9020207daa8e2de89b4d1e95750a",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "sha256": "e58d328e0b5bde8c37069f5d196c2cdfc91ed79e80372efd79b58a3f41957522",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "sha256": "b50399b48dce99b475e885f1360e7db5ae14a392b36e83f0722f128bc76d0309",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/context_runtime/contracts.py",
+      "sha256": "4c435a60ecdbd041974628a5c878474ac50203f59e17e22a34cdd979efbaea45",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/context_runtime/runtime.py",
+      "sha256": "029a0156dbd132d5c42e4912f59ff05390433eccc0b8906b86241df64f2f09b2",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/contracts.py",
+      "sha256": "2ba4b92efa2f7767b97b3a666da191a70c5a8ed71f24ef49fae7d0776b8f1821",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/tripstate/engine.py",
+      "sha256": "7c9d80611a0b08b06842967446bc7c8ff9f54ee2e13210d7fa978d210700c777",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Candidate.schema.json",
+      "sha256": "5c4e3de3f5489afea17f5761b733df54474d0c8b5805e0ebd7021a361f9341a7",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/ChangeRecord.schema.json",
+      "sha256": "f3f4d5dad698917676ce1b9036554c108f14ba2886820f2558565cbffb58cd77",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Constraint.schema.json",
+      "sha256": "fd9b89260255f64cd449504e4a52f3a8d9347c3d433a7363816fd227720223a2",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Decision.schema.json",
+      "sha256": "e94a0730abbd000ca565112e1446c7fabc59d74e3c0f745f72dbcd32820e3448",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/DecisionContext.schema.json",
+      "sha256": "b48a143bb6fc50eb6859305a783bb6b6b1de4e10e5e7b2ade3feededd3172aa7",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/DestinationEntity.schema.json",
+      "sha256": "80b18d43f8db8abe318d7335192386cef7280c6dac29c2b113713ccba52c28dd",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/ExternalFact.schema.json",
+      "sha256": "84939312a1f9af75bc1333c5d9ff3142b74bb96ec3c280cd94f23ab8d4c05c2b",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/OpenIssue.schema.json",
+      "sha256": "645fd45267f0880babcc52277067645d7a9873b5887a0a71aa3e4590a4212840",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/OperationIntent.schema.json",
+      "sha256": "3417069753c6cd115c8873b8fb5648544a673d2a828ac274049edbbd8984b7bd",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Preference.schema.json",
+      "sha256": "1a21d3f611adc1ce264c9272e795b7cdc760161b8a10aa1b0510b06324855c2e",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/Skeleton.schema.json",
+      "sha256": "543a434829297c18dab495752bad283595729b97acdd0d5297c91830b455159c",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/TripGoal.schema.json",
+      "sha256": "4baa030c0f8237f5a1dd424413140698895591ab2f1a54fa0e0368dc296c381b",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/change-request.schema.json",
+      "sha256": "a49f81e579fd11a2c593a03c4be14646a6a32315e205f23383bce1857a485f78",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/command.schema.json",
+      "sha256": "af386da7267dff13187f7bad70a51d83522453549de342b47e17f1eca4ced059",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/common.schema.json",
+      "sha256": "d3ce31b9e4df52031ad977b09118c59710482282f58de02f7307575af9b31e5c",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/confirm-request.schema.json",
+      "sha256": "df147f358ac0de766e7459a85c8f7f6a42d8be217e9f001d49d8ae4e157eb76a",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/context-request.schema.json",
+      "sha256": "fe61bb28928ac12e814dba0065151783ad31dfec950d595a3a6ebe6c51c17e7e",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/history.schema.json",
+      "sha256": "e4a6b803557f53d2561e32e2e2f47b0d2517266d8835de7a4e263e6c34d33915",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/response.schema.json",
+      "sha256": "0ff5cf6c677855eceda87b863c29154dde5af67785a0fadb7f93219487d52b08",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../trip-state-schema-v0.1/90_可运行工程包/schemas/state.schema.json",
+      "sha256": "ef3bc93d7b602ddb69d56ad592bd5f210445cbd063784cbfac5aeea4ebfe388b",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+      "sha256": "0e85d8685cdf3469e8cfc9bdc49757667e4d0e7d5fc79d19fb76586f31cd410d",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+      "sha256": "f5195f66bb6d3fa9a551f5db17029d35c6f4d3d7325be65d026bebd62aae7374",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+      "sha256": "12e910bb83585a394f0d920c43b05764bac60bcf9a5cd5ff8529ad58bd982178",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+      "sha256": "6deb5cc36133b88ae72fcc6b27fa6ce4f40b7f14b4d7be773a9a8b8acd1b2a6b",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+      "sha256": "9959600ce7423af7f1ddd6ab05725aa5a5c23d4382ae1b7f91fe38f7f1057638",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+      "sha256": "631363f1819aa6a10f82d78bf902c3abf13688d603b7037951b2b4357e06a8b6",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+      "sha256": "f0a0b5ef77f924f142afc6a8ec431ba082e7e7e78014609b5c7f81c189a9c60e",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+      "sha256": "bc84b931043dd0f5117d4231a68b72eec885bcc3b3dc2f5e2d7d8b3de05a9cd7",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+      "sha256": "74fbc7b11e76932bd862088113d5381e13eccc37f39787c3f52ebb958b94d0ea",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+      "sha256": "b36ab40bd549c2e46ef403ac8c77d7a5b623c1fa4ea78d6c5ce817a91f1b6f69",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+      "sha256": "6b576e3fbade034718ff561d3dc34234f4d71a6a4e6b2598f60e7c83092bdd57",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+      "sha256": "61bded692ace23bc8d7fc3757c188bb74a46b6ced2dfdd099fd04dec13d4dffb",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+      "sha256": "879ec80ce28aafd244a9f6278ec44b43171533d7868d350a56754460eb643b83",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+      "sha256": "73dddce802a48663ae5499be22221067381fa2ac25e343c25bae6ee3290b59d7",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+      "sha256": "2ea44ea46dcf15e9df47eab4a79cca36928080ec0eca3695d673706f3a6e4bfa",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+      "sha256": "c5a1bde0bd3da0e4157151129e4583ad31ade4703d38fdbf2ca62e7ae116d8f0",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+      "sha256": "34fa983b5d5b252395a9ace6e3c5fd9cf80ac2580982c505f32ea4af51e988fb",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+      "sha256": "19cc387dae4d0193add3c01e7013df19311d2a75ea4f9ba9c46b19111bc9badf",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+      "sha256": "66567c9b60f4e5b66396fb6a55a3eec5d168a310faea0aca217203d2f11b7a71",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "sources",
+      "path": "../decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+      "sha256": "14260f0c24a547608384a0913fb4775f006dc03a8037900bac17fc7e8d63edb9",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "DECISIONS.md",
+      "sha256": "71396bd20c511b431f582df255ab8231011ce82552164e0890502bedecdcf47f",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "README.md",
+      "sha256": "2d1c2aedef4b514da2249f2b00d0eb787fbf8f58deb3385926048a109c3c77e2",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "engineering/contracts.md",
+      "sha256": "234dcf2ebd73f944159831deb66c7b5910fa36dc7cf7b65b0b839a428ab4af7e",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "engineering/contracts.schema.json",
+      "sha256": "61dd550805f163eb5f5e9f0e82fa2ca3c3592fe64a49a117b608b1fc55fcfbbc",
+      "verified": true,
+      "selected": true
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "engineering/runtime.md",
+      "sha256": "da8226f9c1358793df589472b86ba82d9e76769d8ac6b66fbcc0048e9458918b",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/00_从这里开始.md",
+      "sha256": "5fa8c71f26bd1723b7ebeb2fc254586eb8080c80750c068d6b72bfcdf3b101c7",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/01_资料基线与场景夹具.md",
+      "sha256": "afb891325591dd49f3757dd3b355f91ce0b5df320ab3be6c0a563ee93bd50acb",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/02_正式场景矩阵.md",
+      "sha256": "16eba0ae2c43dbcefc35efe5696f839dd526fc86225d3b664c7edc26e0366e89",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/03_完整测试案例.md",
+      "sha256": "f814bad65eef253f50246ed1a474c82dcb0839f08f0fd72a9ed928ddf6e1d265",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/04_多轮推演与竞争裁决.md",
+      "sha256": "4d89abffcf9a42f327e24c9bc1fe478f8adb4a105d3f2914f4207d9b732e8a65",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/05_评测与判定规格.md",
+      "sha256": "2f4db3eb19421b328da45803ee568996e4c42ce492ac02a7afba899b21c3bd76",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/06_一致性审查与全量追踪.md",
+      "sha256": "dc945c97aea5787bfb373cbcf5fe89f86880a401f259ad3c4a4c962d1068a368",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/07_C3验收报告.md",
+      "sha256": "0ae7b79f5a6d3beb97171b064b9c6ddb5662c0b6357c025807dd9dd995f715d5",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/package-manifest.json",
+      "sha256": "febd3203a4c70be3b1f33325881ffb15cc6215887c2f0f76dfc33f994bdb3ecd",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/references/C3-R1_场景种子与任务.md",
+      "sha256": "38ce4ff645bd449295980d8d427ffbd76b6fd85cc6ca7570ce3fd326d839f271",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/references/C3_完整补充资料.md",
+      "sha256": "5ba2791f034b694caeec384081bfbed97117d09070e2c0241111d0e65f78ffcc",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/source-manifest.json",
+      "sha256": "26162ae857c05d9ef82a09f01d10848879ec20d7c7470fb8fca982f0198925d6",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "nap-c3-validation/validation-results.json",
+      "sha256": "0057d0ca65331f0fa2b34ede4f9c0ad02a9b30f92364cce3994eb3fd389d8064",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "policy/action-policy.md",
+      "sha256": "c18efed036285653bfb76ff1b0de3872512b6d7a5afc1b8a938cbbfa6107112b",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "policy/behavior-spec.md",
+      "sha256": "78b994b1c12f40f8b7acd33f45aa78a2823f851203c97e567e2bab2881fe378c",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "quality/cases.jsonl",
+      "sha256": "5a2c48a8689a2b31fccb23db1a45a3ba75d97309cbd1e0120b160ddaf2387371",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "quality/cases.schema.json",
+      "sha256": "e2ca9f94e0fa95917b94641f9c3508d4cf18141a456d58c9af8e5b2555b1f43c",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "quality/check_package.py",
+      "sha256": "42cc5971005ecb52d249ebcf25361c2123a5e999cc0f7c89206f27d32af1d803",
+      "verified": true,
+      "selected": false
+    },
+    {
+      "index": "Next-Action-Policy-V0.1/package-index.json",
+      "section": "file_inventory",
+      "path": "quality/evaluation.md",
+      "sha256": "05dcf17770bbb3cd4ad1f6e8e47c864f7b87839b247304ef31a5b7a4ff03ea99",
+      "verified": true,
+      "selected": false
+    }
+  ],
+  "not_selected": [
+    "DC reference runtime/api/checkpoint/recovery implementation and test execution",
+    "unpublished early legacy nine-contract snapshot (absent in both handed-off sets; no compatibility claim)",
+    "full duplicate discussion/mirror and NAP Policy implementation",
+    "private local export metadata"
+  ],
+  "historical_nap_c3": "Retain immutable C3-R2 evidence in baseline-2026-10-27; retired DC 0.2 prose is not an active candidate dependency",
+  "offline_uri_registry": {
+    "https://decision-context.example/runtime/0.1/assemble.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/assemble.schema.json",
+    "https://decision-context.example/runtime/0.1/change.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/change.schema.json",
+    "https://decision-context.example/runtime/0.1/checkpoint-payload.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/checkpoint-payload.schema.json",
+    "https://decision-context.example/runtime/0.1/confirm.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/confirm.schema.json",
+    "https://decision-context.example/runtime/0.1/error.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/error.schema.json",
+    "https://decision-context.example/runtime/0.1/open-turn.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/open-turn.schema.json",
+    "https://decision-context.example/runtime/0.1/packet.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/packet.schema.json",
+    "https://decision-context.example/runtime/0.1/page-request.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/page-request.schema.json",
+    "https://decision-context.example/runtime/0.1/page.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/page.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-ack.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-ack.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-delete.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-delete.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-list-result.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list-result.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-list.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-list.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-restore.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restore.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-restored.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-restored.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-retry.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-retry.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-save.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-save.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-status-result.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status-result.schema.json",
+    "https://decision-context.example/runtime/0.1/scene-status.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/scene-status.schema.json",
+    "https://decision-context.example/runtime/0.1/turn.schema.json": "specs/dc-0.1-calibration-2026-10-29/sources/decision-context-v0.1/90_可运行工程包/schemas/turn.schema.json",
+    "https://trip-state.example/spec/0.1/change-request.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/change-request.schema.json",
+    "https://trip-state.example/spec/0.1/command.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/command.schema.json",
+    "https://trip-state.example/spec/0.1/ChangeRecord.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/ChangeRecord.schema.json",
+    "https://trip-state.example/spec/0.1/state.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/state.schema.json",
+    "https://trip-state.example/spec/0.1/DestinationEntity.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/DestinationEntity.schema.json",
+    "https://trip-state.example/spec/0.1/OperationIntent.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/OperationIntent.schema.json",
+    "https://trip-state.example/spec/0.1/Decision.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/Decision.schema.json",
+    "https://trip-state.example/spec/0.1/confirm-request.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/confirm-request.schema.json",
+    "https://trip-state.example/spec/0.1/Constraint.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/Constraint.schema.json",
+    "https://trip-state.example/spec/0.1/common.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/common.schema.json",
+    "https://trip-state.example/spec/0.1/history.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/history.schema.json",
+    "https://trip-state.example/spec/0.1/context-request.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/context-request.schema.json",
+    "https://trip-state.example/spec/0.1/Skeleton.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/Skeleton.schema.json",
+    "https://trip-state.example/spec/0.1/TripGoal.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/TripGoal.schema.json",
+    "https://trip-state.example/spec/0.1/Candidate.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/Candidate.schema.json",
+    "https://trip-state.example/spec/0.1/Preference.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/Preference.schema.json",
+    "https://trip-state.example/spec/0.1/DecisionContext.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/DecisionContext.schema.json",
+    "https://trip-state.example/spec/0.1/response.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/response.schema.json",
+    "https://trip-state.example/spec/0.1/OpenIssue.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/OpenIssue.schema.json",
+    "https://trip-state.example/spec/0.1/ExternalFact.schema.json": "specs/baseline-2026-10-27/trip-state-schema-v0.1/90_可运行工程包/schemas/ExternalFact.schema.json",
+    "urn:antu:nap:0.1:contracts": "specs/dc-0.1-calibration-2026-10-29/sources/Next-Action-Policy-V0.1/engineering/contracts.schema.json"
+  },
+  "review_notes": [
+    {
+      "kind": "version_governance_text",
+      "source": "decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md §6",
+      "difference": "Historical prose required a new version for any field/enum extension; current prose says future formal breaking extensions. This calibration proposes the existing complete recovery surface only, and does not approve a general relaxation of future version governance.",
+      "reviewer": "technical lead"
+    },
+    {
+      "kind": "unpublished_legacy_contracts",
+      "difference": "The early nine-contract legacy 0.1 set is absent from both inspected handoff sets. No compatibility/migration claim is made for it; current complete 20-contract 0.1 proposal must not silently accept incomplete old-shaped requests."
+    }
+  ]
+}

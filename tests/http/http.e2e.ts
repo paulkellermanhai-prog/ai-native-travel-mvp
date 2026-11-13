@@ -1,3 +1,4 @@
+import { request as nodeHttpRequest } from "node:http";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -10,8 +11,11 @@ import test from "node:test";
 import { Client } from "pg";
 import { SignJWT } from "jose";
 import { issueInternalCapability, openInternalTripService } from "../../src/server/auth/internal-service";
+import { openSyntheticStorageHarness } from "../../src/server/trip-state/internal/persistence";
 import { parseContract } from "../../src/server/trip-state/contracts";
 import { requestAt, scenario } from "../support/command-fixtures";
+import { base, change, createFrom, object } from "../support/bcg-fixtures";
+import { ingest } from "../support/fact-fixtures";
 import type { State, TripStateContracts } from "../../src/server/trip-state/contracts.generated";
 
 type Body = TripStateContracts["response"];
@@ -209,6 +213,120 @@ test("E02-05C actual production Next.js, real HTTP credentials and PostgreSQL", 
       const before = await state(), history = (await http("GET", changes, undefined, a)).body; await stop(); await start(); await login(a);
       assert.deepEqual(await state(), before); assert.deepEqual((await http("GET", changes, undefined, a)).body, history);
       const replay = await http("POST", changes, durableRequest, a); assert.equal(replay.status, 200); assert.deepEqual(replay.body, durableResponse);
+    });
+    await t.test("revocation while a malformed HTTP body is streaming cannot reveal another member's new revision", async () => {
+      admin("grant-trip", {tripId:trip,userId:b.id});
+      const prior=await state();
+      let responseResolve!:(value:{status:number;body:Body})=>void,responseReject!:(error:Error)=>void;
+      const responsePromise=new Promise<{status:number;body:Body}>((resolve,reject)=>{responseResolve=resolve;responseReject=reject;});
+      const slow=nodeHttpRequest(origin+changes,{method:"POST",headers:{cookie:a.cookie,origin,"content-type":"application/json"}},response=>{
+        let raw="";response.setEncoding("utf8");response.on("data",chunk=>{raw+=chunk;});response.on("end",()=>{
+          try{responseResolve({status:response.statusCode!,body:parseContract("response",JSON.parse(raw))});}catch(error){responseReject(error as Error);}
+        });
+      });
+      void responsePromise.catch(()=>{}); // The test may abort before awaiting the HTTP response.
+      slow.on("error",responseReject);slow.write("{");
+      try {
+        // Hold the chunked body open so the request overlaps the member change.
+        await pause(750);
+        const advanced=await http("POST",changes,edit(prior.revision,"other-member-advances"),b);assert.equal(advanced.status,200);
+        assert.equal(advanced.body.revision,prior.revision+1);
+        admin("revoke-trip",{tripId:trip,userId:a.id});
+        const afterB=await owner.query('SELECT "revision", (SELECT count(*)::int FROM "TripStateHistory" h WHERE h."tripId"=$1) AS n FROM "TripStateDocument" WHERE "tripId"=$1',[trip]);
+        slow.end();const denied=await responsePromise;
+        assert.equal(denied.status,403);assert.equal(denied.body.revision,0);assert.equal(denied.body.errors[0].code,"PERMISSION");assert.deepEqual(denied.body.diff,[]);assert.deepEqual(denied.body.affected_ids,[]);
+        const afterA=await owner.query('SELECT "revision", (SELECT count(*)::int FROM "TripStateHistory" h WHERE h."tripId"=$1) AS n FROM "TripStateDocument" WHERE "tripId"=$1',[trip]);assert.deepEqual(afterA.rows,afterB.rows);
+        evidence.push({method:"POST",route:changes,transport:"slow chunked malformed body; membership revoked after another user advanced",status:denied.status,body:denied.body});
+      } finally {slow.destroy();admin("grant-trip",{tripId:trip,userId:a.id});admin("revoke-trip",{tripId:trip,userId:b.id});}
+    });
+    await t.test("AC8 P05 incomplete budget is rejected without a business write", async () => {
+      const s = await state(), command = createFrom(object(base, "constraint-budget", "Constraint"), "rough-budget");
+      if (command.op !== "create" || command.object_type !== "Constraint") throw new Error("Fixture");
+      command.data.value = { kind: "budget", mode: "intent", minimum_minor: null, maximum_minor: 2000000,
+        currency: null as never, people: null as never, categories: [] };
+      const request = requestAt(4, s.revision, `http-rough-budget-${crypto.randomUUID()}`); request.commands = [command]; request.input.target_ids = [];
+      const before = await fingerprint(), response = await http("POST", changes, request, a);
+      assert.equal(response.status, 422); assert.equal(response.body.errors[0].code, "SCHEMA"); assert.equal(await fingerprint(), before);
+    });
+    await t.test("AC8 X01 real member identity guards direct withdrawal and Model proposal acceptance after restart", async () => {
+      admin("grant-trip", { tripId: trip, userId: b.id });
+      const s = await state(), decision = s.objects.find((o) => o.type === "Decision" && o.status === "confirmed"); assert(decision);
+      const request = requestAt(4, s.revision, `http-withdraw-${crypto.randomUUID()}`);
+      request.commands = [{ op: "withdraw_decision", id: decision.id }]; request.input.target_ids = [decision.id];
+      const before = await fingerprint();
+      for (const route of [changes, changes + "/preview"]) {
+        const denied = await http("POST", route, request, b); assert.equal(denied.status, 403); assert.equal(denied.body.errors[0].code, "PERMISSION");
+      }
+      assert.equal(await fingerprint(), before);
+      const proposalRequest = { ...request, idempotency_key: `http-model-withdraw-${crypto.randomUUID()}` };
+      const proposed = await http("POST", changes, proposalRequest, undefined, await bearer());
+      assert.equal(proposed.status, 202); assert.deepEqual(await state(), s);
+      const rejectionProposal = await http("POST", changes, { ...request, idempotency_key: `http-model-reject-${crypto.randomUUID()}` }, undefined, await bearer());
+      assert.equal(rejectionProposal.status, 202); assert.deepEqual(await state(), s);
+      const route = changes + `/${proposed.body.proposal_id}/confirm`, body = { expected_revision: s.revision, idempotency_key: crypto.randomUUID(), proposal_digest: proposed.body.proposal_digest, accept: true };
+      const pendingFingerprint = await fingerprint();
+      // Restart the actual Next process while the proposal is still pending.
+      await stop(); await start(); await login(a); await login(b);
+      assert.deepEqual(await state(), s); assert.equal(await fingerprint(), pendingFingerprint);
+      const recovered = await http("POST", changes, proposalRequest, undefined, await bearer());
+      assert.equal(recovered.status, 202); assert.deepEqual(recovered.body, proposed.body); assert.equal(await fingerprint(), pendingFingerprint);
+      const denied = await http("POST", route, body, b); assert.equal(denied.status, 403); assert.equal(denied.body.errors[0].code, "PERMISSION");
+      assert.equal(await fingerprint(), pendingFingerprint);
+      const rejectionRoute = changes + `/${rejectionProposal.body.proposal_id}/confirm`;
+      const rejected = await http("POST", rejectionRoute, { ...body, idempotency_key: crypto.randomUUID(), proposal_digest: rejectionProposal.body.proposal_digest, accept: false }, b);
+      assert.equal(rejected.status, 422); assert.deepEqual(rejected.body.errors, []); assert.deepEqual(await state(), s);
+      // The first proposal remains pending across the real process restart and the independent rejection.
+      const accepted = await http("POST", route, body, a);
+      assert.equal(accepted.status, 200);
+      assert.deepEqual((await http("POST", route, body, a)).body, accepted.body);
+      assert.deepEqual((await http("POST", changes, proposalRequest, undefined, await bearer())).body, accepted.body);
+      assert.equal((await state()).objects.find((o) => o.id === decision.id)?.status, "revoked");
+    });
+    await t.test("AC8 C12 actual HTTP keeps old authority stale and rejects adoption of contested transport evidence", async () => {
+      // Seed a separate, isolated test trip; all operations under test use real HTTP/Session or the trusted internal Tool channel.
+      const cTrip = `trip-c12-http-${crypto.randomBytes(8).toString("hex")}`, initial = structuredClone(base);
+      initial.trip_id = cTrip;
+      const observed = new Date(Date.now() - 60_000).toISOString(), expires = new Date(Date.now() + 3_600_000).toISOString();
+      for (const o of initial.objects) {
+        o.trip_id = cTrip;
+        if (o.type === "ExternalFact") { o.observed_at = observed; o.expires_at = expires; }
+      }
+      const writableEnv = process.env as Record<string, string | undefined>, previousNodeEnv = writableEnv.NODE_ENV;
+      writableEnv.NODE_ENV = "test";
+      try {
+        const seed = await openSyntheticStorageHarness(cfg.runtimeUrl);
+        try { await seed.seedSyntheticSnapshot(initial); } finally { await seed.close(); }
+      } finally { if (previousNodeEnv === undefined) delete writableEnv.NODE_ENV; else writableEnv.NODE_ENV = previousNodeEnv; }
+      admin("grant-trip", { tripId: cTrip, userId: a.id });
+      const path = `/trips/${cTrip}/changes`, stateRoute = `/trips/${cTrip}/state`;
+      const cstate = async () => (await http("GET", stateRoute, undefined, a)).body as State;
+      const cfingerprint = async () => {
+        const rows = [];
+        for (const table of ["TripStateDocument", "TripStateHistory", "TripStateProposal", "TripStateIdempotency"])
+          rows.push((await owner.query(`SELECT row_to_json(t)::text AS row FROM "${table}" t WHERE "tripId"=$1 ORDER BY row_to_json(t)::text`, [cTrip])).rows);
+        return crypto.createHash("sha256").update(JSON.stringify(rows)).digest("hex");
+      };
+      const adopt = (id: string): TripStateContracts["command"] => ({ op: "adopt_skeleton", id, acknowledge_unknowns: true, confirmation_scope: ["cities", "order", "stays", "connections"] });
+      const adoption = await http("POST", path, change(await cstate(), [adopt("skeleton-a")], `c12-adopt-${crypto.randomUUID()}`), a);
+      assert.equal(adoption.status, 200);
+      const before = await cstate(), decision = before.objects.find((o) => o.type === "Decision" && o.status === "confirmed");
+      assert(decision && decision.type === "Decision"); assert.equal(decision.review_state, "current"); assert.equal(before.effective_skeleton_id, "skeleton-a");
+      const opposite = ingest("opposite-service-http"); opposite.data.query_status = "no_service";
+      opposite.data.observed_at = observed; opposite.data.expires_at = expires;
+      if (opposite.data.value?.kind !== "transport") throw new Error("Fixture");
+      Object.assign(opposite.data.value, { service_exists: false, departure: null, arrival: null, duration_minutes: null });
+      const tool = await issueInternalCapability(secret, cTrip, { role: "tool", id: "tool-c12-http" });
+      assert.equal((await internal.submit(cTrip, change(before, [opposite], `c12-fact-${crypto.randomUUID()}`), tool)).outcome, "applied");
+      const current = await cstate();
+      assert.equal(current.effective_skeleton_id, "skeleton-a");
+      assert.equal(object(current, "skeleton-a", "Skeleton").assessment.status, "stale");
+      const confirmed = current.objects.find((o) => o.id === decision.id);
+      assert(confirmed && confirmed.type === "Decision"); assert.equal(confirmed.status, "confirmed"); assert.equal(confirmed.review_state, "stale");
+      const replacement = createFrom(object(current, "skeleton-a", "Skeleton"), "c12-contested-replacement");
+      const fingerprintBefore = await cfingerprint();
+      const blocked = await http("POST", path, change(current, [replacement, adopt("c12-contested-replacement")], `c12-block-${crypto.randomUUID()}`), a);
+      assert.equal(blocked.status, 422); assert.equal(blocked.body.errors[0].code, "HARD_CONFLICT");
+      assert.equal(await cfingerprint(), fingerprintBefore); assert.deepEqual(await cstate(), current);
     });
     await t.test("durable authentication throttling cannot be bypassed by claiming a different forwarded IP", async () => {
       let limited = false;

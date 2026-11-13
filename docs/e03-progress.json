@@ -1,0 +1,370 @@
+{
+  "format": "antu-e03-progress/v1",
+  "maintenance_source": "docs/e03-progress.json",
+  "generated_view": "docs/E03阶段看板.md",
+  "candidate_pr": 12,
+  "baseline_status": "ACCEPTED_R6_GATE_A_PASS",
+  "accepted_weight_percent": 100,
+  "submitted_weight_percent": 0,
+  "scope": "E03-00–07 accepted at fixed reviewed heads for the first Egypt internal MVP; accepted weight is 100%; this does not authorize merge, deployment, public service, production E11 or production infrastructure",
+  "stages": [
+    {
+      "id": "E03-00",
+      "name": "基线审核与可迭代性准备",
+      "weight_percent": 8,
+      "status": "ACCEPTED",
+      "accepted": true,
+      "subtasks": [
+        {
+          "id": "E03-00-1",
+          "description": "独立核验PR #10的39来源、20 DC合同和TS/NAP引用",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-00-2",
+          "description": "补齐完整原参考包清单和可复现实验",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-00-3",
+          "description": "交付模块修改边界、E03-01启动条件和固定看板",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-00-4",
+          "description": "提交Gate A，不采纳或实现任何机制迭代",
+          "status": "ACCEPTED"
+        }
+      ],
+      "evidence": [
+        "docs/E03-00基线审核与工程准备.md",
+        "docs/E03-00模块边界与修改窗口.md",
+        "specs/e03-00-reference-2026-10-29/availability.json",
+        "docs/e03-00-audit-evidence.json",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/10",
+        "docs/e03-gate-a-r6-approval.json",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033"
+      ],
+      "execution_location": "本地授权工作区只读核查；GitHub PR #10与CI",
+      "responsibilities": "执行工程师：核查、交付和证据；技术负责人：Gate A/基线批准",
+      "owner_participation": "现有0.1.0恢复裁决已作为范围输入；当前无需额外产品资料或新裁决",
+      "blockers": [
+        "已验收；后续来源差异须增量审核"
+      ]
+    },
+    {
+      "id": "E03-01",
+      "name": "契约与工程底座",
+      "weight_percent": 10,
+      "status": "ACCEPTED",
+      "accepted": true,
+      "subtasks": [
+        {
+          "id": "E03-01-1",
+          "description": "Gate A通过后固化已批准DC机器契约和来源锁",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-01-2",
+          "description": "复用AJV/原始数字解码/错误与安全整数边界",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-01-3",
+          "description": "接入参考Oracle和契约正反例，不实现业务运行逻辑",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-01-4",
+          "description": "锁定宿主 E11 独立合同、Owner 已批准的 30 天/180 天/12 个月期限最早截止、主动删除/备份/最小审计/告知配置与隔离测试；生产启用仍受工程 Gate",
+          "status": "ACCEPTED"
+        }
+      ],
+      "evidence": [
+        "docs/E03-01工程交付与审核.md",
+        "docs/E03-01-E11存储设计与后续接入.md",
+        "specs/e03-01-oracle-lock.json",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/14",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42164424546",
+        "docs/E03-01-F01权限修复与复核.md",
+        "docs/e03-01-technical-acceptance.json"
+      ],
+      "execution_location": "独立 feat/e03-01-contract-foundation 分支；本地与 GitHub CI",
+      "responsibilities": "执行工程师：实施/验证/提交；技术负责人：切片审核",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "已通过 E03-01 增量技术复核；公共认证独立风险需另行处理"
+      ]
+    },
+    {
+      "id": "E03-02",
+      "name": "权威状态读取与 Context 组装",
+      "weight_percent": 15,
+      "status": "ACCEPTED",
+      "accepted": true,
+      "subtasks": [
+        {
+          "id": "E03-02-1",
+          "description": "接入已授权同版状态读取",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-02-2",
+          "description": "移植原只读Context对象选择与引用闭合",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-02-3",
+          "description": "校验保护集合、事实时效、未知与组装失败边界",
+          "status": "ACCEPTED"
+        }
+      ],
+      "evidence": [
+        "docs/e03-02-technical-acceptance.json",
+        "docs/E03-02阶段验收与后续接口交接.md",
+        "docs/e03-02-c12-applicability-acceptance.json",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/18",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42187804000",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42187804000/artifacts/13489032296",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42187804000/artifacts/13488922983"
+      ],
+      "execution_location": "PR #18 固定验收 head 9b92c1c；主实施与集成执行者维护验收记录及共享接口",
+      "responsibilities": "执行工程师维护内部只读服务、证据及后续单一集成；AI 技术负责人验收固定 head",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "阶段已验收；CI #65 首次 HTTP P05 状态读取连接关闭，根因未明，第2次同 head 完整重跑通过，持续保留稳定性事项"
+      ]
+    },
+    {
+      "id": "E03-03",
+      "name": "Turn / Task / Focus / 分页",
+      "weight_percent": 13,
+      "status": "ACCEPTED",
+      "accepted": true,
+      "subtasks": [
+        {
+          "id": "E03-03-1",
+          "description": "接入既有结构化解释输入协议",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-03-2",
+          "description": "实现原任务身份、关联、焦点和进度守卫",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-03-3",
+          "description": "实现分层读取、分页交付清单与时效复验",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-03-4",
+          "description": "实现可信原话先记录后关联、有界读取、相关交互续期、自动到期、主动删除立即停读及幂等清理；测跨主体/旅行和删除竞争",
+          "status": "ACCEPTED"
+        }
+      ],
+      "evidence": [
+        "docs/E03-03阶段交接-2026-11-06.md",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/29",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42551994757"
+      ],
+      "execution_location": "PR #29 固定验收 head 55c1625aeda7befb9ce418b1b8bea1177b5fa662；CI #81 成功（58/58 文件、1139/1139 Vitest）",
+      "responsibilities": "主集成人负责真实 Turn/Task 宿主、E11、共享接口及单一集成；原03任务负责 task-core 与 packet-core",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "阶段已通过埃及内部 MVP 工程验收；received_at 第七位小数采用已登记的更严格未来时间拒绝差异，不表述为与冻结 R6 完全等价",
+        "生产 E11、真实模型及公开服务启用不包含在本阶段验收中"
+      ]
+    },
+    {
+      "id": "E03-04",
+      "name": "Trip State 写入与确认桥接",
+      "weight_percent": 10,
+      "status": "ACCEPTED",
+      "accepted": true,
+      "subtasks": [
+        {
+          "id": "E03-04-1",
+          "description": "绑定本轮事件、当前包与精确宿主授权",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-04-2",
+          "description": "复用E02提交/提案/确认/幂等事务",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-04-3",
+          "description": "验证假设分支、完整交付和跨轮拒绝",
+          "status": "ACCEPTED"
+        }
+      ],
+      "evidence": [
+        "docs/E03-04内部MVP交接-2026-11-09.md",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/30",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42751510991"
+      ],
+      "execution_location": "PR #30 固定验收 head 31d41a42bf3c6bfc56be2d6f657e0a98b21b2b6a；CI #82 成功（59/59 文件、1140/1140 Vitest）",
+      "responsibilities": "主集成人完成可信宿主证明、E02 写桥接线和真实 Session/PG/HTTP 证据；AI 技术负责人限定增量验收固定 head",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "阶段已通过埃及内部 MVP 工程验收；生产写入、部署、真实模型、供应商和公开服务启用不包含在本阶段验收中"
+      ]
+    },
+    {
+      "id": "E03-05",
+      "name": "Checkpoint 持久化",
+      "weight_percent": 17,
+      "status": "ACCEPTED",
+      "accepted": true,
+      "subtasks": [
+        {
+          "id": "E03-05-1",
+          "description": "在原合同内评审生产存储适配设计",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-05-2",
+          "description": "实现owner/trip/workspace隔离、CAS、回执与仅保存重试",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-05-3",
+          "description": "验证原子性、故障、删除、容量和保留边界",
+          "status": "ACCEPTED"
+        }
+      ],
+      "evidence": [
+        "src/server/decision-context/recovery-service/trusted-host.ts",
+        "tests/decision-context/recovery-service/trusted-host.test.ts",
+        "tests/decision-context/host-runtime/evidence-host.pg.test.ts",
+        "tests/decision-context/checkpoint-store/postgres.test.ts",
+        "tests/decision-context/checkpoint-store/session.integration.test.ts",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/31",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42785208869"
+      ],
+      "execution_location": "PR #31 固定验收 head 90bdc72b08f89ddbe2cfb5851766dd0bd88716b1；CI #84 成功（60/60 文件、1142/1142 Vitest）",
+      "responsibilities": "主集成人复用原保存/恢复任务的 checkpoint-core、checkpoint-store、PG Repository 与保存接线；E03-06 恢复保持关闭",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "阶段已通过埃及内部 MVP Checkpoint 持久化工程验收；跨新 Session、新进程恢复、生产迁移、备份/WAL 和生产部署不包含在本阶段验收中"
+      ]
+    },
+    {
+      "id": "E03-06",
+      "name": "跨会话恢复",
+      "weight_percent": 14,
+      "status": "ACCEPTED",
+      "accepted": true,
+      "subtasks": [
+        {
+          "id": "E03-06-1",
+          "description": "移植DC-R01–07原有恢复范围",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-06-2",
+          "description": "重建当前权威依据、标记草稿/比较陈旧和缺失",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-06-3",
+          "description": "轮换授权代次，隔离旧输入/提案/写缓存并验证跨进程恢复",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-06-4",
+          "description": "恢复后重验当前授权与最新 TS，已删/过期宿主原话不可由旧 Checkpoint、游标或备份复活；测缺证安全恢复",
+          "status": "ACCEPTED"
+        }
+      ],
+      "evidence": [
+        "src/server/decision-context/integration/002-workspace-reopen-candidate.sql",
+        "src/server/decision-context/host-runtime/evidence-host.ts",
+        "src/server/decision-context/recovery-service/trusted-host.ts",
+        "tests/decision-context/host-runtime/evidence-host.pg.test.ts",
+        "tests/decision-context/recovery-service/trusted-host.test.ts",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/32",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42790373790"
+      ],
+      "execution_location": "PR #32 固定验收 head fc0e89a5764c247ffa2f3278e629b5f33691d270；CI #86 成功（60/60 文件、1143/1143 Vitest）",
+      "responsibilities": "主集成人复用 recovery-core、recovery-service、E03-05 PG Repository 与 E03-03 宿主，实施最小可信 workspace reopen 和跨会话恢复",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "阶段已通过埃及内部 MVP 跨会话恢复工程验收；生产迁移、备份/WAL、多实例、真实模型、NAP、UI 和公开服务不包含在本阶段验收中"
+      ]
+    },
+    {
+      "id": "E03-07",
+      "name": "HTTP 与完整工程验收",
+      "weight_percent": 13,
+      "status": "ACCEPTED",
+      "accepted": true,
+      "subtasks": [
+        {
+          "id": "E03-07-1",
+          "description": "评审并实现原正式HTTP适配与真实宿主",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-07-2",
+          "description": "真实HTTP/PG和恢复故障端到端验收",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-07-3",
+          "description": "全阶段回归、需求追踪和技术负责人最终Gate",
+          "status": "ACCEPTED"
+        },
+        {
+          "id": "E03-07-4",
+          "description": "真实 Session/PostgreSQL/HTTP/新进程联测 E11 保留期限、删除/清理失败、备份恢复先重放删除标记、最小审计和用户告知",
+          "status": "ACCEPTED"
+        }
+      ],
+      "evidence": [
+        "src/server/decision-context/http-adapter/pr29-host-candidate.ts",
+        "src/server/decision-context/host-runtime/packet-http-candidate.ts",
+        "src/server/decision-context/host-runtime/evidence-host.ts",
+        "tests/http/e03-runtime/pr29-host.pg.test.ts",
+        "tests/support/e03-http-recovery-process.ts",
+        "docs/E03最终工程交接索引.md",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/33",
+        "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42798102568"
+      ],
+      "execution_location": "PR #33 固定验收 head 590dfade29ad2dcae6dbc40507072f18cea3a58a；CI #88 成功（60/60 文件、1144/1144 Vitest）",
+      "responsibilities": "主集成人复用 E03-03–06 真实宿主、写桥、Checkpoint 和恢复能力，完成内部 MVP HTTP 闭环与最终工程证据；AI 技术负责人限定增量验收固定 head",
+      "owner_participation": "仅遇未覆盖的产品语义冲突时参与；不要求逐项工程配置",
+      "blockers": [
+        "阶段已通过第一版埃及内部 MVP 工程验收；生产迁移、备份/WAL、正式调度、审计与用户告知、多实例、真实模型、NAP、UI 和公开服务不包含在本验收中"
+      ]
+    }
+  ],
+  "approved_change_registrations": [
+    {
+      "stage_id": "E03-03",
+      "description": "有限并行授权时尚未开始；现已有独立本地候选，未验收；仅 -1/-2 内不依赖完整 Context 的合同复用、纯任务守卫和合成测试，固定 33059d4 后先落盘 G，不计验收",
+      "approval_evidence": "工程侧｜MVP开发计划 AI 技术负责人，E03-03-PARALLEL-SCOPE-2026-11-06-01",
+      "subtask_ids": [
+        "E03-03-1",
+        "E03-03-2"
+      ]
+    },
+    {
+      "stage_id": "E03-03",
+      "description": "按实际依赖并行实现指定核心、真实PG存储与HTTP适配；尚缺可信证明或删除屏障的接线关闭，不构成阶段验收",
+      "approval_evidence": "工程侧｜MVP开发计划 AI 技术负责人，E03-03-07-PARALLEL-TECH-RELEASE-2026-11-06-01；docs/E03-03-07并行技术放行回执-2026-11-06.md",
+      "subtask_ids": [
+        "E03-03-1",
+        "E03-03-2",
+        "E03-03-3",
+        "E03-03-4"
+      ]
+    }
+  ],
+  "change_policy": "后续仅将已批准工程变更登记到既有阶段及新增子任务，不自动改变八阶段框架或权重；正式字段/权限/版本变化另行规格审核；不保证所有变更无需改机器契约",
+  "gate_a": {
+    "status": "APPROVED",
+    "approval_evidence": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033"
+  }
+}

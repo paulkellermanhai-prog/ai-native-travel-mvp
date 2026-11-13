@@ -1,0 +1,22 @@
+{
+  "format": "antu-e04-technical-acceptance/v1",
+  "decision_id": "E04-01-04-INTERNAL-MVP-TECH-ACCEPTANCE-2026-11-12-01",
+  "decided_at": "2026-11-12",
+  "reviewer": "AI 技术负责人",
+  "scope": "E04-01 至 E04-04 内部 MVP 限定增量验收",
+  "decision": "ACCEPTED",
+  "accepted_weight_percent": 60,
+  "cumulative_accepted_weight_percent": 68,
+  "fixed_inputs": [
+    {"pull_request": 36, "commit": "2301091f6a659c3dd325b50d4f54f346da0badcc"},
+    {"pull_request": 37, "commit": "c98dcfd8e6b49554158d9ef754dbfb265a714f17"}
+  ],
+  "ci": {"label": "CI #98", "conclusion": "SUCCESS", "url": "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43030733010"},
+  "limits": [
+    "不自动合并或部署",
+    "不启用生产 E11",
+    "不接受 E04-05 至 E04-07",
+    "不扩展到 UI、真实供应商、预订、支付或改退"
+  ],
+  "source": "2026-11-12 用户指令：E04-01～04 已通过 AI 技术负责人内部 MVP 限定增量验收"
+}

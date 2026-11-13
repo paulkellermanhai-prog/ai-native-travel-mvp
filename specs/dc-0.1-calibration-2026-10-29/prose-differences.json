@@ -1,0 +1,21 @@
+{
+  "comparison_only_no_source_rewrite": true,
+  "remaining_after_version_normalization": [
+    {
+      "path": "decision-context-v0.1/90_可运行工程包/README.md",
+      "diff": "--- historical version-normalized for comparison only\n+++ current candidate\n@@ -2,7 +2,7 @@\n \n 2026-10-24/R4：首版 P0 跨会话精确恢复已实现并通过本地 SQLite、新进程、并发及强制终止验收。任务、草稿、比较版本和语义焦点可恢复；依据按当前状态重建，旧授权不复活。最新结果见 VALIDATION_REPORT.md。\n \n-状态：运行协议 0.1.0 的本地参考实现，工程候选待审核；不是已上线的 HTTP/鉴权/前端/LLM 服务。产品说明从上层 `00_从这里开始.md` 进入。\n+状态：Decision Context 首版运行协议 0.1.0 的本地参考实现，工程候选待审核；跨会话恢复属于同一首版合同。不是已上线的 HTTP/鉴权/前端/LLM 服务。产品说明从上层 `00_从这里开始.md` 进入。\n \n ## 1. 接入顺序\n \n@@ -34,7 +34,7 @@\n | 位置 | 用途 |\n |---|---|\n | context_runtime/contracts.py | 二十份当前运行 Schema 的唯一声明源，离线引用原业务合同 |\n-| schemas/ | 当前 0.1.0 合同；legacy-0.1/ 保留九份旧合同供显式迁移对照，不默认为兼容 |\n+| schemas/ | 20 份首版 0.1.0 合同，包含跨会话恢复接口；禁止额外字段 |\n | FIELD_DICTIONARY.md | 自动生成的全路径结构字典；业务语义在工程规格 |\n | context_runtime/runtime.py | 任务关联、双通道、快照/分层/时效、授权及原状态写入适配 |\n | context_runtime/checkpoints.py / recovery.py / errors.py | 本地 SQLite 事务/CAS/回执；现场保存恢复与当前状态重建；稳定错误 |\n"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/01_运行契约与任务定位.md",
+      "diff": "--- historical version-normalized for comparison only\n+++ current candidate\n@@ -8,7 +8,7 @@\n \n ## 1. 分层与版本\n \n-运行合同 `runtime_contract_version=0.1.0` 使用独立命名空间 `https://decision-context.example/runtime/0.1/`；它不是 Trip State 的 schema_version，也不是修改已有 DecisionContext 的许可。旧九份 0.1 合同保留在 legacy-0.1/，不静默兼容旧请求。\n+运行合同 `runtime_contract_version=0.1.0` 使用独立命名空间 `https://decision-context.example/runtime/0.1/`；它不是 Trip State 的 schema_version，也不是修改已有 DecisionContext 的许可。跨会话恢复接口属于同一首版合同。\n \n - 权威业务层仍是九个持久对象、只读 DecisionContext、两类系统记录和根采用引用。\n - 运行层有 Turn、Task Interpretation、Read Packet 等**传输/会话封装**，不进入 state.objects，不新增业务类别，不拥有预算/偏好/采用真值。\n"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/03_接口异常权限与兼容.md",
+      "diff": "--- historical version-normalized for comparison only\n+++ current candidate\n@@ -20,7 +20,7 @@\n | checkpoints/status | scene-status | scene-status-result | 区分业务生效与现场保存确认 |\n | checkpoints/retry | scene-retry | scene-ack | 只重试保存，不重放业务操作 |\n \n-本包 20 份当前机器 Schema 位于 `90_可运行工程包/schemas/`，9 份旧 0.1 合同保留于 legacy-0.1/。原 change-request、confirm-request、response、DecisionContext 及业务对象通过原 `$id` 离线引用，不复制/改写合同。生成字段字典列出全部顶层、嵌套、数组项和共享定义。\n+本包 20 份首版机器 Schema 位于 `90_可运行工程包/schemas/`，统一使用运行合同 0.1.0。原 change-request、confirm-request、response、DecisionContext 及业务对象通过原 `$id` 离线引用，不复制/改写合同。生成字段字典列出全部顶层、嵌套、数组项和共享定义。\n \n POST turns/assemble/pages 正常 200；变更成功 200、待确认 202、版本/幂等冲突 409、业务拒绝 422、权限 403、内部失败 500。运行层错误返回独立 error；原状态错误返回原 response，客户端按接口/形状识别，不能只判断 HTTP=200 就认为核验完成。\n \n@@ -81,7 +81,7 @@\n \n 现行 Trip State schema_version=0.1.0 保持字节不变；新运行协议独立 `$id`，无已发布旧运行数据，故本轮没有假造数据迁移脚本。\n \n-任何正式扩展字段/枚举都须新版本、新 `$id`、字段说明、兼容/迁移与正反测试同步；不能靠 additionalProperties 逃避。U06 已通过运行 0.1.0 补齐检查点/草稿/保留/失效与授权代次，旧请求不静默升级；持久现场不写入 Context 或 ChangeRecord，Trip State 0.1.0 不变。\n+任何未来正式破坏性扩展都须新版本、新 `$id`、字段说明、兼容/迁移与正反测试同步；不能靠 additionalProperties 逃避。U06 已在首版运行合同 0.1.0 内补齐检查点/草稿/保留/失效与授权代次；持久现场不写入 Context 或 ChangeRecord，Trip State 0.1.0 不变。\n \n 读取包可丢弃重建，不能以历史包迁移代替业务数据迁移。事实/决定的历史引用不授予当前采用资格。原业务合同变更时先核对差异/回归，不用最新第三方惯例重新定义对象。\n \n"
+    },
+    {
+      "path": "decision-context-v0.1/04_工程规格/05_持久检查点与跨会话恢复规格.md",
+      "diff": "--- historical version-normalized for comparison only\n+++ current candidate\n@@ -104,7 +104,7 @@\n \n ## 8. 新错误与兼容升级\n \n-运行合同升至 0.1.0，新 `$id` 为 `/runtime/0.1/`；旧九份 0.1 合同原样保留在 schemas/legacy-0.1/。旧 0.1 请求明确拒绝，不静默填补新持久/授权语义；旧版本没有已发布持久检查点，不能声称能找回当时未保存的内存。检查点数据库 user_version 与 payload 格式分别校验，未知版本不降级，不覆盖其他数据库。\n+运行合同保持首版 `0.1.0`，新 `$id` 为 `/runtime/0.1/`；跨会话恢复接口与原运行接口同属这一版本。未发布的早期本地快照不作为正式包内容；检查点数据库 user_version 与 payload 格式分别校验，未知版本不降级，不覆盖其他数据库。\n \n | 错误 | 结果 |\n |---|---|\n"
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../../src/generated/prisma/client";
+import { evidenceAuthorization } from "../../src/server/interaction-evidence/boundaries";
 import fs from "node:fs";
 import crypto from "node:crypto";
 import { Client } from "pg";
@@ -8,6 +11,7 @@ import { issueInternalCapability, openInternalTripService } from "../../src/serv
 import { openSyntheticStorageHarness, openTripStateReader, openTripCommandService } from "../../src/server/trip-state/internal/persistence";
 import { grantIdentityRuntime } from "../../scripts/grant-identity-runtime.mjs";
 import { requestAt } from "../support/command-fixtures";
+import { readContextSelection } from "../../src/server/decision-context/context-read";
 
 const file = process.env.E02_STORAGE_ENV_FILE;
 const cfg = file ? JSON.parse(fs.readFileSync(file, "utf8")) as { authUrl: string; migrationUrl: string; runtimeUrl: string; database: string } : null;
@@ -208,4 +212,213 @@ describe.skipIf(!cfg?.authUrl)("E02-05A real password, database Session and live
     expect(() => authConfiguration({ ...configuration(), BETTER_AUTH_URL: "http://public.example.invalid" })).toThrow();
     await expect(openIdentity({ ...configuration(), AUTH_DATABASE_URL: cfg!.migrationUrl })).rejects.toThrow("unprivileged non-owner");
   });
+  it("E11 denies a second shared-trip member access to another owner's private evidence scope", async () => {
+    const f=await setup(), b=await account(f.identity), authorize=evidenceAuthorization(f.identity);
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    await expect(authorize.authorize(b.headers,scope)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(authorize.authorize(new Headers({"x-user-id":f.a.user.id}),scope)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(authorize.authorize(f.a.headers,scope)).resolves.toEqual(scope);
+    await expect(authorize.authorize(f.a.headers,{...scope,trip_id:"trip-unassigned"})).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+  });
+  it("E11 transaction proof rejects forged grants and every changed scope dimension", async () => {
+    const f=await setup(), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const grant=await authorize.authorize(f.a.headers,scope);
+    await db.$transaction(async tx=>{
+      await authorize.guard(grant,scope,tx);
+      await expect(authorize.guard({...grant},scope,tx)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+      for(const key of ["owner_id","trip_id","workspace_key","task_key"] as const) await expect(authorize.guard(grant,{...scope,[key]:"other"},tx)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    });
+  });
+  it("E11 rechecks live database membership and Session before any future storage transaction", async () => {
+    const f=await setup(), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const grant=await authorize.authorize(f.a.headers,scope);
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(db.$transaction(tx=>authorize.guard(grant,scope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,f.a.user.id]);
+    await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);
+    await expect(db.$transaction(tx=>authorize.guard(grant,scope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+  });
+
+  it("E11 snapshots a reused Headers per grant across members, membership revocation and session expiry", async () => {
+    const f=await setup(), b=await account(f.identity), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const aScope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const bScope={...aScope,owner_id:b.user.id};
+    const reused=new Headers({cookie:f.a.headers.get("cookie")!}), a=await authorize.authorize(reused,aScope);
+    reused.set("cookie",b.headers.get("cookie")!);const bGrant=await authorize.authorize(reused,bScope);
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(db.$transaction(tx=>authorize.guard(a,aScope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(bGrant,bScope,tx))).resolves.toBeUndefined();
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,f.a.user.id]);
+    await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);
+    await expect(db.$transaction(tx=>authorize.guard(a,aScope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(bGrant,bScope,tx))).resolves.toBeUndefined();
+  });
+  it("E11 failed scope and invalid-cookie attempts cannot change an existing grant", async () => {
+    const f=await setup(), b=await account(f.identity), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const reused=new Headers({cookie:f.a.headers.get("cookie")!}), grant=await authorize.authorize(reused,scope);
+    reused.set("cookie",b.headers.get("cookie")!);await expect(authorize.authorize(reused,scope)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    reused.set("cookie","better-auth.session_token=invalid");await expect(authorize.authorize(reused,scope)).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(grant,scope,tx))).resolves.toBeUndefined();
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(db.$transaction(tx=>authorize.guard(grant,scope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+  });
+  it("E11 concurrent sign-ins using one Headers retain both original session proofs", async () => {
+    const f=await setup(), b=await account(f.identity), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const aScope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"}, bScope={...aScope,owner_id:b.user.id};
+    const reused=new Headers({cookie:f.a.headers.get("cookie")!});const pa=authorize.authorize(reused,aScope);
+    reused.set("cookie",b.headers.get("cookie")!);const pb=authorize.authorize(reused,bScope);const [a,bGrant]=await Promise.all([pa,pb]);
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(db.$transaction(tx=>authorize.guard(a,aScope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(bGrant,bScope,tx))).resolves.toBeUndefined();
+  });
+
+  it("E11 preserves the signing session when one user has two live sessions", async () => {
+    const f=await setup(), authorize=evidenceAuthorization(f.identity);
+    const db=new PrismaClient({adapter:new PrismaPg({connectionString:cfg!.runtimeUrl})});resources.push({close:()=>db.$disconnect()});
+    const login=await f.identity.auth.api.signInEmail({body:{email:f.a.email,password:f.a.password},headers:new Headers({origin:f.identity.config.origin}),asResponse:true});
+    expect(login.status).toBe(200);const secondCookie=login.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
+    const secondHeaders=new Headers({cookie:secondCookie}), second=await f.identity.auth.api.getSession({headers:secondHeaders});
+    expect(second?.session.id).toBeTruthy();expect(second!.session.id).not.toBe(f.a.session.session.id);
+    const scope={owner_id:f.a.user.id,trip_id:f.tripId,workspace_key:"workspace-a",task_key:"task-a"};
+    const reused=new Headers({cookie:f.a.headers.get("cookie")!}), first=await authorize.authorize(reused,scope);
+    reused.set("cookie",secondCookie);const other=await authorize.authorize(reused,scope);
+    await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);
+    await expect(db.$transaction(tx=>authorize.guard(first,scope,tx))).rejects.toMatchObject({code:"EVIDENCE_ACCESS_DENIED"});
+    await expect(db.$transaction(tx=>authorize.guard(other,scope,tx))).resolves.toBeUndefined();
+  });
+
+  it.each(["state","history","preview","submit","confirm","replay","confirm-replay"] as const)("operation-scoped credential rejects revoked first user after interleaved second user: %s", async kind => {
+    const f=await setup(), b=await account(f.identity);
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    const command=goal();
+    if(kind==="replay") expect(await f.service.submit(f.tripId,command,f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+    let proposalId="proposal-unknown"; const confirmation={expected_revision:0,idempotency_key:"confirm-x",proposal_digest:"x",accept:true};
+    if(kind==="confirm-replay") {
+      const token=await issueInternalCapability(f.secret,f.tripId,{role:"model",id:"model-replay"});const proposal=await f.internal.submit(f.tripId,command,token);
+      expect(proposal.outcome).toBe("pending_confirmation");proposalId=proposal.proposal_id!;confirmation.proposal_digest=proposal.proposal_digest!;
+      expect(await f.service.confirm(f.tripId,proposalId,confirmation,f.a.headers)).toMatchObject({outcome:"applied"});
+    }
+    const before=await owner.query('SELECT "revision", (SELECT count(*)::int FROM "TripStateHistory" h WHERE h."tripId"=$1) AS n FROM "TripStateDocument" WHERE "tripId"=$1',[f.tripId]);
+    let notify!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{notify=r;}),resume=new Promise<void>(r=>{release=r;});let calls=0;
+    const host={...f.host,guard:async (...args:Parameters<NonNullable<typeof f.host.guard>>)=>{if(calls++===0){notify();await resume;}return f.host.guard!(...args);}};
+    const service=await openTripCommandService(cfg!.runtimeUrl,host);resources.push(service);
+    const shared=new Headers({cookie:f.a.headers.get("cookie")!});
+    const pending=kind==="state"?service.state(f.tripId,shared):kind==="history"?service.history(f.tripId,shared):kind==="preview"?service.preview(f.tripId,command,shared):(kind==="confirm"||kind==="confirm-replay")?service.confirm(f.tripId,proposalId,confirmation,shared):service.submit(f.tripId,command,shared);
+    // Attach a handler immediately: the rejected first operation is observed after unblocking.
+    const observed=pending.then(value=>({value,error:null}),error=>({value:null,error}));
+    try {
+      await entered;shared.set("cookie",b.headers.get("cookie")!);
+      expect(await service.state(f.tripId,shared)).toBeTruthy();
+      await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+      release();const result=await observed;
+      if(kind==="submit"||kind==="confirm"||kind==="replay"||kind==="confirm-replay")expect(result.value).toMatchObject({outcome:"rejected",errors:[{code:"PERMISSION"}]});
+      else expect(result.error).toMatchObject({code:"PERMISSION"});
+      const after=await owner.query('SELECT "revision" FROM "TripStateDocument" WHERE "tripId"=$1',[f.tripId]);
+      const history=await owner.query('SELECT count(*)::int AS n FROM "TripStateHistory" WHERE "tripId"=$1',[f.tripId]);
+      expect(after.rows[0].revision).toBe(before.rows[0].revision);expect(history.rows[0].n).toBe(before.rows[0].n);
+    } finally {release();await observed;}
+  },15000);
+  it("operation-scoped credentials cannot borrow another live session of the same user",async()=>{
+    const f=await setup(),login=await f.identity.auth.api.signInEmail({body:{email:f.a.email,password:f.a.password},headers:new Headers({origin:f.identity.config.origin}),asResponse:true});
+    expect(login.status).toBe(200);const cookie=login.headers.getSetCookie().map(c=>c.split(";")[0]).join("; ");
+    const second=await f.identity.auth.api.getSession({headers:new Headers({cookie})});expect(second?.session.id).not.toBe(f.a.session.session.id);
+    let notify!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{notify=r;}),resume=new Promise<void>(r=>{release=r;});let calls=0;
+    const host={...f.host,guard:async (...args:Parameters<NonNullable<typeof f.host.guard>>)=>{if(calls++===0){notify();await resume;}return f.host.guard!(...args);}};
+    const service=await openTripCommandService(cfg!.runtimeUrl,host);resources.push(service);
+    const shared=new Headers({cookie:f.a.headers.get("cookie")!}),pending=service.state(f.tripId,shared).then(value=>({value,error:null}),error=>({value:null,error}));
+    try {await entered;shared.set("cookie",cookie);expect(await service.state(f.tripId,shared)).toBeTruthy();
+      await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);release();expect((await pending).error).toMatchObject({code:"PERMISSION"});
+    } finally {release();await pending;}
+  },15000);
+  it("a failed interleaved authentication does not contaminate an active service operation",async()=>{
+    const f=await setup(),b=await account(f.identity); // B deliberately has no membership.
+    let notify!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{notify=r;}),resume=new Promise<void>(r=>{release=r;});let calls=0;
+    const host={...f.host,guard:async (...args:Parameters<NonNullable<typeof f.host.guard>>)=>{if(calls++===0){notify();await resume;}return f.host.guard!(...args);}};
+    const service=await openTripCommandService(cfg!.runtimeUrl,host);resources.push(service);
+    const shared=new Headers({cookie:f.a.headers.get("cookie")!}),pending=service.state(f.tripId,shared).then(value=>({value,error:null}),error=>({value:null,error}));
+    try {await entered;shared.set("cookie",b.headers.get("cookie")!);await expect(service.state(f.tripId,shared)).rejects.toMatchObject({code:"PERMISSION"});
+      release();expect((await pending).value).toMatchObject({revision:0});
+    } finally {release();await pending;}
+  },15000);
+
+  it.each(["submit","confirm","submit-replay","confirm-replay","submit-malformed","submit-schema","submit-unsafe","confirm-malformed","confirm-schema"] as const)("never disclose another member's advanced revision after revoked/expired initial authorization: %s",async kind=>{
+    for (const failure of ["revoked","expired"] as const) {
+      const f=await setup(),b=await account(f.identity);
+      await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+      const command=goal();let proposalId="proposal-unknown";const confirmation={expected_revision:0,idempotency_key:"confirm-redaction",proposal_digest:"x",accept:true};
+      if(kind==="submit-replay")expect(await f.service.submit(f.tripId,command,f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+      if(kind==="confirm-replay") {
+        const token=await issueInternalCapability(f.secret,f.tripId,{role:"model",id:"model-redaction"});const proposal=await f.internal.submit(f.tripId,command,token);
+        expect(proposal.outcome).toBe("pending_confirmation");proposalId=proposal.proposal_id!;confirmation.proposal_digest=proposal.proposal_digest!;
+        expect(await f.service.confirm(f.tripId,proposalId,confirmation,f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+      }
+      let notify!:()=>void,release!:()=>void;const entered=new Promise<void>(r=>{notify=r;}),resume=new Promise<void>(r=>{release=r;});let first=true;
+      const host={...f.host,authorize:async (...args:Parameters<typeof f.host.authorize>)=>{const grant=await f.host.authorize(...args);if(first){first=false;notify();await resume;}return grant;}};
+      const service=await openTripCommandService(cfg!.runtimeUrl,host);resources.push(service);
+      const confirm=kind.startsWith("confirm");let input:unknown=confirm?confirmation:command;
+      if(kind.endsWith("malformed"))input="{";
+      if(kind.endsWith("schema"))input={...command,unexpected_authority:true};
+      if(kind==="submit-unsafe")input=JSON.stringify(command).replace('"expected_revision":0','"expected_revision":9007199254740993');
+      const pending=(confirm?service.confirm(f.tripId,proposalId,input,f.a.headers):service.submit(f.tripId,input,f.a.headers)).then(value=>({value,error:null}),error=>({value:null,error}));
+      try {
+        await entered;const prior=kind.endsWith("replay")?1:0;
+        const bCommand=prior?requestAt(2,prior,`b-activate-${crypto.randomUUID()}`):goal();
+        bCommand.idempotency_key=`b-advance-${crypto.randomUUID()}`;
+        expect(await f.service.submit(f.tripId,bCommand,b.headers)).toMatchObject({outcome:"applied",revision:prior+1});
+        const fingerprint = async () => {
+          const rows=[];
+          for (const table of ["TripStateDocument","TripStateHistory","TripStateProposal","TripStateIdempotency"]) rows.push((await owner.query(`SELECT row_to_json(t)::text AS row FROM "${table}" t WHERE "tripId"=$1 ORDER BY row_to_json(t)::text`,[f.tripId])).rows);
+          return crypto.createHash("sha256").update(JSON.stringify(rows)).digest("hex");
+        };
+        const afterB=await fingerprint();
+        if(failure==="revoked")await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+        else await owner.query('UPDATE "AuthSession" SET "expiresAt"=clock_timestamp()-interval \'1 second\' WHERE id=$1',[f.a.session.session.id]);
+        release();const result=await pending;expect(result.error).toBeNull();
+        expect(result.value).toMatchObject({outcome:"rejected",revision:0,affected_ids:[],diff:[],errors:[{code:"PERMISSION"}]});
+        expect(await fingerprint()).toBe(afterB);
+      } finally {release();await pending;}
+    }
+  },30000);
+
+  it("authorized malformed and stale operations retain the original error contract and current revision",async()=>{
+    const f=await setup(), command=goal();expect(await f.service.submit(f.tripId,command,f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+    await expect(f.service.submit(f.tripId,"{",f.a.headers)).rejects.toBeInstanceOf(SyntaxError);
+    await expect(f.service.confirm(f.tripId,"proposal-unknown","{",f.a.headers)).rejects.toBeInstanceOf(SyntaxError);
+    const missing=await f.service.confirm(f.tripId,"proposal-unknown",{expected_revision:1,idempotency_key:"missing",proposal_digest:"x",accept:true},f.a.headers);
+    expect(missing).toMatchObject({outcome:"rejected",revision:1,errors:[{code:"PROPOSAL_NOT_FOUND"}]});
+    const stale=goal();stale.idempotency_key="fresh-stale-key";const conflict=await f.service.submit(f.tripId,stale,f.a.headers);
+    expect(conflict).toMatchObject({outcome:"conflict",revision:1,errors:[{code:"VERSION_CONFLICT"}]});
+    expect((await owner.query('SELECT count(*)::int AS n FROM "TripStateHistory" WHERE "tripId"=$1',[f.tripId])).rows[0].n).toBe(1);
+  });
+
+  it("DC reads an authorized single TS revision even if another member commits after the snapshot", async () => {
+    const f=await setup(), b=await account(f.identity);
+    await owner.query('INSERT INTO "TripMembership" ("tripId","userId") VALUES ($1,$2)',[f.tripId,b.user.id]);
+    expect(await f.service.submit(f.tripId,goal(),f.a.headers)).toMatchObject({outcome:"applied",revision:1});
+    let snapshotReads=0;
+    const interleaved={state:async (tripId:string,credential:unknown)=>{
+      snapshotReads++;const state=await f.service.state(tripId,credential);
+      expect(await f.service.submit(f.tripId,requestAt(2,1,`dc-activate-${crypto.randomUUID()}`),b.headers)).toMatchObject({outcome:"applied",revision:2});
+      return state;
+    }};
+    const before=await readContextSelection(interleaved,f.tripId,f.a.headers,[]);
+    expect(snapshotReads).toBe(1);expect(before).toMatchObject({trip_id:f.tripId,revision:1,selected_object_ids:[]});
+    const after=await readContextSelection(f.service,f.tripId,f.a.headers,[]);
+    expect(after).toMatchObject({trip_id:f.tripId,revision:2,selected_object_ids:["goal-new"],assembled_from_versions:[{id:"goal-new",version:2}]});
+    await owner.query('DELETE FROM "TripMembership" WHERE "tripId"=$1 AND "userId"=$2',[f.tripId,f.a.user.id]);
+    await expect(readContextSelection(f.service,f.tripId,f.a.headers,[])).rejects.toMatchObject({code:"PERMISSION"});
+  });
+
 });

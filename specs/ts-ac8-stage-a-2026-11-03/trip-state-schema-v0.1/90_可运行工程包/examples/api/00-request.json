@@ -1,0 +1,40 @@
+{
+  "expected_revision": 0,
+  "idempotency_key": "example-0",
+  "reason": "探索中新增推断兴趣；不确认城市",
+  "input": {
+    "kind": "dialogue",
+    "reference": "synthetic-input",
+    "text": "探索中新增推断兴趣；不确认城市",
+    "target_ids": []
+  },
+  "commands": [
+    {
+      "op": "create",
+      "object_type": "Preference",
+      "id": "pref-explore",
+      "scope": {
+        "kind": "trip",
+        "ids": []
+      },
+      "dependencies": [],
+      "data": {
+        "subject_ids": [
+          "luxor"
+        ],
+        "aspect": "文化体验",
+        "polarity": "positive",
+        "certainty": "inferred",
+        "support": "supported",
+        "priority": "important",
+        "expression": "我喜欢文化体验；不代表必须去某座城",
+        "condition": {
+          "op": "always"
+        },
+        "evidence_refs": [
+          "synthetic-dialogue-1"
+        ]
+      }
+    }
+  ]
+}

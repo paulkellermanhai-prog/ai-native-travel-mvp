@@ -1,0 +1,6 @@
+{
+  "expected_revision": 3,
+  "idempotency_key": "example-reject",
+  "proposal_digest": "f9a247069d88c178f21fc198fff876e3dbb56ff673235e029ba49ca543ac4a8f",
+  "accept": false
+}

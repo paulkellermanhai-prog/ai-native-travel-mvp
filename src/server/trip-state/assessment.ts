@@ -1,5 +1,5 @@
 import type { State, Skeleton, Constraint, ExternalFact } from "./contracts.generated";
-import { applicable, conditionValue, factUsable } from "./conditions";
+import { applicable, conditionReferences, conditionValue, conflictingFactIds, factUsable } from "./conditions";
 import { instantMicros, reservationProfile } from "./semantics";
 import { safeCounter } from "./numbers";
 
@@ -19,6 +19,7 @@ export function assess(skeleton: Skeleton, objects: Objects, now: Date): Skeleto
   const windows = values.filter((v) => v.value.kind === "date_window" && v.constraint.hardness === "hard" && ["trip", "skeleton"].includes(v.constraint.scope.kind))
     .map((v) => v.value as Extract<Constraint["value"], { kind: "date_window" }>);
   const window = windows.length ? { start: windows.map((w) => w.start).sort().at(-1)!, end: windows.map((w) => w.end).sort()[0] } : null;
+  const contested = conflictingFactIds(objects, now, window);
   if (!window) unknowns.push("travel_dates_missing"); else if (window.start > window.end) violations.push("incompatible_date_windows");
   const cities = new Set(skeleton.stops.map((s) => s.entity_id)), at = BigInt(now.getTime()) * 1000n;
   for (const receipt of objects.values()) {
@@ -33,6 +34,7 @@ export function assess(skeleton: Skeleton, objects: Objects, now: Date): Skeleto
   for (const id of skeleton.cost_fact_ids) {
     const fact = objects.get(id);
     if (fact?.type !== "ExternalFact" || !factUsable(fact, now, window) || fact.value?.kind !== "cost") { unknowns.push("cost:" + id); continue; }
+    if (contested.has(id)) { violations.push("contested_fact:" + id); unknowns.push("cost:" + id); continue; }
     const value = fact.value;
     if (seen.has(value.item_key)) { unknowns.push("duplicate_cost_item:" + value.item_key); continue; }
     seen.add(value.item_key); safeCounter(value.people, "cost people");
@@ -46,6 +48,7 @@ export function assess(skeleton: Skeleton, objects: Objects, now: Date): Skeleto
   for (const [n, connection] of skeleton.connections.entries()) {
     const usable = connection.fact_ids.map((id) => objects.get(id)).filter((f): f is ExternalFact => f?.type === "ExternalFact" && factUsable(f, now, window)
       && f.value?.kind === "transport" && f.value.from_id === connection.from_id && f.value.to_id === connection.to_id);
+    if (usable.some((f) => contested.has(f.id))) { violations.push(`connection:${n}:contested_evidence`); result.connection_minutes.push(null); continue; }
     if (usable.some((f) => f.query_status === "no_service" || f.value?.kind === "transport" && f.value.service_exists === false)) violations.push(`no_service:${n}`);
     if (usable.length !== 1) { unknowns.push(`connection:${n}:missing_or_conflicting_evidence`); result.connection_minutes.push(null); continue; }
     const fact = usable[0], value = fact.value;
@@ -76,8 +79,11 @@ export function assess(skeleton: Skeleton, objects: Objects, now: Date): Skeleto
       if (value.maximum_minor !== null && subtotal > safeCounter(value.maximum_minor, "budget maximum")) failures.push(constraint.id);
       unknowns.push("partial_budget:" + constraint.id);
     } else if (value.kind === "requirement") {
-      const outcome = conditionValue(value.condition, objects, now);
-      if (outcome === false) failures.push(constraint.id); else if (outcome === null) unknowns.push(constraint.id);
+      const outcome = conditionValue(value.condition, objects, now, contested);
+      if (outcome === false) failures.push(constraint.id); else if (outcome === null) {
+        unknowns.push(constraint.id);
+        if (constraint.hardness === "hard" && conditionReferences(value.condition).some((id) => contested.has(id))) violations.push("contested_fact:" + constraint.id);
+      }
     } else if (value.kind === "travelers") {
       const goal = [...objects.values()].find((o) => o.type === "TripGoal" && ["active", "revised"].includes(o.status));
       if (goal?.type !== "TripGoal" || !goal.traveler_ids.length) unknowns.push(constraint.id + ":travelers_unknown");

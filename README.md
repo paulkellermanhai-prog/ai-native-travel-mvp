@@ -1,5 +1,7 @@
 # ANTU MVP
 
+当前接手入口：[技术交接与本地代码清单](handoff/README.md)。以下早期阶段说明保留作历史参考；当前源码包含 E02–E04 主线。
+
 AI Native Travel Product MVP — Sprint 1 / E01 engineering foundation.
 
 中文阅读入口：[工程目录与保留说明](docs/工程目录与保留说明.md)。本机工程已集中存放于 `MVP Engineering/`；运行下面的命令前，请先进入这个工程文件夹。GitHub/云端检出时直接使用仓库根目录，无需另建同名子目录。

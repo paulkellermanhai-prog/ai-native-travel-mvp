@@ -1,0 +1,30 @@
+{
+  "scope": "E03-00 baseline/reference/engineering boundaries only; no product iteration review",
+  "candidate_head": "db9290d931ac044a0bc64f2aceb2fe81209b093b",
+  "candidate_sources_verified": 39,
+  "supplemental_sources_verified": 18,
+  "complete_reference_directory_files": 42,
+  "reference": {
+    "tests_run": 99,
+    "core": 56,
+    "recovery": 43,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "successful": true,
+    "scope": "original Python reference only; synthetic Principal/tasks, real temporary SQLite/process/CAS/SIGKILL; no new TS/HTTP implementation"
+  },
+  "artifact_manifest_digest_verified": true,
+  "stage_weights": [
+    8,
+    10,
+    15,
+    13,
+    10,
+    17,
+    14,
+    13
+  ],
+  "accepted_progress_percent": 0,
+  "gate_a": "PENDING_TECH_LEAD_REVIEW"
+}
