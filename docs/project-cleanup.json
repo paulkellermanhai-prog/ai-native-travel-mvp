@@ -1,0 +1,362 @@
+{
+  "date": "2026-11-14",
+  "baseline_commit": "d58cfce04ac90c417f03560a1e874cb5ecd3f5a7",
+  "local_fix_commit": "2eb1d8a",
+  "moves": [
+    {
+      "from": "docs/E01-report.md",
+      "to": "docs/archive/e01/E01-report.md",
+      "original_sha256": "9ea7056ce42a4a1596c91ebba4752581f9c532227acd772af63794123a80c161"
+    },
+    {
+      "from": "docs/E01收尾与E02交接-2026-10-27.md",
+      "to": "docs/archive/e01/E01收尾与E02交接-2026-10-27.md",
+      "original_sha256": "0ea5eb7640045a41fa49ba1a977b7d7571ef2f4f08da4042141aa56bf48598f4"
+    },
+    {
+      "from": "docs/E01验收复核-2026-10-27.md",
+      "to": "docs/archive/e01/E01验收复核-2026-10-27.md",
+      "original_sha256": "685c5bd962570b3b88e9e27cc3a0ebcd5f7a0d3236568dc7aa997cb215315922"
+    },
+    {
+      "from": "docs/E02-01验收.md",
+      "to": "docs/archive/e02/E02-01验收.md",
+      "original_sha256": "2234b968dbb822144cc6d36422f44daa240a1b39e8c95294dfe1d12ae5f974c6"
+    },
+    {
+      "from": "docs/E02-02验收.md",
+      "to": "docs/archive/e02/E02-02验收.md",
+      "original_sha256": "003060a62caffdd3013f3d431e2708a4f62d8ab9cac43676a4602794ec0c0f60"
+    },
+    {
+      "from": "docs/E02-03验收.md",
+      "to": "docs/archive/e02/E02-03验收.md",
+      "original_sha256": "00e8d32a108bb9c839f0ab86b81310c9bebf45d6e71374e9be25caae831662d8"
+    },
+    {
+      "from": "docs/E02-04A验收.md",
+      "to": "docs/archive/e02/E02-04A验收.md",
+      "original_sha256": "41743bb394bf90452ad97eff6ddab15f89b0080c3072ffa58914e4eaa1b7b6a0"
+    },
+    {
+      "from": "docs/E02-04B验收.md",
+      "to": "docs/archive/e02/E02-04B验收.md",
+      "original_sha256": "cba73b90a207dda6b71ebfff15b61c6cd10e8bf86c6ec21c74f39dcd9a0b2aa3"
+    },
+    {
+      "from": "docs/E02-04C验收.md",
+      "to": "docs/archive/e02/E02-04C验收.md",
+      "original_sha256": "2836556a99c798bce6a3e26ede3f05d1e716866179640b3db297fe8bdfc1e0dd"
+    },
+    {
+      "from": "docs/E02-04D验收.md",
+      "to": "docs/archive/e02/E02-04D验收.md",
+      "original_sha256": "fac715b09ec2a5d6524dad018b3055c79e649c01e8bf725776e22d5a3b16a492"
+    },
+    {
+      "from": "docs/E02-05验收.md",
+      "to": "docs/archive/e02/E02-05验收.md",
+      "original_sha256": "bb4f2884c840505e663aafed3fe50bc2759f66376028ad8745fd5cbf39447f25"
+    },
+    {
+      "from": "docs/E02-final-gate.json",
+      "to": "docs/archive/e02/E02-final-gate.json",
+      "original_sha256": "929108c7d55cd92159d6dee4706baa866df2c676314e836583d4282d00735af7"
+    },
+    {
+      "from": "docs/E02最小编码任务.md",
+      "to": "docs/archive/e02/E02最小编码任务.md",
+      "original_sha256": "f3e08860dfb128cd066887a0b62c5eb75867338c2ef5a734aa520da99e702052"
+    },
+    {
+      "from": "docs/E03-00-DC-AC8-R6校准与GateA证据.md",
+      "to": "docs/archive/e03/E03-00-DC-AC8-R6校准与GateA证据.md",
+      "original_sha256": "d9441ce2a93b5724f62d51e388004de1d135f34dae13993ffb919f618b112f9f"
+    },
+    {
+      "from": "docs/E03-00基线审核与工程准备.md",
+      "to": "docs/archive/e03/E03-00基线审核与工程准备.md",
+      "original_sha256": "d588f0df4d70584ee185f99c3aefc3db2a9cbc8c46c5e2c46936c7a805e48aba"
+    },
+    {
+      "from": "docs/E03-00模块边界与修改窗口.md",
+      "to": "docs/archive/e03/E03-00模块边界与修改窗口.md",
+      "original_sha256": "0a9e0c9932af46ba15d0b90d122c23dd53ff67698ee99e0053ce0b1efd0faf9e"
+    },
+    {
+      "from": "docs/E03-01-E11存储设计与后续接入.md",
+      "to": "docs/archive/e03/E03-01-E11存储设计与后续接入.md",
+      "original_sha256": "9a44f59de70e80da061515321c7a04dd8c325df5f7a611f6d285c0de7d6844c0"
+    },
+    {
+      "from": "docs/E03-01-F01权限修复与复核.md",
+      "to": "docs/archive/e03/E03-01-F01权限修复与复核.md",
+      "original_sha256": "9fbd90758c3e12abaa530e77cd1036056e4ea93cc251ea34e0d43263a2487812"
+    },
+    {
+      "from": "docs/E03-01工程交付与审核.md",
+      "to": "docs/archive/e03/E03-01工程交付与审核.md",
+      "original_sha256": "53f93f671a0f4ba2c93081c72133be98a44ef0f7a3c138db00e242162bbce7e4"
+    },
+    {
+      "from": "docs/E03-02-C12注释语义差异裁定材料.md",
+      "to": "docs/archive/e03/E03-02-C12注释语义差异裁定材料.md",
+      "original_sha256": "b23f2cfc4437ed144bd7d9c3ef91fc5c844f4891b2416735e70b01b78820fe76"
+    },
+    {
+      "from": "docs/E03-02-TS认证联合集成.md",
+      "to": "docs/archive/e03/E03-02-TS认证联合集成.md",
+      "original_sha256": "3a6cd63c945a74eb3676743b7ccea976055ada19657822e9905c5eb905010004"
+    },
+    {
+      "from": "docs/E03-02-微秒时效复验修复.md",
+      "to": "docs/archive/e03/E03-02-微秒时效复验修复.md",
+      "original_sha256": "fac39344c1bef5a21e74144b0998bfae6dd4e7e8f635d7f4aab0d098b61272b9"
+    },
+    {
+      "from": "docs/E03-02受权组装与消费.md",
+      "to": "docs/archive/e03/E03-02受权组装与消费.md",
+      "original_sha256": "cb4ff46079a7f84f123494deb2da40c6a082d19dd1fa6a49d1f8474902667084"
+    },
+    {
+      "from": "docs/E03-02授权失败路径复核修订.md",
+      "to": "docs/archive/e03/E03-02授权失败路径复核修订.md",
+      "original_sha256": "782ae2f94c9d74c58831aa9f42cf181c438d1ab10f6d317fa1e5337edec880c1"
+    },
+    {
+      "from": "docs/E03-02条件放行与认证修复交接.md",
+      "to": "docs/archive/e03/E03-02条件放行与认证修复交接.md",
+      "original_sha256": "86ce1d8ee46962b97acc32054c315c47b9ba81d330c6479de5e6557283856560"
+    },
+    {
+      "from": "docs/E03-02阶段验收与后续接口交接.md",
+      "to": "docs/archive/e03/E03-02阶段验收与后续接口交接.md",
+      "original_sha256": "481b25a109283a81a16919307b5147fc5cefe09fe82fb115a81494671e14f920"
+    },
+    {
+      "from": "docs/E03-03-07并行技术放行回执-2026-11-06.md",
+      "to": "docs/archive/e03/E03-03-07并行技术放行回执-2026-11-06.md",
+      "original_sha256": "44c3948e1a4a3c945795cfe68802a31162a51d8a1c42ff34ad1363085aa6966e"
+    },
+    {
+      "from": "docs/E03-03-Packet隔离交付候选.md",
+      "to": "docs/archive/e03/E03-03-Packet隔离交付候选.md",
+      "original_sha256": "62e99063e5d593882d15716052133592537432b2b4bc6dc0947ea955fe9e8886"
+    },
+    {
+      "from": "docs/E03-03入口与解释器技术裁定请求.md",
+      "to": "docs/archive/e03/E03-03入口与解释器技术裁定请求.md",
+      "original_sha256": "407094e39d86dfb03aa779d0207238a1ff1c8838456a82d771350a36eda7caf7"
+    },
+    {
+      "from": "docs/E03-03宿主账本与时效候选.md",
+      "to": "docs/archive/e03/E03-03宿主账本与时效候选.md",
+      "original_sha256": "fadcad8d75b380ca61bc11b639262cb6e339afe65258b4f00d97f8837e36f12f"
+    },
+    {
+      "from": "docs/E03-03有限并行授权-2026-11-06.md",
+      "to": "docs/archive/e03/E03-03有限并行授权-2026-11-06.md",
+      "original_sha256": "ad1721704ea1ebdd54c3eada489d2fb853d70cb416b49dd2597c6a723e1f50b9"
+    },
+    {
+      "from": "docs/E03-03短事务与分页候选.md",
+      "to": "docs/archive/e03/E03-03短事务与分页候选.md",
+      "original_sha256": "402021a6fd8bc445cca7b46861f26987de0d93c40048ff73d50a695bde42f6af"
+    },
+    {
+      "from": "docs/E03-03阶段交接-2026-11-06.md",
+      "to": "docs/archive/e03/E03-03阶段交接-2026-11-06.md",
+      "original_sha256": "3aca08f510c9ffe21d5292dba304a7e03aa231e8c7749dc55c4a87a98c680dfe"
+    },
+    {
+      "from": "docs/E03-04内部MVP交接-2026-11-09.md",
+      "to": "docs/archive/e03/E03-04内部MVP交接-2026-11-09.md",
+      "original_sha256": "1d83be1d7bb19f34ad13a65e2d258effd79ec6e0ef6a2de8d90dd006d78990a3"
+    },
+    {
+      "from": "docs/E03-DC-0.1.0校准报告.md",
+      "to": "docs/archive/e03/E03-DC-0.1.0校准报告.md",
+      "original_sha256": "418f1b071e9365ab38110241f17f4f9c59c3814e2c99531a34448278d573678e"
+    },
+    {
+      "from": "docs/E03-保存与来源屏障候选.md",
+      "to": "docs/archive/e03/E03-保存与来源屏障候选.md",
+      "original_sha256": "a6d14d6da56f10f3c3a3f5980d86450ac8f0f5f1d8c14f9e7d76c91afd738189"
+    },
+    {
+      "from": "docs/E03-受限恢复安装候选.md",
+      "to": "docs/archive/e03/E03-受限恢复安装候选.md",
+      "original_sha256": "6b3bcb62767723df2301d52135d1af064f0a291d21a402d2a02c2d8959dda7e6"
+    },
+    {
+      "from": "docs/E03-埃及MVP流程与宿主组装候选.md",
+      "to": "docs/archive/e03/E03-埃及MVP流程与宿主组装候选.md",
+      "original_sha256": "731789fb30a86f744fe413f2f89ffbfd2bf388ef2d2d92c6bd508c740740b929"
+    },
+    {
+      "from": "docs/E03-工作区能力与E11屏障候选.md",
+      "to": "docs/archive/e03/E03-工作区能力与E11屏障候选.md",
+      "original_sha256": "0762eade909083caccddc91eeed94b751a903575633302d4e9f9db44b4d7a0c5"
+    },
+    {
+      "from": "docs/E03-未知来源删除与恢复候选.md",
+      "to": "docs/archive/e03/E03-未知来源删除与恢复候选.md",
+      "original_sha256": "4cec24e34440671d7aa384e3f5427f2257bfe0f0ea41a0e87a9ba77bc873a68d"
+    },
+    {
+      "from": "docs/E03-来源闭包隔离候选.md",
+      "to": "docs/archive/e03/E03-来源闭包隔离候选.md",
+      "original_sha256": "b1849b3f205999c7d9b8ecb10fad2ef9b207af636e7d07fb6f229b73c98192f6"
+    },
+    {
+      "from": "docs/E04-00工程接收与复用盘点.md",
+      "to": "docs/archive/e04/E04-00工程接收与复用盘点.md",
+      "original_sha256": "889237f94d5aac1fb25073e7f2f89892ed25336e039d7bd387557ab4a4a4cc3f"
+    },
+    {
+      "from": "docs/E04-01-04产品规则对齐与真实回归评测.md",
+      "to": "docs/archive/e04/E04-01-04产品规则对齐与真实回归评测.md",
+      "original_sha256": "3c5edf540c2fa29d4e27ae0162e37e35e1c06469050ce5b827e40d56ba6f8ae2"
+    },
+    {
+      "from": "docs/E04-01首批可信Packet接线.md",
+      "to": "docs/archive/e04/E04-01首批可信Packet接线.md",
+      "original_sha256": "6a472d56a3d07709e7f80c84de3c5f2a51c3cd13c2ee1e204206a470e48b06ea"
+    },
+    {
+      "from": "docs/E04-02最小行动决策器.md",
+      "to": "docs/archive/e04/E04-02最小行动决策器.md",
+      "original_sha256": "52e9f9696ea81a323f5331f3b360d427146f8de4e8a6e142324b39358a684214"
+    },
+    {
+      "from": "docs/E04-03最小PG行动Runtime.md",
+      "to": "docs/archive/e04/E04-03最小PG行动Runtime.md",
+      "original_sha256": "3a1fbb1a62f60b8edefb803f710cb009fb0ed1f3892397a330cc5ab8dd8a17e8"
+    },
+    {
+      "from": "docs/E04-04受控执行与原写桥.md",
+      "to": "docs/archive/e04/E04-04受控执行与原写桥.md",
+      "original_sha256": "020799ae6e83bd9b7fe123833b8151f8aca07af6d3c4a641dc4709018b0e85e5"
+    },
+    {
+      "from": "docs/E04-05工具结果与可信依据.md",
+      "to": "docs/archive/e04/E04-05工具结果与可信依据.md",
+      "original_sha256": "70deb9f4905574912c7941dd7112d20650de8b541e3f4963a1d99ef25938658a"
+    },
+    {
+      "from": "docs/TS-AC8-阶段B工程验收.md",
+      "to": "docs/archive/trip-state/TS-AC8-阶段B工程验收.md",
+      "original_sha256": "9cd62899e4e27e9125ee3f1728a97f159630bbbb1680d20432d05a1cdb59b6b1"
+    },
+    {
+      "from": "docs/cloud-environment.md",
+      "to": "docs/development/backend-environment.md",
+      "original_sha256": "9fb203a066dc78aca219e69e4ac35a48b7c6b306edaa4eb78b1c0dfa06cf2e29"
+    },
+    {
+      "from": "docs/e03-00-audit-evidence.json",
+      "to": "docs/archive/e03/e03-00-audit-evidence.json",
+      "original_sha256": "b762debe127ce285e8bc25db32f96eeaa28e890dd13cb17422a1509b98c1a274"
+    },
+    {
+      "from": "docs/e03-00-security-review.json",
+      "to": "docs/archive/e03/e03-00-security-review.json",
+      "original_sha256": "4376859ac1b3232718bdd2c4e36d27c76cd0ebfafc1353d035aeb20eb7ddc91b"
+    },
+    {
+      "from": "docs/e03-01-dependency-review.json",
+      "to": "docs/archive/e03/e03-01-dependency-review.json",
+      "original_sha256": "112b228bbd6e77c2b768e5eb019da54a530643b3169e20ac0bee834c4cf56d64"
+    },
+    {
+      "from": "docs/e03-01-technical-acceptance.json",
+      "to": "docs/archive/e03/e03-01-technical-acceptance.json",
+      "original_sha256": "607cc55cc3c45b1fcd5adfa98b5a468c8b5c93107ba31989c3921385e98359ed"
+    },
+    {
+      "from": "docs/e03-02-c12-applicability-acceptance.json",
+      "to": "docs/archive/e03/e03-02-c12-applicability-acceptance.json",
+      "original_sha256": "0b8028b827c36f1c8b5af43624bccebfa240a416f4ad0da4fb18c8d1d345ce9b"
+    },
+    {
+      "from": "docs/e03-02-technical-acceptance.json",
+      "to": "docs/archive/e03/e03-02-technical-acceptance.json",
+      "original_sha256": "15dc728c0627d9a134570d851686edaeed375fd99de1623329ec1e9d721a3fa7"
+    },
+    {
+      "from": "docs/e03-03-parallel/Packet核心交接.md",
+      "to": "docs/archive/e03-03-parallel/Packet核心交接.md",
+      "original_sha256": "364458751f5df0f214ec473b83cf46c125c6f016dd3b415e47416e7c2b2bb044"
+    },
+    {
+      "from": "docs/e03-04-07-parallel/交接.md",
+      "to": "docs/archive/e03-04-07-parallel/交接.md",
+      "original_sha256": "deccb21a48510a43664df2f49921d851ac6539157553449e1c7aae79643640e1"
+    },
+    {
+      "from": "docs/e03-05-06-parallel/README.md",
+      "to": "docs/archive/e03-05-06-parallel/README.md",
+      "original_sha256": "a158ddfa933ac7fcca8562ae5665852b711993c418b374e82f618478035a35ae"
+    },
+    {
+      "from": "docs/e03-05-06-parallel/审查修订与集成前置.md",
+      "to": "docs/archive/e03-05-06-parallel/审查修订与集成前置.md",
+      "original_sha256": "af84716c4f66ad2382900bec47df3cb10986ebbbbb2757e8e3f4a03956660cb3"
+    },
+    {
+      "from": "docs/e03-gate-a-r6-approval.json",
+      "to": "docs/archive/e03/e03-gate-a-r6-approval.json",
+      "original_sha256": "be4972ab4ccd989d8e962d3b3c82c8e5c23cd5deb5c94db4ef1a8e4b956c99e7"
+    },
+    {
+      "from": "docs/e04-01-04-evaluation.json",
+      "to": "docs/archive/e04/e04-01-04-evaluation.json",
+      "original_sha256": "6022ec478e91ca0d697d732fb2a874f886b217acc8f54e638f4af0ff69b49f5f"
+    },
+    {
+      "from": "docs/e04-01-04-technical-acceptance.json",
+      "to": "docs/archive/e04/e04-01-04-technical-acceptance.json",
+      "original_sha256": "090020366122bdcb1e3891cc516b644f869308ebfb59f323927045a5dd9f88a8"
+    },
+    {
+      "from": "docs/evidence/e01-2026-10-27.json",
+      "to": "docs/archive/evidence/e01-2026-10-27.json",
+      "original_sha256": "e08d148c0735bb37fcddee477ad9fbd3a603209eea345761d567de45cf744c13"
+    },
+    {
+      "from": "docs/evidence/e01-closure-2026-10-27.json",
+      "to": "docs/archive/evidence/e01-closure-2026-10-27.json",
+      "original_sha256": "b9abc8388c0d97a6dc8f6d6d66de7a3b66f1f1b23dfaeaecdf40a6b73db49426"
+    },
+    {
+      "from": "docs/specification-baseline.json",
+      "to": "docs/archive/governance/specification-baseline.json",
+      "original_sha256": "e1333ddb30abfbc9dfed086b3116b895fc2b66bcb5dec51d68473427d3f35672"
+    },
+    {
+      "from": "src/server/decision-context/host-runtime/README.md",
+      "to": "docs/archive/e03/host-runtime-early-slices.md",
+      "original_sha256": "07376e2f0c7835b38fb5b1011842961fdd836017b04d5f90e231601eece80952"
+    },
+    {
+      "from": "本地网页启动说明.md",
+      "to": "docs/development/local-preview.md",
+      "original_sha256": "4c014e319758eb844c260cbdec9871cf9d2cffc00c4efea6bf592a3f2128105a"
+    }
+  ],
+  "removed": [
+    {
+      "path": "docs/工程目录与保留说明.md",
+      "reason": "E01-only directory guide superseded by docs/project-map.md; original remains in Git history",
+      "original_sha256": "4964e803b975df7043a86776f67d41a6c52fd5e8188b60a8b5ff440d3e37907a"
+    }
+  ],
+  "removed_untracked_cache_directories": [
+    "scripts/__pycache__"
+  ],
+  "notes": [
+    "Frozen specs and application source paths retained.",
+    "Historical JSON receipts relocated without content changes.",
+    "Progress JSON changes only navigation paths; acceptance status is unchanged."
+  ]
+}

@@ -1,17 +1,31 @@
-# Current handoff authorization — 2026-11-13
+# ANTU 工程工作规则
 
-The Owner explicitly authorized uploading relevant local code and merging it into the original GitHub repository for technical handoff, and granting the named collaborator write access. This supersedes historical no-push/no-merge restrictions for this handoff only. It does not authorize production deployment or upgrade historical acceptance status. Preserve independent candidates and frozen contracts.
+用户已于 2026-11-14 授权清理和组织仓库，并保留本地网页启动与聊天保存修复。原 2026-11-13 工作规则保存在 [历史规则](docs/archive/governance/AGENTS-2026-11-13.md)，其中阶段性限制属于当时记录；当前工作以用户最新指令和本文件为准。
 
-# ANTU engineering scope
+## 入口和范围
 
-E02 Final Engineering Gate PASS: PR #9 approved at exact head 98fd3236eb87d2c11977e8d8793d5117440857ce, merged as 6ae8b2b66513c51ff209ce7147e8c6ff7376a39b; main push CI 40813876620 passed before E02 closed (docs/E02-final-gate.json). Current authorization: E03-01 accepted at PR #14 head 213b274a0de35bb369caa750bbc09fa809735a83 by the project technical review recorded in docs/e03-01-technical-acceptance.json; E03-02 accepted at PR #18 exact head 9b92c1c0c9b5ffcfca468ddf9cc6c7baec69f911 by E03-02-PR18-TECH-ACCEPTANCE-2026-11-06-01, recorded in docs/e03-02-technical-acceptance.json; E03-00 through E03-02 accepted planning weight is 33%. Acceptance covers the internal Session-bound read-only Context assembly/consumption only. CI #65 attempt 1 P05 connection-close root cause remains unknown; attempt 2 passed at the same head, not a demonstrated fix. E03-03–07 并行技术放行：依据工程主会话 E03-03-07-PARALLEL-TECH-RELEASE-2026-11-06-01，授权内容和独占路径见 docs/E03-03-07并行技术放行回执-2026-11-06.md。新增工作共同源码起点 450f9949cae3fb48db869daed6e69ecf757dd331；原 03 分支 G c497262354ece288cfc9af089b79e723680ac113 和候选 8b3c0c4313dd3962ce81f143cb97ae81fd006882 保留历史。先提交仅治理记录，再开展新增业务工作。E03-02 接受 head 和 33% 不变；本放行不构成后续阶段验收。
+- 先读 `README.md`、`docs/project-map.md`、`docs/file-management.md`。
+- `prototypes/egypt-trip/` 是本地网页；`scripts/serve-prototype.py` 只提供静态预览服务，数据保存在浏览器。
+- `src/server/` 是 TypeScript 业务后端；原型、模型和数据库尚未完整接线，不能把页面演示描述为后端联合验收或生产上线。
+- `specs/` 中 Python 是冻结参考与测试对照；不要将其误认成网页服务。
+- 当前状态看 `handoff/README.md`、`docs/E03最终工程交接索引.md` 和 E04 看板。历史文件只证明其指定提交和范围，不自动代表当前实现。
 
-03 原任务负责 task-core、packet-core；05/06 负责 checkpoint-core、checkpoint-store、recovery-core、recovery-service；04/07 负责 write-bridge、http-core、http-adapter，各自在对应测试及专属交接目录工作。主集成人独占 host-runtime、integration、interaction-evidence 及共享接口、认证、TS、HTTP、prisma、公共脚本、CI、根 AGENTS、授权登记和唯一看板。完整路径、迁移责任与独立测试数据库要求以回执为准。
+## 修改和文件管理
 
-允许指定核心、真实 PG 适配与测试并行；真实依赖到位且负例具备后可在隔离集成分支接线，不按母阶段编号串行。缺失真实授权、Task/Packet 归属、实际交付或 E11 删除/到期屏障时相关连接点关闭，不能用桩或字符串伪造证明。事件先持久化，再注册任务，最后原子关联。生产 E11、对外入口、NAP、UI、产品/隐私新取舍仍须相应批准；冻结 specs、Oracle、Schema、URI、版本保持只读。received_at 第七位差异只阻断相关时间路径等价，需锁源对照或技术裁定；CI #65 首次 P05 连接关闭根因未明，重跑通过不代表修复。GitHub 推送、PR 或正文须遵循外部审批，不绕过已拒绝操作。未授权合并或部署。 Preserve 155 original files, historical Gate records, frozen R6 selection and package bytes; use R6 default. UX-02 PR #13 remains separate; its R7 rules received limited specification/reference acceptance but are not silently integrated. Preserve #10→#12→#14 and #11→#13 histories; do not merge or deploy. Formal product, contract, permission or version changes require the appropriate review.
+- 开始修改前说明假设与取舍，使用工作分支，小范围修改并保留其他人的工作。
+- 冻结来源、Schema URI、版本、Oracle 和包字节保持不变。`specs/` 被源代码、测试和 CI 引用，未经依赖核查不能移动或删除。
+- 历史验收与 Gate 回执保留在 `docs/archive/`；JSON 回执的内容保持原样。唯一进度源 `docs/e03-progress.json` 与 `docs/e04-progress.json` 不重复维护；E03 看板用原脚本生成。
+- `handoff/candidates/experience-query-local.patch` 和远端 UX02/R7 候选仍有独立差异，未经审阅不得覆盖主线或删除。
+- 文档和文件迁移后更新当前入口、链接和 `docs/project-cleanup.json`。不要批量修改冻结快照中的历史文本。
+- 目录位置遵守 `docs/file-management.md`，不在根目录堆放报告、截图、压缩包或重复工程。
+- 不提交 `.env`、凭证、数据库、依赖树、缓存、生成客户端或本机运行工具。
+- 使用分支与 PR；未获相应技术验收，不自行合并或部署。不改变仓库安全设置。
 
-Use Node.js 24.22.1 and npm 11.19.1. Run `npm ci`, `npm run check`, and `npm run db:check`. CI provisions a disposable PostgreSQL 17 test database using scripts/prepare-storage-tests.mjs; E02_STORAGE_ENV_FILE is a private file outside Git containing distinct migration/runtime connections. Storage integration tests may not skip in CI. Tests must verify behavior and failure cases. `/api/health` is liveness, not database readiness. Database tables are infrastructure around original JSON contracts, not new business objects.
+## 验证和事实边界
 
-Before editing, state assumptions and tradeoffs. Use the simplest solution that meets the task. Make surgical changes, preserve unrelated work, and report actual checks and limitations. The E02 handoff is at specs/README.md with byte-preserved source files and a SHA-256 manifest. The separate specs/trip-state-development-baseline.json records Owner confirmation; do not alter immutable source snapshot metadata. DC/NAP review and path/version issues remain recorded. Run npm run specs:verify and npm run contracts:check. Copied reference Python is an independent test oracle, not application implementation. Tests require Python dependencies in scripts/requirements-oracle.txt and TRIP_STATE_PYTHON when using a virtual environment; CI installs them automatically.
-
-Keep secrets, `.env`, generated clients, dependency trees, local tools and PostgreSQL data out of commits. Use working branches and pull requests; do not change repository security settings or merge without technical-lead acceptance.
+- 后端使用 Node.js 24.22.1、npm 11.19.1、PostgreSQL 17；执行 `npm ci`、`npm run check`、`npm run db:check`。
+- 目录整理执行 `npm run project:check`、`npm run specs:verify`、`npm run specs:ac8`；网页记录修改执行 `npm run test:prototype` 并做浏览器刷新验证。
+- 后端合同修改执行 `npm run contracts:check`、`npm run dc:check`；需要 Python Oracle 时按 `scripts/requirements-oracle.txt` 安装独立环境。
+- 真正的 PG 测试需要专用一次性测试库和私有 `E02_STORAGE_ENV_FILE`；缺数据库而跳过不能记为完整通过，CI 不允许跳过。
+- `/api/health` 只证明进程存活。原型记录、合成交通、内部 MVP、真实供应商与生产验证分别报告。
+- 报告实际执行结果和环境限制，不能以旧 CI、重跑成功或文档进度代替当前验证。

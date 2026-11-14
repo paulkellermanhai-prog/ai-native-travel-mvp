@@ -37,12 +37,12 @@
         }
       ],
       "evidence": [
-        "docs/E03-00基线审核与工程准备.md",
-        "docs/E03-00模块边界与修改窗口.md",
+        "docs/archive/e03/E03-00基线审核与工程准备.md",
+        "docs/archive/e03/E03-00模块边界与修改窗口.md",
         "specs/e03-00-reference-2026-10-29/availability.json",
-        "docs/e03-00-audit-evidence.json",
+        "docs/archive/e03/e03-00-audit-evidence.json",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/10",
-        "docs/e03-gate-a-r6-approval.json",
+        "docs/archive/e03/e03-gate-a-r6-approval.json",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/12#pullrequestreview-5795631033"
       ],
       "execution_location": "本地授权工作区只读核查；GitHub PR #10与CI",
@@ -81,13 +81,13 @@
         }
       ],
       "evidence": [
-        "docs/E03-01工程交付与审核.md",
-        "docs/E03-01-E11存储设计与后续接入.md",
+        "docs/archive/e03/E03-01工程交付与审核.md",
+        "docs/archive/e03/E03-01-E11存储设计与后续接入.md",
         "specs/e03-01-oracle-lock.json",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/14",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42164424546",
-        "docs/E03-01-F01权限修复与复核.md",
-        "docs/e03-01-technical-acceptance.json"
+        "docs/archive/e03/E03-01-F01权限修复与复核.md",
+        "docs/archive/e03/e03-01-technical-acceptance.json"
       ],
       "execution_location": "独立 feat/e03-01-contract-foundation 分支；本地与 GitHub CI",
       "responsibilities": "执行工程师：实施/验证/提交；技术负责人：切片审核",
@@ -120,9 +120,9 @@
         }
       ],
       "evidence": [
-        "docs/e03-02-technical-acceptance.json",
-        "docs/E03-02阶段验收与后续接口交接.md",
-        "docs/e03-02-c12-applicability-acceptance.json",
+        "docs/archive/e03/e03-02-technical-acceptance.json",
+        "docs/archive/e03/E03-02阶段验收与后续接口交接.md",
+        "docs/archive/e03/e03-02-c12-applicability-acceptance.json",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/18",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42187804000",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42187804000/artifacts/13489032296",
@@ -164,7 +164,7 @@
         }
       ],
       "evidence": [
-        "docs/E03-03阶段交接-2026-11-06.md",
+        "docs/archive/e03/E03-03阶段交接-2026-11-06.md",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/29",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42551994757"
       ],
@@ -200,7 +200,7 @@
         }
       ],
       "evidence": [
-        "docs/E03-04内部MVP交接-2026-11-09.md",
+        "docs/archive/e03/E03-04内部MVP交接-2026-11-09.md",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/30",
         "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/42751510991"
       ],
@@ -353,7 +353,7 @@
     {
       "stage_id": "E03-03",
       "description": "按实际依赖并行实现指定核心、真实PG存储与HTTP适配；尚缺可信证明或删除屏障的接线关闭，不构成阶段验收",
-      "approval_evidence": "工程侧｜MVP开发计划 AI 技术负责人，E03-03-07-PARALLEL-TECH-RELEASE-2026-11-06-01；docs/E03-03-07并行技术放行回执-2026-11-06.md",
+      "approval_evidence": "工程侧｜MVP开发计划 AI 技术负责人，E03-03-07-PARALLEL-TECH-RELEASE-2026-11-06-01；docs/archive/e03/E03-03-07并行技术放行回执-2026-11-06.md",
       "subtask_ids": [
         "E03-03-1",
         "E03-03-2",

@@ -56,6 +56,8 @@ jobs:
           test -n "$DATABASE_URL"
       - name: Install locked dependencies
         run: npm ci
+      - name: Verify project layout and current documentation links
+        run: npm run project:check
       - name: Install isolated original Python contract oracle
         run: |
           python3 -m venv "$RUNNER_TEMP/trip-state-oracle"
