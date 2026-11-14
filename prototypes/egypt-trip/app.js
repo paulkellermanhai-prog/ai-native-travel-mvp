@@ -56,7 +56,10 @@ const key='antu-f1-f2-v1';
 const initial={active:false,view:'overview',city:'',detail:'',feedback:{},cityReviewPrompted:{},seen:{},task:'',dismissed:[],paused:false,candidate:0,fromRoute:'overview',fromCompare:'overview',positions:{},route:'north',routeRequest:{},comparison:null,itinerary:null,draft:null,hypothesis:null,tripDetails:{}};
 let state={...initial}, resumed=false;
 const restored=readSavedState();
-if(restored){state={...initial,...restored};resumed=Boolean(restored.active);}
+if(restored){
+ const {conversation,...savedState}=restored;
+ state={...initial,...savedState};resumed=Boolean(restored.active);
+}
 state.discovery={likes:[],feedbackCities:{},conditions:{},concern:state.concern?{label:'担心转场太累',ids:['luxor'],conditions:{}}:null,waiting:null,compareLater:false,...state.discovery};
 if(state.view==='compare' && !state.comparison) state.view=state.city?'city':'overview';
 if(state.view==='edit' && !state.draft) state.view=state.itinerary?'itinerary':'overview';
@@ -66,21 +69,32 @@ let drawerExpanded=false, drawerCloseAnimation=null;
 let transportPreview=null;
 let connectionOrigin='';
 let draftError='', lastSavedDraft=state.draft;
-let messages=resumed?[{who:'ai',text:'上次浏览的城市与体验还在。你可以从原来的位置继续，也可以换个问题。'}]:[];
+let messages=readSavedMessages(restored);
+if(!messages.length && resumed)messages=[{who:'ai',text:'上次浏览的城市与体验还在。你可以从原来的位置继续，也可以换个问题。'}];
 const escapeHtml = s => String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon = '<span class="spark" aria-hidden="true"><svg viewBox="0 0 20 20"><circle cx="10" cy="10" r="8.5"/><path d="m7 13 2.4-6h3.6l-2.4 6z" fill="currentColor" stroke="none"/></svg></span>';
 const aiContentIcon = '<svg class="ai-content-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linejoin="round" aria-hidden="true"><path d="M9 2.5c.8 4 2.5 5.7 6.5 6.5-4 .8-5.7 2.5-6.5 6.5-.8-4-2.5-5.7-6.5-6.5 4-.8 5.7-2.5 6.5-6.5Z"/><path d="M18 10.5c.6 3.3 1.7 4.4 5 5-3.3.6-4.4 1.7-5 5-.6-3.3-1.7-4.4-5-5 3.3-.6 4.4-1.7 5-5Z" fill="currentColor" stroke="none"/></svg>';
 const action = (label,cmd,cls='textbtn',attrs='')=>`<button class="${cls}" data-act="${cmd}" ${attrs}>${label}</button>`;
 const status = (txt)=>`<span class="tag">${txt}</span>`;
 function readSavedState(){
-  try{return JSON.parse(localStorage.getItem(key));}catch{return null;}
+  try{
+   const saved=JSON.parse(localStorage.getItem(key));
+   return saved && typeof saved==='object' && !Array.isArray(saved)?saved:null;
+  }catch{return null;}
+}
+function readSavedMessages(saved){
+ const conversation=saved?.conversation;
+ if(conversation?.version!==1 || !Array.isArray(conversation.messages))return [];
+ return conversation.messages.filter(message=>message && ['user','ai'].includes(message.who) && typeof message.text==='string')
+  .map(({who,text})=>({who,text}));
 }
 function save(writes={}){
   try{
    const stored=readSavedState();
    const snapshot={...state,
     itinerary:writes.itinerary?state.itinerary:stored?.itinerary||state.itinerary,
-    draft:writes.draft?state.draft:stored?.draft??null};
+    draft:writes.draft?state.draft:stored?.draft??null,
+    conversation:{version:1,messages:messages.map(({who,text})=>({who,text}))}};
    localStorage.setItem(key,JSON.stringify(snapshot));error=false;
   }
   catch{error=true;}
@@ -630,7 +644,7 @@ function dismiss(){
  if(suggestion && !state.dismissed.includes(suggestion.key))state.dismissed.push(suggestion.key);
  suggestion=null;
 }
-function say(text){messages.push({who:'ai',text});}
+function say(text){messages.push({who:'ai',text});save();}
 function start(onReady){
  state.active=true;open=true;pending=true;tab='chat';state.task='了解埃及';
  render(true);
@@ -684,7 +698,7 @@ function backToExploration(view){
 }
 function send(text,replay=false){
  text=text.trim();if(!text||pending)return;
- cancelComparison();if(!replay)messages.push({who:'user',text});suggestion=null;$('input').value='';
+ cancelComparison();if(!replay){messages.push({who:'user',text});save();}suggestion=null;$('input').value='';
  const ids=mentionedCities(text);
  if(receiveHypothesis(text,ids)){
   if(state.active)save();

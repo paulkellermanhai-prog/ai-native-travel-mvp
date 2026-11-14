@@ -2,6 +2,8 @@
 
 当前接手入口：[技术交接与本地代码清单](handoff/README.md)。以下早期阶段说明保留作历史参考；当前源码包含 E02–E04 主线。
 
+本地看完整网页：macOS 双击根目录 `启动安途.command`，或运行 `python3 scripts/serve-prototype.py`，浏览器打开 http://localhost:8080/ 。已有 HTML、素材及回答模板一同加载，聊天记录支持刷新恢复；此入口使用浏览器本地存储。详见[本地网页启动说明](本地网页启动说明.md)。
+
 AI Native Travel Product MVP — Sprint 1 / E01 engineering foundation.
 
 中文阅读入口：[工程目录与保留说明](docs/工程目录与保留说明.md)。本机工程已集中存放于 `MVP Engineering/`；运行下面的命令前，请先进入这个工程文件夹。GitHub/云端检出时直接使用仓库根目录，无需另建同名子目录。
