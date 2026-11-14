@@ -27,8 +27,8 @@
 - 与整理前逐文件对照：436 个冻结规格文件内容未变；232 个业务源码、测试、原型、候选及锁文件内容未变。
 - E03/E04 进度 JSON 的差异仅为路径；验收状态和权重保持原值。
 
-完整后端检查结果将在本轮执行结束后补充；真实 PG/HTTP 验证需要隔离数据库。
+完整工程检查由 [PR #40 的 GitHub CI](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/40/checks) 在锁定 Node/npm、一次性 PostgreSQL 17 和隔离身份环境中执行，包含类型、Lint、真实 PG 测试、生产构建与实际 HTTP 验收。状态以该 PR 当前 head 的检查为准；上述本地通过项不能替代这部分联合验证。
 
 ## GitHub 同步
 
-本地工作分支为 `chore/project-organization`。此前未接受邀请时连接没有写权限；用户已接受协作邀请，本轮重新核验 GitHub 连接 `push: true`，并确认 CLI 登录有效。整理结果将通过独立分支和 PR 同步，主分支仍需审阅后决定合入；本记录不表示已经合并或部署。
+本地工作分支为 `chore/project-organization`。此前未接受邀请时连接没有写权限；用户已接受协作邀请，本轮重新核验 GitHub 连接 `push: true`，并确认 CLI 登录有效。整理结果已推送到独立分支并提交 [PR #40](https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/40)，主分支仍需审阅后决定合入；本记录不表示已经合并或部署。
