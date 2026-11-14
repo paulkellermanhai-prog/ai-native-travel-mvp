@@ -1,6 +1,6 @@
 # ANTU Sprint 1 / E01 engineering report
 
-Latest revalidation: [2026-10-27 E01 验收复核](E01验收复核-2026-10-27.md). This document retains the original initialization evidence.
+Latest revalidation: [2026-10-27 E01 验收复核](E01%E9%AA%8C%E6%94%B6%E5%A4%8D%E6%A0%B8-2026-10-27.md). This document retains the original initialization evidence.
 
 Date: 2026-10-26 (Asia/Shanghai). Status: local and cloud engineering checks passed; private cloud environment published; technical-lead acceptance pending.
 

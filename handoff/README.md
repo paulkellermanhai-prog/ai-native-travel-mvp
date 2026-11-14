@@ -1,5 +1,7 @@
 # 技术接手入口｜2026-11-13
 
+2026-11-14 目录整理后，日常从[项目 README](../README.md)、[项目地图](../docs/project-map.md)和[文件管理规则](../docs/file-management.md)进入。本地网页可双击根目录 `启动安途.command`；详见[启动与记录说明](../docs/development/local-preview.md)。以下交接事实仍按原范围保留，旧报告的新位置见[迁移清单](../docs/project-cleanup.json)。
+
 本次按 Owner 要求把本地可用工程集中合并到原仓库，供后续配置和开发。代码交接不等于生产上线或补记历史技术验收。
 
 ## 从哪里开始
@@ -13,7 +15,7 @@
 
 使用 `.nvmrc` 的 Node 24.22.1、npm 11.19.1、PostgreSQL 17。根目录执行 `npm ci`，以 `.env.example` 为模板配置本机私有环境。数据库迁移身份、应用运行身份、认证身份分开；真实密码和密钥只保存在环境中。
 
-最完整的可复现配置与验证顺序见 `.github/workflows/e01-ci.yml`：安装 Python Oracle 依赖、生成 Prisma Client、创建隔离测试数据库身份、执行合同/来源校验、类型检查、Lint、真实 PG 测试、build 和真实 HTTP 测试。`npm run check` 和 `npm run db:check` 需要对应环境；没有数据库的跳过测试不代表完整通过。生产环境请按 `docs/cloud-environment.md`、`docs/E03最终工程交接索引.md` 及各模块文档配置。
+最完整的可复现配置与验证顺序见 `.github/workflows/e01-ci.yml`：安装 Python Oracle 依赖、生成 Prisma Client、创建隔离测试数据库身份、执行合同/来源校验、类型检查、Lint、真实 PG 测试、build 和真实 HTTP 测试。`npm run check` 和 `npm run db:check` 需要对应环境；没有数据库的跳过测试不代表完整通过。生产环境请按 `docs/development/backend-environment.md`、`docs/E03最终工程交接索引.md` 及各模块文档配置。
 
 ## 仍需技术人员完成
 

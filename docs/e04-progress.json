@@ -24,7 +24,7 @@
         {"id": "E04-00-2", "description": "盘点 PR #16/#17/#19/#20/#21/#22/#23/#28 的代码、测试与来源漂移", "status": "ACCEPTED"},
         {"id": "E04-00-3", "description": "建立复用表、接口差异、最小路线和八阶段看板", "status": "ACCEPTED"}
       ],
-      "evidence": ["docs/E04-00工程接收与复用盘点.md", "specs/nap-r3-2026-11-06/selection.json", "docs/E03最终工程交接索引.md", "2026-11-11 承接指令：E04-00 已技术复核 PASS"],
+      "evidence": ["docs/archive/e04/E04-00工程接收与复用盘点.md", "specs/nap-r3-2026-11-06/selection.json", "docs/E03最终工程交接索引.md", "2026-11-11 承接指令：E04-00 已技术复核 PASS"],
       "blockers": []
     },
     {
@@ -41,7 +41,7 @@
         {"id": "E04-01-2", "description": "从可信 E03 宿主读取真实 Packet，并在整批最终事务复验 Session/Trip/runtime/revision 及 PacketMemory/context/rebuilt deadline 最早期限", "status": "ACCEPTED"},
         {"id": "E04-01-3", "description": "验证伪造引用、错误 Session、撤权、过期、恢复换代、并发失效和不完整交付不得取得决策资格", "status": "ACCEPTED"}
       ],
-      "evidence": ["docs/E04-01首批可信Packet接线.md", "docs/E04-01-04产品规则对齐与真实回归评测.md", "docs/e04-01-04-evaluation.json", "docs/e04-01-04-technical-acceptance.json", "src/server/next-action-policy/trusted-packet-source.ts", "src/server/decision-context/host-runtime/evidence-host.ts", "tests/next-action-policy/trusted-packet-source.test.ts", "tests/http/e03-runtime/pr29-host.pg.test.ts", "2301091f6a659c3dd325b50d4f54f346da0badcc", "c98dcfd8e6b49554158d9ef754dbfb265a714f17", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/36", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/37", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43030733010"],
+      "evidence": ["docs/archive/e04/E04-01首批可信Packet接线.md", "docs/archive/e04/E04-01-04产品规则对齐与真实回归评测.md", "docs/archive/e04/e04-01-04-evaluation.json", "docs/archive/e04/e04-01-04-technical-acceptance.json", "src/server/next-action-policy/trusted-packet-source.ts", "src/server/decision-context/host-runtime/evidence-host.ts", "tests/next-action-policy/trusted-packet-source.test.ts", "tests/http/e03-runtime/pr29-host.pg.test.ts", "2301091f6a659c3dd325b50d4f54f346da0badcc", "c98dcfd8e6b49554158d9ef754dbfb265a714f17", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/36", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/37", "https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43030733010"],
       "blockers": []
     },
     {
@@ -52,7 +52,7 @@
         {"id":"E04-02-2","description":"宿主证明 source/object evidence、delivery fail closed，并从真实 change command 阻断非法 Candidate 重入","status":"ACCEPTED"},
         {"id":"E04-02-3","description":"G05 从新可信事件重评，不沿用旧 Action","status":"ACCEPTED"}
       ],
-      "evidence": ["docs/E04-02最小行动决策器.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","docs/e04-01-04-technical-acceptance.json","src/server/next-action-policy/decision-engine.ts","tests/next-action-policy/decision-engine.test.ts","c98dcfd8e6b49554158d9ef754dbfb265a714f17","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/37","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43030733010"], "blockers": []
+      "evidence": ["docs/archive/e04/E04-02最小行动决策器.md","docs/archive/e04/E04-01-04产品规则对齐与真实回归评测.md","docs/archive/e04/e04-01-04-evaluation.json","docs/archive/e04/e04-01-04-technical-acceptance.json","src/server/next-action-policy/decision-engine.ts","tests/next-action-policy/decision-engine.test.ts","c98dcfd8e6b49554158d9ef754dbfb265a714f17","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/37","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43030733010"], "blockers": []
     },
     {
       "id": "E04-03", "name": "Action Runtime 与运行记录", "weight_percent": 18, "implementation_percent": 100, "status": "ACCEPTED",
@@ -62,7 +62,7 @@
         {"id":"E04-03-2","description":"ActionRecord、Step 原子认领、依赖与 waiting_user","status":"ACCEPTED"},
         {"id":"E04-03-3","description":"回执未知标记、恢复可读，以及多 Step running Action 在安全条件下随旧 runtime/revision/TTL 一致失效","status":"ACCEPTED"}
       ],
-      "evidence": ["docs/E04-03最小PG行动Runtime.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","docs/e04-01-04-technical-acceptance.json","src/server/next-action-policy/runtime-store.ts","src/server/next-action-policy/runtime/sql/001-runtime.sql","tests/http/e03-runtime/pr29-host.pg.test.ts","2301091f6a659c3dd325b50d4f54f346da0badcc","c98dcfd8e6b49554158d9ef754dbfb265a714f17"], "blockers": []
+      "evidence": ["docs/archive/e04/E04-03最小PG行动Runtime.md","docs/archive/e04/E04-01-04产品规则对齐与真实回归评测.md","docs/archive/e04/e04-01-04-evaluation.json","docs/archive/e04/e04-01-04-technical-acceptance.json","src/server/next-action-policy/runtime-store.ts","src/server/next-action-policy/runtime/sql/001-runtime.sql","tests/http/e03-runtime/pr29-host.pg.test.ts","2301091f6a659c3dd325b50d4f54f346da0badcc","c98dcfd8e6b49554158d9ef754dbfb265a714f17"], "blockers": []
     },
     {
       "id": "E04-04", "name": "受控执行与业务写桥", "weight_percent": 14, "implementation_percent": 100, "status": "ACCEPTED",
@@ -72,7 +72,7 @@
         {"id":"E04-04-2","description":"自主只读准备返回真实 Packet 对象，无 TS 写入","status":"ACCEPTED"},
         {"id":"E04-04-3","description":"change 仅经 E03 write-bridge/E02；提交前 fail closed 检查 lifecycle；applied/pending/rejected/conflict/unknown 按权威回执映射","status":"ACCEPTED"}
       ],
-      "evidence": ["docs/E04-04受控执行与原写桥.md","docs/E04-01-04产品规则对齐与真实回归评测.md","docs/e04-01-04-evaluation.json","docs/e04-01-04-technical-acceptance.json","src/server/decision-context/http-adapter/pr29-host-candidate.ts","src/server/decision-context/host-runtime/expiry-maintenance-candidate.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","2301091f6a659c3dd325b50d4f54f346da0badcc","c98dcfd8e6b49554158d9ef754dbfb265a714f17"], "blockers": []
+      "evidence": ["docs/archive/e04/E04-04受控执行与原写桥.md","docs/archive/e04/E04-01-04产品规则对齐与真实回归评测.md","docs/archive/e04/e04-01-04-evaluation.json","docs/archive/e04/e04-01-04-technical-acceptance.json","src/server/decision-context/http-adapter/pr29-host-candidate.ts","src/server/decision-context/host-runtime/expiry-maintenance-candidate.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","2301091f6a659c3dd325b50d4f54f346da0badcc","c98dcfd8e6b49554158d9ef754dbfb265a714f17"], "blockers": []
     },
     {
       "id": "E04-05", "name": "工具结果及外部依据处理", "weight_percent": 10, "implementation_percent": 100, "status": "DELIVERED_PENDING_REVIEW",
@@ -83,7 +83,7 @@
         {"id":"E04-05-3","description":"result/partial/empty/timeout/error/no_service 分级、晚到/重复/过期/跨权限隔离","status":"DELIVERED_PENDING_REVIEW"},
         {"id":"E04-05-4","description":"可信 tool_result/state_change 触发、当前 Packet 复验和 G05 新计划重评，不复活旧 Action","status":"DELIVERED_PENDING_REVIEW"}
       ],
-      "evidence": ["docs/E04-05工具结果与可信依据.md","src/server/next-action-policy/tool-capabilities.ts","src/server/next-action-policy/tool-runtime-store.ts","src/server/next-action-policy/tool-dispatch.ts","src/server/next-action-policy/runtime/sql/002-tool-results.sql","tests/next-action-policy/tool-capabilities.test.ts","tests/next-action-policy/completion-binding.test.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","182638217e8745730c5364f579112d10c7cd4c5f","fc22c1991031bea099c79ee6c75916766d21a8d3","78325702e4a007f509adac1084a88c6bb8d085fa","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/38","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43043895599"],
+      "evidence": ["docs/archive/e04/E04-05工具结果与可信依据.md","src/server/next-action-policy/tool-capabilities.ts","src/server/next-action-policy/tool-runtime-store.ts","src/server/next-action-policy/tool-dispatch.ts","src/server/next-action-policy/runtime/sql/002-tool-results.sql","tests/next-action-policy/tool-capabilities.test.ts","tests/next-action-policy/completion-binding.test.ts","tests/http/e03-runtime/pr29-host.pg.test.ts","182638217e8745730c5364f579112d10c7cd4c5f","fc22c1991031bea099c79ee6c75916766d21a8d3","78325702e4a007f509adac1084a88c6bb8d085fa","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/pull/38","https://github.com/paulkellermanhai-prog/ai-native-travel-mvp/actions/runs/43043895599"],
       "blockers": ["E04-07 的 58 scenario、3 walkthrough、12 calibration 尚未真实执行；actual_policy_runs=0","真实供应商、预订、支付与生产 E11 不在本阶段范围"]
     },
     {

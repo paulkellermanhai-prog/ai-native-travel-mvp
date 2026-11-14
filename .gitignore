@@ -12,3 +12,11 @@ next-env.d.ts
 src/generated/
 __pycache__/
 *.pyc
+
+# Local validation environments, caches, logs and exported deliverables
+.venv/
+.pytest_cache/
+.ruff_cache/
+.cache/
+*.log
+outputs/

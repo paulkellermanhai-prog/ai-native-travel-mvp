@@ -25,13 +25,14 @@
     "specs:ac8": "node scripts/verify-ts-ac8-source.mjs",
     "contracts:generate": "node scripts/trip-state-contracts.mjs",
     "contracts:check": "node scripts/trip-state-contracts.mjs --check",
-    "check": "npm run specs:verify && npm run specs:ac8 && npm run contracts:check && npm run dc:check && npm run db:validate && npm run db:generate && npm run typecheck && npm run lint && npm test && npm run build",
+    "check": "npm run project:check && npm run specs:verify && npm run specs:ac8 && npm run contracts:check && npm run dc:check && npm run db:validate && npm run db:generate && npm run typecheck && npm run lint && npm test && npm run build",
     "auth:admin": "tsx scripts/auth-admin.ts",
     "auth:grant-runtime": "node scripts/grant-identity-runtime.mjs",
     "test:http": "node --import tsx --test tests/http/http.e2e.ts",
     "dc:generate": "node scripts/dc-contracts.mjs",
     "dc:check": "node scripts/dc-contracts.mjs --check",
-    "test:dc-reference": "python3 scripts/e03-01-reference.py"
+    "test:dc-reference": "python3 scripts/e03-01-reference.py",
+    "project:check": "node scripts/check-project-layout.mjs"
   },
   "dependencies": {
     "@better-auth/prisma-adapter": "1.7.14",
