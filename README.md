@@ -4,7 +4,7 @@
 
 ## 在线体验
 
-### [打开安途 · 埃及旅行](https://antu-egypt-travel.paulkellermanhai.chatgpt.site/)
+### [打开安途 · 埃及旅行](https://antu-travel.paulkellermanhai.chatgpt.site/)
 
 **手机、电脑浏览器直接打开，无需下载代码或启动本地服务。**
 
