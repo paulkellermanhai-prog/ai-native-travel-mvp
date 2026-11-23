@@ -25,7 +25,7 @@ macOS 双击根目录的 `启动安途.command`，终端会启动服务，并在
 
 ## 公开体验网址与更新
 
-公开入口：[安途 · 埃及旅行](https://antu-egypt-travel.paulkellermanhai.chatgpt.site/)。
+公开入口：[安途 · 埃及旅行](https://antu-travel.paulkellermanhai.chatgpt.site/)。
 
 网站托管在 ChatGPT Sites，已设为公开访问；访问者无需运行本地服务，维护者电脑关机不影响网站。GitHub 保存项目代码并提供体验入口，当前没有配置 GitHub 自动发布。
 
